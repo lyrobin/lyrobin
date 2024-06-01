@@ -39,8 +39,8 @@ export function app(): express.Express {
         publicPath: browserDistFolder,
         providers: [{ provide: APP_BASE_HREF, useValue: baseUrl }],
       })
-      .then(html => res.send(html))
-      .catch(err => next(err));
+      .then((html) => res.send(html))
+      .catch((err) => next(err));
   });
 
   return server;
@@ -57,6 +57,7 @@ function run(): void {
 }
 
 // Note: The express server is started by Firebase automatically.
-if (process.env['LOCAL']) {
-  run();
-}
+// if (process.env['LOCAL']) {
+//   run();
+// }
+run();
