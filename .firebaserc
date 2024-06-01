@@ -1,5 +1,8 @@
 {
   "projects": {
     "default": "taiwan-legislative-search"
-  }
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
 }
