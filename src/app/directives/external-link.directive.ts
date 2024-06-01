@@ -1,14 +1,20 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Directive, ElementRef, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import {
+  Directive,
+  ElementRef,
+  OnInit,
+  PLATFORM_ID,
+  inject,
+} from '@angular/core';
 import { WINDOW } from '../providers/window';
 
 @Directive({
   selector: 'a[href]:not([noBlankForExternalLink])',
   host: {
     '[attr.target]': 'target',
-    '[attr.rel]': 'rel'
+    '[attr.rel]': 'rel',
   },
-  standalone: true
+  standalone: true,
 })
 export class ExternalLinkDirective implements OnInit {
   private readonly anchor: ElementRef<HTMLAnchorElement> = inject(ElementRef);
@@ -27,11 +33,17 @@ export class ExternalLinkDirective implements OnInit {
       return;
     }
 
-    if (this.isExternalLink(this.anchor.nativeElement.href, this.window.location.origin)) {
+    if (
+      this.isExternalLink(
+        this.anchor.nativeElement.href,
+        this.window.location.origin
+      )
+    ) {
       this.target = '_blank';
       this.rel = 'noopener noreferrer';
     }
   }
 
-  private isExternalLink = (link: string, windowOrigin: string) => new URL(link).origin !== windowOrigin;
+  private isExternalLink = (link: string, windowOrigin: string) =>
+    new URL(link).origin !== windowOrigin;
 }

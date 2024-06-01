@@ -6,12 +6,12 @@ import { Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
  */
 @Directive({
   selector: '[appUpdateContentIfNotGeneratedByServer]',
-  standalone: true
+  standalone: true,
 })
 export class UpdateContentIfNotGeneratedByServerDirective implements OnInit {
   private readonly heading: ElementRef<HTMLHeadingElement> = inject(ElementRef);
 
-  @Input({required: true}) clientContent!: string;
+  @Input({ required: true }) clientContent!: string;
 
   ngOnInit(): void {
     if (!this.heading.nativeElement.innerHTML) {

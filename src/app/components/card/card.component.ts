@@ -7,7 +7,7 @@ import { getDateString, getRandomUUID } from '../../utils/metadata-generator';
   standalone: true,
   imports: [UpdateContentIfNotGeneratedByServerDirective],
   templateUrl: './card.component.html',
-  styleUrl: './card.component.scss'
+  styleUrl: './card.component.scss',
 })
 export class CardComponent {
   dateString = signal(getDateString());

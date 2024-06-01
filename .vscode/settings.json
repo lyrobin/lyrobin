@@ -1,8 +1,6 @@
 {
-    "python.testing.pytestArgs": [
-        "functions"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "git.enableCommitSigning": true
+  "python.testing.pytestArgs": ["functions"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "git.enableCommitSigning": true
 }

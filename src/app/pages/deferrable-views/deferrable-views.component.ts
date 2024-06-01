@@ -8,9 +8,7 @@ import { CardComponent } from '../../components/card/card.component';
   templateUrl: './deferrable-views.component.html',
   styleUrl: './deferrable-views.component.scss',
   host: {
-    'class': 'content'
-  }
+    class: 'content',
+  },
 })
-export class DeferrableViewsComponent {
-
-}
+export class DeferrableViewsComponent {}

@@ -8,7 +8,7 @@ import { CardComponent } from '../../components/card/card.component';
   templateUrl: './ssg.component.html',
   styleUrl: './ssg.component.scss',
   host: {
-    'class': 'content'
-  }
+    class: 'content',
+  },
 })
 export class SsgComponent {}

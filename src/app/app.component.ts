@@ -1,6 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterOutlet,
+} from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
@@ -9,9 +14,15 @@ import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.compo
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, AngularIconComponent, FirebaseIconComponent, ArrowBackIconComponent, RouterLink],
+  imports: [
+    RouterOutlet,
+    AngularIconComponent,
+    FirebaseIconComponent,
+    ArrowBackIconComponent,
+    RouterLink,
+  ],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  styleUrl: './app.component.scss',
 })
 export class AppComponent {
   private readonly router = inject(Router);
