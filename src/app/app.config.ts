@@ -32,7 +32,6 @@ export const appConfig: ApplicationConfig = {
         projectId: 'taiwan-legislative-search',
         appId: '1:661598081211:web:febbd559cbf3295bdb999e',
         storageBucket: 'taiwan-legislative-search.appspot.com',
-        locationId: 'us-central1',
         apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',
         authDomain: 'taiwan-legislative-search.firebaseapp.com',
         messagingSenderId: '661598081211',
