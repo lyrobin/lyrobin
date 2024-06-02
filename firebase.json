@@ -19,23 +19,5 @@
   "storage": {
     "rules": "storage.rules"
   },
-  "extensions": {},
-  "hosting": [
-    {
-      "source": ".",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "frameworksBackend": {
-        "region": "us-central1"
-      }
-    },
-    {
-      "target": "firebase-app-hosting-angular",
-      "source": ".",
-      "frameworksBackend": {}
-    }
-  ]
+  "extensions": {}
 }

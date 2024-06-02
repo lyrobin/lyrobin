@@ -37,6 +37,7 @@ yarn-error.log
 testem.log
 /typings
 /src/environment
+**/__pycache__/
 
 # System files
 .DS_Store
@@ -49,3 +50,6 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
+
+# Secret
+.credential/
