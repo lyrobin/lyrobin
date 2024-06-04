@@ -28,7 +28,7 @@ class TestModels(unittest.TestCase):
 
     @dataclasses.dataclass
     class TestDocument(models.FireStoreDocument):
-        name: str
+        name: str = ""
 
     def test_firebase_document_from_dict(self):
         doc = self.TestDocument.from_dict({"name": "test", "age": 100})

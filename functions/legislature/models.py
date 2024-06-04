@@ -143,7 +143,7 @@ class Meeting(FireStoreDocument):
     meeting_room: str = ""
     meeting_unit: str = ""
     joint_committee: str = ""
-    meeting_nmae: str = ""
+    meeting_name: str = ""
     meeting_content: str = ""
     co_chairman: str = ""
     attend_legislator: str = ""
