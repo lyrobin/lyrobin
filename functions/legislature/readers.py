@@ -1,3 +1,7 @@
+"""
+A module to read a legislative pages.
+"""
+
 import dataclasses
 import re
 from urllib import parse
@@ -52,9 +56,11 @@ class LegislativeMeetingReader:
 
     @classmethod
     def open(
-        cls, url: str, qs: dict[str, any], timeout=60
+        cls, url: str, qs: dict[str, any] = None, timeout=60
     ) -> "LegislativeMeetingReader":
         """Open a legislative meeting page."""
+        if qs is None:
+            qs = parse.urlparse(url).params
         res = requests.get(url, params=qs, timeout=timeout, headers=_REQUEST_HEADEER)
         if res.status_code != 200:
             raise IOError(f"Failed to open {url}: {res.text}")
@@ -126,6 +132,26 @@ class LegislativeMeetingReader:
         sec = self._get_main_section()
         return "\n".join(sec.find("span", class_="card-title").strings)
 
+    def get_meeting_room(self):
+        """Get the room of the meeting"""
+        sec = self._get_main_section()
+        return "".join(sec.find("i", class_="fa-map-pin").parent.strings).strip()
+
+    def get_meeting_date_desc(self):
+        """Get the date and time of the meeting in y/m/d H:M-H:M format"""
+        sec = self._get_main_section()
+        date: bs4.Tag = (
+            sec.find("div", class_="card-body")
+            .find("div", class_="row")
+            .find(self._is_date_span)
+        )
+        des = date.string
+        y, des = des.split("年")
+        m, des = des.split("月")
+        d, des = des.split("日")
+        t = des.split(")")[1].strip()
+        return f"{y}/{m}/{d} {t}"
+
     def _fetch_proceedings(self, timeout=60) -> list[AttachmentEntry]:
         """Fetch proceedings with API."""
         res = requests.get(
@@ -175,3 +201,16 @@ class LegislativeMeetingReader:
         if not location_parts:
             return None
         return self._origin + location_parts.strip("'")
+
+    def _is_date_span(self, tag: bs4.Tag) -> bool:
+        """Check if a tag is a date span."""
+        if tag.name != "span":
+            return False
+        if "card-title" in tag.attrs.get("class", []):
+            return False
+        if tag.string is None:
+            return False
+        keywords = ["年", "月", "日"]
+        if not all(k in tag.string for k in keywords):
+            return False
+        return True

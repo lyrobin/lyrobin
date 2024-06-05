@@ -29,11 +29,17 @@ class TestModels(unittest.TestCase):
     @dataclasses.dataclass
     class TestDocument(models.FireStoreDocument):
         name: str = ""
+        empty: str = ""
 
     def test_firebase_document_from_dict(self):
         doc = self.TestDocument.from_dict({"name": "test", "age": 100})
 
         self.assertEqual(doc.name, "test")
+
+    def test_firebase_document_to_dict(self):
+        doc = self.TestDocument(name="test")
+
+        self.assertEqual(doc.asdict(), {"name": "test"})
 
     def test_meeting_convert_type(self):
         m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)
@@ -46,6 +52,14 @@ class TestModels(unittest.TestCase):
         m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)
 
         self.assertEqual(m.session_period, 1)
+
+    def test_meeting_get_url(self):
+        m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)
+
+        self.assertEqual(
+            m.get_url(),
+            "https://ppg.ly.gov.tw/ppg/sittings/2024013195/details?meetingDate=113/02/01",
+        )
 
 
 if __name__ == "__main__":

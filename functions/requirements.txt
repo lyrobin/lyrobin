@@ -1,3 +1,4 @@
+beautifulsoup4==4.12.3
 blinker==1.8.2
 CacheControl==0.14.0
 cachetools==5.3.3
@@ -49,9 +50,12 @@ pycparser==2.22
 PyJWT==2.8.0
 pyparsing==3.1.2
 pytest==8.2.1
+pytest-dotenv==0.5.2
+python-dotenv==1.0.1
 PyYAML==6.0.1
 requests==2.32.3
 rsa==4.9
+soupsieve==2.5
 typing_extensions==4.12.0
 uritemplate==4.1.1
 urllib3==2.2.1

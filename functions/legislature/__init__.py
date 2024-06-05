@@ -9,8 +9,14 @@ LEGISLATURE_MEETING_INFO_API = StringParam(
     description="Meeting info api",
 )
 
-LEGISLATURE_PROCEEDINGS_URL = StringParam(
-    name="LEGISLATURE_PROCEEDINGS_URL",
+LEGISLATURE_MEETING_URL = StringParam(
+    name="LEGISLATURE_MEETING_URL",
     default="https://ppg.ly.gov.tw/ppg/sittings",
+    description="Meeting info url",
+)
+
+LEGISLATURE_PROCEEDING_URL = StringParam(
+    name="LEGISLATURE_PROCEEDING_URL",
+    default="https://ppg.ly.gov.tw/ppg/bills",
     description="Proceeding info url",
 )

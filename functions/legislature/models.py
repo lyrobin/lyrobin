@@ -3,10 +3,13 @@ This module contains the models for the Firestore database.
 """
 
 # pylint: disable=attribute-defined-outside-init
+# pylint: disable=no-member
 import dataclasses
 import re
 from typing import TypeVar
 import datetime as dt
+from urllib import parse
+from legislature import LEGISLATURE_MEETING_URL
 
 import deepdiff
 
@@ -20,7 +23,6 @@ def camel_to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
-@dataclasses.dataclass
 class IntField:
     """
     A field that stores an integer.
@@ -47,7 +49,6 @@ class IntField:
             ) from err
 
 
-@dataclasses.dataclass
 class OptionalIntField(IntField):
     """
     A field that stores an integer or None.
@@ -75,7 +76,7 @@ class DateTimeField:
         self._name = "_" + name
         self._default_name = name
 
-    def __get__(self, instance: object, _: type) -> int:
+    def __get__(self, instance: object, _: type) -> dt.datetime:
         if instance is None:
             return self._default
         return getattr(instance, self._name)
@@ -123,7 +124,11 @@ class FireStoreDocument:
         """
         Returns a dictionary representation of the object.
         """
-        return dataclasses.asdict(self)
+        return {
+            k: v
+            for k, v in dataclasses.asdict(self).items()
+            if k != "document_id" and v
+        }
 
 
 @dataclasses.dataclass
@@ -132,8 +137,8 @@ class Meeting(FireStoreDocument):
     A meeting.
     """
 
-    term: IntField = IntField()
-    session_period: IntField = IntField()
+    term: OptionalIntField = OptionalIntField()
+    session_period: OptionalIntField = OptionalIntField()
     session_times: OptionalIntField = OptionalIntField()
     meeting_times: OptionalIntField = OptionalIntField()
     meeting_no: str = ""
@@ -147,10 +152,14 @@ class Meeting(FireStoreDocument):
     meeting_content: str = ""
     co_chairman: str = ""
     attend_legislator: str = ""
+    last_update_time: DateTimeField = DateTimeField()
 
     def __post_init__(self):
         self.document_id = self.meeting_no
-        date, time_desc = self.meeting_date_desc.split(" ")
+        date_parts = self.meeting_date_desc.split(" ")
+        if len(date_parts) != 2:
+            return
+        date, time_desc = date_parts
         y, m, d = date.split("/")
         y = str(int(y) + 1911)
         t = dt.datetime(int(y), int(m), int(d), 0, 0)
@@ -166,3 +175,57 @@ class Meeting(FireStoreDocument):
             else:
                 et = dt.timedelta(hours=int(eh), minutes=int(em))
             self.meeting_date_end = t + et
+
+    def get_url(self):
+        """
+        Returns the URL of the meeting.
+        """
+        url = "/".join([LEGISLATURE_MEETING_URL.value, str(self.meeting_no), "details"])
+        d = self.meeting_date_desc.split(" ", maxsplit=1)[0]
+        return url + "?" + f"meetingDate={d}"
+
+
+@dataclasses.dataclass
+class IVOD(FireStoreDocument):
+    """
+    An IVOD.
+    """
+
+    name: str = ""
+    url: str = ""
+
+    def __post_init__(self):
+        parsed_url = parse.urlparse(self.url)
+        meet_id = parse.parse_qs(parsed_url.query).get("Meet", [])
+        if not meet_id:
+            raise ValueError(f"Invalid IVOD URL: {self.url}")
+        if isinstance(meet_id, list):
+            meet_id = meet_id[0]
+        self.document_id = meet_id
+
+
+@dataclasses.dataclass
+class MeetingFile(FireStoreDocument):
+    """
+    An attachment.
+    """
+
+    name: str = ""
+    url: str = ""
+
+    def __post_init__(self):
+        self.document_id = self.url
+
+
+@dataclasses.dataclass
+class Proceeding(FireStoreDocument):
+    """
+    A proceeding.
+    """
+
+    name: str = ""
+    url: str = ""
+    bill_no: str = ""
+
+    def __post_init__(self):
+        self.document_id = self.bill_no

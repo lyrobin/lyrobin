@@ -146,6 +146,22 @@ class TestLegislativeMeetingReader(unittest.TestCase):
             content.splitlines(),
         )
 
+    def test_get_meeting_room(self):
+        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        r = readers.LegislativeMeetingReader(html)
+
+        room = r.get_meeting_room()
+
+        self.assertEqual(room, "紅樓302會議室")
+
+    def test_get_meeting_date(self):
+        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        r = readers.LegislativeMeetingReader(html)
+
+        date_desc = r.get_meeting_date_desc()
+
+        self.assertEqual(date_desc, "113/04/25 09:00-17:30")
+
 
 if __name__ == "__main__":
     unittest.main()
