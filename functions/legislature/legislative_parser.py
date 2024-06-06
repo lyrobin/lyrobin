@@ -1,5 +1,6 @@
 """Legislature parser."""
 
+# pylint: disable=invalid-name
 import datetime as dt
 import json
 import logging
@@ -114,8 +115,8 @@ class FetchMeetingFromWebQueue:
     """Fetch the meeting from the web."""
 
     def __init__(self):
-        self.queue = functions.task_queue("fetch-meeting-from-web")
-        self.target = utils.get_function_url("fetch-meeting-from-web")
+        self.queue = functions.task_queue("fetchMeetingFromWeb")
+        self.target = utils.get_function_url("fetchMeetingFromWeb")
         self.option = functions.TaskOptions(
             dispatch_deadline_seconds=1800, uri=self.target
         )
@@ -130,7 +131,7 @@ class FetchMeetingFromWebQueue:
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
 )
-def fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
+def fetchMeetingFromWeb(request: tasks_fn.CallableRequest) -> any:
     """Fetch the meeting from the web."""
     try:
         _fetch_meeting_from_web(request)

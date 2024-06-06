@@ -46,7 +46,7 @@ class TestFetchMeetingFromWeb(unittest.TestCase):
         doc_ref = self.db.collection("meetings").document(m.meeting_no)
         doc_ref.set(m.asdict())
 
-        url = utils.get_function_url("fetch_meeting_from_web")
+        url = utils.get_function_url("fetchMeetingFromWeb")
         print(url)
         res = requests.post(
             url,
