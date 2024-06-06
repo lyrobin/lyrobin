@@ -114,8 +114,8 @@ class FetchMeetingFromWebQueue:
     """Fetch the meeting from the web."""
 
     def __init__(self):
-        self.queue = functions.task_queue("fetch_meeting_from_web")
-        self.target = utils.get_function_url("fetch_meeting_from_web")
+        self.queue = functions.task_queue("fetch-meeting-from-web")
+        self.target = utils.get_function_url("fetch-meeting-from-web")
         self.option = functions.TaskOptions(
             dispatch_deadline_seconds=1800, uri=self.target
         )
@@ -176,6 +176,7 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
         for p in r.get_related_proceedings()
     ]
 
+    meet.last_update_time = dt.datetime.now(dt.timezone.utc)
     meet_doc_ref.update(meet.asdict())
 
     videos_collect = meet_doc_ref.collection("videos")
