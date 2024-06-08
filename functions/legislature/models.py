@@ -205,6 +205,20 @@ class IVOD(FireStoreDocument):
 
 
 @dataclasses.dataclass
+class Video(FireStoreDocument):
+    """
+    A video.
+    """
+
+    name: str = ""
+    url: str = ""
+    member: str | None = None
+    playlist: str = ""
+    start_time: DateTimeField = DateTimeField()
+    clips: list[str] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
 class MeetingFile(FireStoreDocument):
     """
     An attachment.

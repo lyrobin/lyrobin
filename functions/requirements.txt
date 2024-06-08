@@ -10,11 +10,13 @@ cloudevents==1.9.0
 cryptography==42.0.7
 deepdiff==7.0.1
 deprecation==2.1.0
+ffmpeg-python==0.2.0
 firebase-admin==6.5.0
 firebase-functions==0.4.1
 Flask==3.0.3
 Flask-Cors==4.0.1
 functions-framework==3.7.0
+future==1.0.0
 google-api-core==2.19.0
 google-api-python-client==2.131.0
 google-auth==2.29.0
@@ -37,6 +39,7 @@ idna==3.7
 iniconfig==2.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.4
+m3u8==5.0.0
 MarkupSafe==2.1.5
 msgpack==1.0.8
 ordered-set==4.1.0
@@ -52,6 +55,7 @@ pyparsing==3.1.2
 pytest==8.2.1
 pytest-dotenv==0.5.2
 python-dotenv==1.0.1
+pytz==2024.1
 PyYAML==6.0.1
 requests==2.32.3
 rsa==4.9

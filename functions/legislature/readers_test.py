@@ -1,11 +1,13 @@
 # pylint: disable=attribute-defined-outside-init,missing-function-docstring,missing-module-docstring,protected-access
 
 import dataclasses
+import datetime as dt
 import pathlib
 import unittest
 from urllib import parse
 
 import pytest
+import pytz
 from legislature import readers
 from utils import testings
 
@@ -13,6 +15,7 @@ from utils import testings
 COMMITEE_PROCEEDING_URL = "legislature_proceeding_2024042201.html"
 # https://ppg.ly.gov.tw/ppg/sittings/2024042201/details
 ALL_MEETING_PRCOEDING_URL = "legislature_proceeding_2024041742.html"
+_TZ = pytz.timezone("Asia/Taipei")
 
 
 def _test_file(name: str) -> pathlib.Path:
@@ -509,6 +512,40 @@ def test_read_ivod(t: IvodReaderTestCase):
 #    (1) https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00132704226422162141
 #    (2) https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00299965961770109694
 #    [跨兩天]
+
+
+class TestVideoReader(unittest.TestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        html = _test_file("ivod.ly.gov.tw_Play_Clip_300K_152663.html").read_text()
+        self.r = readers.VideoReader(html)
+
+    def test_meta(self):
+        assert (
+            self.r.playlist_url
+            == "https://ivod-lyvod.cdn.hinet.net/vod_1/_definst_/mp4:300KClips/61a8f637e1ac8289c4688db388786c88bc07d65983179d7b050a560fc7837330e3de8b0d8230918a5ea18f28b6918d91.mp4/playlist.m3u8"
+        )
+        assert self.r.meta.duration == dt.timedelta(minutes=4, seconds=4)
+        assert self.r.meta.start_time == dt.datetime(
+            year=2024, month=5, day=17, hour=18, minute=27, second=12, tzinfo=_TZ
+        )
+        assert self.r.meta.end_time == dt.datetime(
+            year=2024, month=5, day=17, hour=18, minute=31, second=16, tzinfo=_TZ
+        )
+
+    @unittest.skip("for manual tests")
+    @testings.skip_when_no_network
+    def test_m3u8(self):
+        r = readers.VideoReader.open("https://ivod.ly.gov.tw/Play/Clip/300K/152663")
+        assert r._taret_duration == 11
+        assert r._clip_chunks == 164
+        assert r.clips_count == 1
+        # assert r._download_mp4() == ""
+        r.set_clip_size(dt.timedelta(seconds=30))
+        assert r.clips_count == 9
+        # assert r.download_mp4(1) == ""
+
 
 if __name__ == "__main__":
     unittest.main()

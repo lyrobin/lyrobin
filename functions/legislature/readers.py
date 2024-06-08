@@ -3,10 +3,18 @@ A module to read a legislative pages.
 """
 
 import dataclasses
+import datetime as dt
+import json
+import math
 import re
+import tempfile
 from urllib import parse
 
 import bs4
+import ffmpeg
+import m3u8
+import m3u8.model
+import pytz
 import requests
 
 _REQUEST_HEADEER = {
@@ -21,6 +29,8 @@ _REQUEST_HEADEER = {
 }
 
 _GET_PROCEEDINGS_API = "https://ppg.ly.gov.tw/ppg/api/v1/getProceedingsList"
+
+_TZ = pytz.timezone("Asia/Taipei")
 
 
 @dataclasses.dataclass(unsafe_hash=True)
@@ -462,3 +472,150 @@ class IvodReader:
         if url.startswith("http"):
             return url
         return parse.urljoin(self._origin, url)
+
+
+class VideoReader:
+    """Read a video page."""
+
+    @dataclasses.dataclass
+    class VideoMeta:
+        """Video meta"""
+
+        duration: dt.timedelta = dataclasses.field(default_factory=dt.timedelta)
+        start_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
+        end_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
+        playlist: str | None = None
+
+    @property
+    def meta(self) -> VideoMeta:
+        """Get the video meta"""
+        return self._meta
+
+    @property
+    def playlist_url(self) -> str | None:
+        """Get the playlist url"""
+        return self.meta.playlist
+
+    @property
+    def playlist(self) -> m3u8.model.M3U8:
+        """Get the playlist (m3u8)"""
+        if not self._playlist:
+            self._playlist = m3u8.load(self.playlist_url)
+        return self._playlist
+
+    @property
+    def chunks(self) -> m3u8.model.M3U8:
+        """Get the chunks (m3u8)"""
+        if not self._chunks:
+            _chunk: m3u8.model.Segment = self.playlist.playlists[0]
+            self._chunks = m3u8.load(parse.urljoin(_chunk.base_uri, _chunk.uri))
+        return self._chunks
+
+    @property
+    def _taret_duration(self) -> int:
+        """Get the target duration (in seconds)"""
+        if not self.__target_duration:
+            self.__target_duration = int(self.chunks.target_duration)
+        return self.__target_duration
+
+    @property
+    def _clip_chunks(self) -> int:
+        """Number of chunks to a clip"""
+        return math.ceil(self._clip_size.total_seconds() / self._taret_duration)
+
+    @property
+    def clips_count(self) -> int:
+        """Get the number of clips"""
+        return math.ceil(len(self.chunks.segments) / self._clip_chunks)
+
+    def __init__(
+        self, html: str, clip_size: dt.timedelta = dt.timedelta(minutes=30)
+    ) -> None:
+        self._s = bs4.BeautifulSoup(html, "html.parser")
+        self._meta = self._get_meta()
+        self._clip_size = clip_size
+        self._playlist: m3u8.model.M3U8 | None = None
+        self._chunks: m3u8.model.M3U8 | None = None
+        self.__target_duration = None
+
+    @classmethod
+    def open(cls, url: str) -> "VideoReader":
+        """Open a video"""
+        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        if res.status_code != 200:
+            raise IOError(f"Failed to read video {url}")
+        return cls(res.text)
+
+    def set_clip_size(self, clip_size: dt.timedelta) -> None:
+        """Set the clip size"""
+        self._clip_size = clip_size
+
+    def _get_meta(self) -> str | None:
+        scripts = self._s.find_all("script", type="text/javascript", src=None)
+        codes = []
+        for script in scripts:
+            codes.extend(
+                line.strip() for line in "\n".join(script.strings).splitlines()
+            )
+        movies = [l for l in codes if l and l.startswith("var _movie")]
+        if not movies:
+            return None
+        movie: str = movies[0]
+        try:
+            json_str = movie.split("('", maxsplit=1)[-1].split("')", maxsplit=1)[0]
+        except IndexError:
+            return None
+        meta = json.loads(json_str)
+        meet_date = (
+            dt.datetime.strptime(meta["metdat"], "%Y-%m-%d")
+            if "metdat" in meta
+            else dt.date.today()
+        )
+        if "lgltim" in meta:
+            _st, _et = meta["lgltim"].split("-")
+            _st, _et = _st.strip(), _et.strip()
+            st = dt.datetime.strptime(_st, "%H:%M:%S").time()
+            et = dt.datetime.strptime(_et, "%H:%M:%S").time()
+        else:
+            st = et = dt.time.min
+
+        if "movtim" in meta:
+            h, m, s = meta["movtim"].split(":")
+            duration = dt.timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+        else:
+            duration = dt.timedelta.min
+
+        return VideoReader.VideoMeta(
+            duration=duration,
+            start_time=dt.datetime.combine(meet_date, st, _TZ),
+            end_time=dt.datetime.combine(meet_date, et, _TZ),
+            playlist=meta.get("filnam", None),
+        )
+
+    def download_mp4(self, clip_index: int = -1) -> str:
+        """Download the video
+        Args:
+            clip_index (int, optional): The clip index to download,
+                use -1 to download the full clips. Defaults to -1.
+        """
+        if clip_index < 0:
+            return self._download_mp4()
+        idx = clip_index * self._clip_chunks
+        if idx >= len(self.chunks.segments):
+            raise IndexError(f"clip index {clip_index} out of range")
+        chunks = self.chunks.segments[idx : idx + self._clip_chunks]
+        if not chunks:
+            raise IndexError(f"clip index {clip_index} out of range")
+        streams = [ffmpeg.input(parse.urljoin(c.base_uri, c.uri)) for c in chunks]
+        _, o = tempfile.mkstemp(suffix=".mp4")
+        pipe = ffmpeg.concat(*streams)
+        pipe = ffmpeg.output(pipe, o)
+        ffmpeg.overwrite_output(pipe).run()
+        return o
+
+    def _download_mp4(self) -> str:
+        i = ffmpeg.input(self.playlist_url)
+        _, o = tempfile.mkstemp(suffix=".mp4")
+        out = ffmpeg.output(i, o)
+        ffmpeg.overwrite_output(out).run()
+        return o
