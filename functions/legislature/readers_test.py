@@ -4,22 +4,25 @@ import os
 import pathlib
 import unittest
 from legislature import readers
+from utils import testings
+import dataclasses
+import pytest
+from legislature import readers
 
 # https://ppg.ly.gov.tw/ppg/bills/202110028120000/details
 COMMITEE_PROCEEDING_URL = "legislature_proceeding_2024042201.html"
 # https://ppg.ly.gov.tw/ppg/sittings/2024042201/details
 ALL_MEETING_PRCOEDING_URL = "legislature_proceeding_2024041742.html"
 
-HAS_NETWORK_ACCESS = os.environ.get("NETWORK_TEST", "False").lower() in (
-    "true",
-    "1",
-)
-
 
 def _test_file(name: str) -> pathlib.Path:
     return pathlib.Path(__file__).parent / "testdata" / name
 
 
+# More test data:
+# 1. https://ppg.ly.gov.tw/ppg/sittings/2024051758/details?meetingDate=113/05/17&meetingTime=12:00&departmentCode=null
+# 2. https://ppg.ly.gov.tw/ppg/sittings/2024052281/details?meetingDate=113/05/28&meetingTime=&departmentCode=null -> multiple video
+# 3. https://ppg.ly.gov.tw/ppg/sittings/2024052941/details?meetingDate=113/05/31&meetingTime=&departmentCode=null -> multiple video
 class TestLegislativeMeetingReader(unittest.TestCase):
     """Test the LegislativeMeetingReader class."""
 
@@ -30,7 +33,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
             "meetingDate": "113/04/25",
         }
 
-    @unittest.skipUnless(HAS_NETWORK_ACCESS, "Network test disabled")
+    @testings.skip_when_no_network
     def test_open(self):
         r = readers.LegislativeMeetingReader.open(self._url, self._qs)
 
@@ -105,7 +108,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         )
         self.assertSetEqual(set(names), {"公報紀錄", "公報紀錄DOC"})
 
-    @unittest.skipUnless(HAS_NETWORK_ACCESS, "Network test disabled")
+    @testings.skip_when_no_network
     def test_get_attachments_with_network(self):
         r = readers.LegislativeMeetingReader.open(self._url, self._qs)
 
@@ -113,7 +116,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
 
         self.assertEqual(len(attachs), 4)
 
-    @unittest.skipUnless(HAS_NETWORK_ACCESS, "Network test disabled")
+    @testings.skip_when_no_network
     def test_get_attachments_with_zip(self):
         r = readers.LegislativeMeetingReader.open(
             "https://ppg.ly.gov.tw/ppg/sittings/2024040359/details",
@@ -161,6 +164,240 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         date_desc = r.get_meeting_date_desc()
 
         self.assertEqual(date_desc, "113/04/25 09:00-17:30")
+
+
+# Proceedings
+# 1. https://ppg.ly.gov.tw/ppg/bills/202110027130000/details -> more links to proceedings
+#    (the proceeding page may update..., need to fetch it regularly?)
+# 2. https://ppg.ly.gov.tw/ppg/bills/202110028120000/details -> single doc
+# 3. https://ppg.ly.gov.tw/ppg/bills/202110002450000/details -> 協商
+# 4. https://ppg.ly.gov.tw/ppg/bills/603110035420000/details -> multiple docs
+# link keyword: https://ppg.ly.gov.tw/ppg/download
+@dataclasses.dataclass
+class ProceedingReaderTestCase:
+    bill: str
+    related_bills: list[readers.ProceedingEntry] | None = None
+    status: str | None = None
+    attachments: list[readers.AttachmentEntry] | None = None
+    proposers: list[str] | None = None
+    sponsers: list[str] | None = None
+    progress: list[readers.StepEntry] | None = None
+
+    def get_url(self) -> str:
+        return f"https://ppg.ly.gov.tw/ppg/bills/{self.bill}/details"
+
+
+read_proeedings_testcases = [
+    # https://ppg.ly.gov.tw/ppg/bills/202110027130000/details
+    ProceedingReaderTestCase(
+        bill="202110027130000",
+        status="三讀",
+        related_bills=[
+            readers.ProceedingEntry(
+                name="咨請公布",
+                bill_no="1130702162",
+                url="https://ppg.ly.gov.tw/ppg/bills/latest-pass-third-readings/1130702162/process",
+            ),
+            readers.ProceedingEntry(
+                name="本院司法及法制委員會報告併案審查台灣民眾黨黨團、委員楊瓊瓔等20人、委員傅崐萁等52人、委員傅崐萁等52人分別擬具「立法院職權行使法部分條文修正草案」、委員翁曉玲等16人擬具「立法院職權行使法第十五條、第二十九條及第四十四條條文修正草案」、委員傅崐萁等52人、委員翁曉玲等16人分別擬具「立法院職權行使法第十五條之一、第十五條之二及第十五條之四條文修正草案」、委員吳宗憲等16人擬具「立法院職權行使法部分條文修正草案」、委員吳宗憲等17人擬具「立法院職權行使法第十七條條文修正草案」、委員吳宗憲等17人擬具「立法院職權行使法部分條文修正草案」、委員吳宗憲等16人擬具「立法院職權行使法第十五條之一、第十五條之二及第十五條之四條文修正草案」、委員賴瑞隆等17人擬具「立法院職權行使法第十五條之二條文修正草案」、委員賴士葆等20人擬具「立法院職權行使法增訂部分條文草案」、委員吳宗憲等18人擬具「立法院職權行使法第二十五條及第二十六條條文修正草案」及委員翁曉玲等18人擬具「立法院職權行使法第二十五條條文修正草案」案。",
+                bill_no="603110035420000",
+                url="https://ppg.ly.gov.tw/ppg/bills/603110035420000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員羅智強等31人「立法院職權行使法第二十二條、第二十三條及第二十八條條文修正草案」，請審議案。",
+                bill_no="202110033840000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110033840000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員羅智強等16人「立法院職權行使法部分條文修正草案」，請審議案。",
+                bill_no="202110033850000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110033850000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員呂玉玲等16人「立法院職權行使法增訂第二十八條之三及第二十八條之四條文草案」，請審議案。",
+                bill_no="202110027140000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110027140000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員鄭天財Sra Kacaw等19人「立法院職權行使法部分條文修正草案」，請審議案。",
+                bill_no="202110027460000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110027460000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員翁曉玲等17人「立法院職權行使法部分條文修正草案」，請審議案。",
+                bill_no="202110027820000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110027820000/details",
+            ),
+            readers.ProceedingEntry(
+                name="本院委員羅智強等22人「立法院職權行使法第二十五條條文修正草案」，請審議案。",
+                bill_no="202110029120000",
+                url="https://ppg.ly.gov.tw/ppg/bills/202110029120000/details",
+            ),
+        ],
+        attachments=[
+            readers.AttachmentEntry(
+                name="關係文書PDF",
+                url="https://ppg.ly.gov.tw/ppg/download/agenda1/02/pdf/11/01/14/LCEWA01_110114_00278.pdf",
+            ),
+            readers.AttachmentEntry(
+                name="關係文書DOC",
+                url="https://ppg.ly.gov.tw/ppg/download/agenda1/02/word/11/01/14/LCEWA01_110114_00278.doc",
+            ),
+        ],
+        proposers=["呂玉玲"],
+        sponsers=[
+            "邱鎮軍",
+            "盧縣一",
+            "涂權吉",
+            "許宇甄",
+            "羅廷瑋",
+            "鄭天財Sra Kacaw",
+            "葉元之",
+            "林倩綺",
+            "洪孟楷",
+            "柯志恩",
+            "牛煦庭",
+            "馬文君",
+            "陳菁徽",
+            "蘇清泉",
+            "廖偉翔",
+            "王育敏",
+        ],
+        progress=[
+            readers.StepEntry(
+                name="排入院會 (交司法及法制委員會)",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                title="院會 11-01-08",
+            ),
+            readers.StepEntry(
+                name="交付審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                title="院會 11-01-08",
+            ),
+            readers.StepEntry(
+                name="委員會審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041640;113/04/18",
+                title="司法及法制委員會",
+            ),
+            readers.StepEntry(
+                name="委員會審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25",
+                title="司法及法制委員會",
+            ),
+            readers.StepEntry(
+                name="委員會抽出逕付二讀(交付協商)",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-12;113/05/03",
+                title="院會 11-01-12",
+            ),
+            readers.StepEntry(
+                name="排入院會(討論事項)",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-14;113/05/17",
+                title="院會 11-01-14",
+            ),
+            readers.StepEntry(
+                name="排入院會(討論事項)",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24",
+                title="院會 11-01-15",
+            ),
+            readers.StepEntry(
+                name="三讀",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24",
+                title="院會 11-01-15",
+            ),
+        ],
+    ),
+    # https://ppg.ly.gov.tw/ppg/bills/202110028120000/details
+    ProceedingReaderTestCase(
+        bill="202110028120000",
+        related_bills=[
+            readers.ProceedingEntry(
+                url="https://ppg.ly.gov.tw/ppg/bills/203110041470000/details",
+                name="司法及法制委員會報告併案審查民進黨黨團擬具「立法院組織法部分條文修正草案」、委員高金素梅等23人擬具「立法院組織法第三十二條條文修正草案」、委員賴瑞隆等16人擬具「立法院組織法第三條、第五條及第三十二條條文修正草案」及委員高金素梅等17人擬具「立法院組織法第三十三條條文修正草案」案。",
+            ),
+            readers.ProceedingEntry(
+                url="https://ppg.ly.gov.tw/ppg/bills/202110022460000/details",
+                name="本院委員高金素梅等23人「立法院組織法第三十二條條文修正草案」，請審議案。",
+            ),
+            readers.ProceedingEntry(
+                url="https://ppg.ly.gov.tw/ppg/bills/202110027080000/details",
+                name="本院委員賴瑞隆等16人「立法院組織法第三條、第五條及第三十二條條文修正草案」，請審議案。",
+            ),
+            readers.ProceedingEntry(
+                url="https://ppg.ly.gov.tw/ppg/bills/202110013220000/details",
+                name="本院委員高金素梅等17人「立法院組織法第三十三條條文修正草案」，請審議案。",
+            ),
+        ],
+        status="審查完畢",
+        attachments=[
+            readers.AttachmentEntry(
+                name="關係文書PDF",
+                url="https://ppg.ly.gov.tw/ppg/download/agenda1/02/pdf/11/01/08/LCEWA01_110108_00111.pdf",
+            ),
+            readers.AttachmentEntry(
+                name="關係文書DOC",
+                url="https://ppg.ly.gov.tw/ppg/download/agenda1/02/word/11/01/08/LCEWA01_110108_00111.doc",
+            ),
+        ],
+        proposers=[
+            "柯建銘",
+            "吳思瑤",
+            "莊瑞雄",
+        ],
+        sponsers=[],
+        progress=[
+            readers.StepEntry(
+                name="排入院會 (交司法及法制委員會)",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                title="院會 11-01-08",
+            ),
+            readers.StepEntry(
+                name="交付審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                title="院會 11-01-08",
+            ),
+            readers.StepEntry(
+                name="委員會審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041973;113/04/22",
+                title="司法及法制委員會",
+            ),
+            readers.StepEntry(
+                name="委員會審查",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25",
+                title="司法及法制委員會",
+            ),
+            readers.StepEntry(name="委員會發文", title="司法及法制委員會", url=""),
+        ],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "t",
+    read_proeedings_testcases,
+    ids=[t.bill for t in read_proeedings_testcases],
+)
+@testings.skip_when_no_network
+def test_read_proceeding(t: ProceedingReaderTestCase):
+
+    r = readers.ProceedingReader.open(t.get_url())
+
+    if t.related_bills is not None:
+        assert set(r.get_related_bills()) == set(t.related_bills)
+
+    if t.status is not None:
+        assert r.get_status() == t.status
+
+    if t.attachments is not None:
+        assert set(r.get_attachments()) == set(t.attachments)
+
+    if t.proposers is not None:
+        assert set(r.get_proposers()) == set(t.proposers)
+
+    if t.sponsers is not None:
+        assert set(r.get_sponsors()) == set(t.sponsers)
+
+    if t.progress is not None:
+        assert set(r.get_progress()) == set(t.progress)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import os
 import types
 import unittest
+import functools
 
 import requests
 from firebase_functions import logger
@@ -48,6 +49,7 @@ def skip_when_using_emulators(func):
 def skip_when_no_network(func):
     """Skip a function if we're not connected to the internet."""
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         access = os.environ.get("NETWORK_TEST", "False").lower() in (
             "true",
@@ -77,3 +79,8 @@ def disable_background_triggers(func):
             )
 
     return wrapper
+
+
+def assert_contains_exactly(got: list, want: list):
+    """Assert that got contains exactly want."""
+    assert len(got) == len(want)

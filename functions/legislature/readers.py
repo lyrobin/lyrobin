@@ -23,21 +23,45 @@ _REQUEST_HEADEER = {
 _GET_PROCEEDINGS_API = "https://ppg.ly.gov.tw/ppg/api/v1/getProceedingsList"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(unsafe_hash=True)
 class ProceedingEntry:
     """A class to represent a legislative meeting proceedings."""
 
     name: str
     url: str
-    bill_no: str
+    bill_no: str = ""
+
+    def __post_init__(self):
+        if not self.bill_no and self.url:
+            parsed_url = parse.urlparse(self.url)
+            self.bill_no = parsed_url.path.strip("/").split("/")[-2]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(unsafe_hash=True)
 class AttachmentEntry:
     """A class to represent a video."""
 
     name: str
     url: str
+
+
+@dataclasses.dataclass(unsafe_hash=True)
+class StepEntry:
+    """Proceedings review steps"""
+
+    name: str = ""
+    title: str = ""
+    meeting_id: str = ""
+    date: str = ""
+    url: str = ""
+
+    def __post_init__(self):
+        parsed_url = parse.urlparse(self.url)
+        _id = parse.parse_qs(parsed_url.query).get("id")
+        if not _id:
+            return
+        _id = _id[0]
+        self.meeting_id, self.date = _id.split(";")
 
 
 class LegislativeMeetingReader:
@@ -214,3 +238,123 @@ class LegislativeMeetingReader:
         if not all(k in tag.string for k in keywords):
             return False
         return True
+
+
+class ProceedingReader:
+    """Read a proceedings"""
+
+    def __init__(self, html: str, url: str):
+        self._s = bs4.BeautifulSoup(html, "html.parser")
+        prased_url = parse.urlparse(url)
+        self._origin = f"{prased_url.scheme}://{prased_url.netloc}"
+
+    @classmethod
+    def open(cls, url: str) -> "ProceedingReader":
+        """Open a proceedings"""
+        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        if res.status_code != 200:
+            raise IOError(f"Failed to fetch proceedings: {res.text}")
+        return cls(res.text, url)
+
+    def _prepend_domain_name(self, url: str) -> str:
+        if url.startswith("http"):
+            return url
+        return parse.urljoin(self._origin, url)
+
+    def get_related_bills(self) -> list[ProceedingEntry]:
+        """Get a list of related bills."""
+
+        def _is_link_to_bill(tag: bs4.Tag) -> bool:
+            if tag.name != "a" or "href" not in tag.attrs:
+                return False
+            return "/ppg/bills" in tag["href"]
+
+        def _to_proceeding(tag: bs4.Tag) -> ProceedingEntry:
+            if tag.name != "a":
+                raise TypeError(f"Expected a tag, got {tag.name}")
+
+            return ProceedingEntry(
+                name=tag.string,
+                url=self._prepend_domain_name(tag["href"]),
+            )
+
+        sec = self._s.find("article", id="section-0")
+        links: list[bs4.Tag] = sec.find_all(_is_link_to_bill)
+
+        sec = self._s.find("article", id="section-2")
+        links.extend(sec.find_all(_is_link_to_bill))
+
+        return [_to_proceeding(tag) for tag in links]
+
+    def _get_members(self, role: str) -> list[str]:
+        sec = self._s.find("article", id="section-1")
+
+        def _is_member_sec(tag: bs4.Tag) -> bool:
+            if tag.name != "div":
+                return False
+            span = tag.find("span", recursive=False)
+            if not span:
+                return False
+            return role in span.string
+
+        psec = sec.find(_is_member_sec)
+        if not psec:
+            return []
+        return [l.find("a").string for l in psec.find_all("li")]
+
+    def get_proposers(self) -> list[str]:
+        """Get a list of proposers."""
+        return self._get_members("提案人")
+
+    def get_sponsors(self) -> list[str]:
+        """Get a list of sponsors"""
+        return self._get_members("連署人")
+
+    def get_status(self) -> str:
+        """Get the status of the proceedings"""
+        sec = self._s.find("article", id="section-0").find("div", class_="card-body")
+        div = sec.find(lambda t: t.name == "div" and "class" not in t.attrs)
+        return div.find("span").string.strip()
+
+    def get_attachments(self) -> list[AttachmentEntry]:
+        """Get a list of attachments"""
+        sec = self._s.find("article", id="section-0").find("div", class_="card-body")
+        links = sec.find_all(
+            lambda t: t.name == "a" and "/ppg/download" in t.attrs.get("href", "")
+        )
+        return [
+            AttachmentEntry(
+                name="".join(s.strip() for s in l.strings),
+                url=self._prepend_domain_name(l["href"]),
+            )
+            for l in links
+        ]
+
+    def get_progress(self) -> list[StepEntry]:
+        """Get a list of progress"""
+
+        def _to_step(tag: bs4.Tag) -> StepEntry:
+            name = tag.find("span", class_="Detail-SkedGroup-Sp").string
+            link = tag.find(
+                lambda a: a.name == "a"
+                and "/ppg/sittings/meetingLink" in a.attrs.get("href", "")
+            )
+            if link:
+                return StepEntry(
+                    name=name,
+                    title=link.string,
+                    url=self._prepend_domain_name(link["href"]),
+                )
+            try:
+                title = tag.find("span", class_="card-title").find("span").string
+            except AttributeError:
+                title = ""
+            return StepEntry(
+                name=name,
+                title=title,
+            )
+
+        sec = self._s.find("article", id="section-3")
+        g = sec.find("div", class_="Detail-SkedGroup")
+        details = g.find_all("dl", class_="Detail-Sked")
+        return [_to_step(d) for d in details]
