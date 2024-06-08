@@ -64,6 +64,15 @@ class StepEntry:
         self.meeting_id, self.date = _id.split(";")
 
 
+@dataclasses.dataclass(unsafe_hash=True)
+class VideoEntry:
+    """A class to represent a video"""
+
+    url: str = ""
+    member: str | None = None
+
+
+@dataclasses.dataclass(unsafe_hash=True)
 class LegislativeMeetingReader:
     """A class to read a legislative meeting page."""
 
@@ -358,3 +367,98 @@ class ProceedingReader:
         g = sec.find("div", class_="Detail-SkedGroup")
         details = g.find_all("dl", class_="Detail-Sked")
         return [_to_step(d) for d in details]
+
+
+class IvodReader:
+    """Read an ivod"""
+
+    def __init__(self, html: str, url: str):
+        self._s = bs4.BeautifulSoup(html, "html.parser")
+        purl = parse.urlparse(url)
+        self._origin = f"{purl.scheme}://{purl.netloc}"
+        self._url = f"{purl.scheme}://{purl.netloc}/{purl.path}"
+        qs = parse.parse_qs(purl.query.lower())
+        self._meet = qs.get("meet", [""])[0]
+        self._page = int(qs.get("page", [1])[0])
+
+    @classmethod
+    def open(cls, url: str):
+        """Open an ivod"""
+        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        if res.status_code != 200:
+            raise IOError(f"Failed to fetch ivod {url}")
+        return cls(res.text, url)
+
+    def get_videos(self) -> list[VideoEntry]:
+        """Get a list of videos, exclude the member speeches."""
+        sec = self._s.find("div", class_="committee-data-info")
+        if not sec:
+            return []
+        videos = [self._to_video_entry(v) for v in sec.find_all("div", recursive=False)]
+        return [v for v in videos if v is not None]
+
+    def get_member_speeches(
+        self, recursive: bool = True, max_page: int = 20
+    ) -> list[VideoEntry]:
+        """Get a list of member speeches.
+
+        Args:
+            recursive (bool, optional): Whether to read the speeches in all pages. Defaults to True.
+            max_page (int, optional): The maximum number of pages to read. Defaults to 20.
+
+        Returns:
+            list[VideoEntry]: A list of member speeches (VideoEntry)
+        """
+        if not recursive:
+            return self._get_member_speeches()
+        videos = []
+        ptr = self
+        for _ in range(max_page):
+            _vidoes = ptr.get_member_speeches(recursive=False)
+            if not _vidoes:
+                break
+            videos.extend(_vidoes)
+            ptr = ptr.next_page()
+        return videos
+
+    def _get_member_speeches(self) -> list[VideoEntry]:
+        sec = self._s.find("div", class_="clip-list")
+        if not sec:
+            return []
+        videos = [self._to_video_entry(v) for v in sec.find_all("li")]
+        return [v for v in videos if v is not None]
+
+    def next_page(self) -> "IvodReader":
+        """Get the next page of the ivod."""
+        qs = parse.urlencode(
+            {
+                "Meet": self._meet,
+                "page": self._page + 1,
+            }
+        )
+        return IvodReader.open(f"{self._url}?{qs}")
+
+    def _to_video_entry(self, tag: bs4.Tag) -> VideoEntry:
+        link_tag = tag.find(
+            lambda t: t.name == "a"
+            and t.attrs.get("href", "").startswith("/Play")
+            and "窄頻" in t.attrs.get("title", "")
+        )
+        if not link_tag:
+            return None
+        link = link_tag["href"]
+        text = tag.find("div", class_="clip-list-text")
+        member_tag = (
+            text.find(
+                lambda t: t.name == "p" and t.string and t.string.startswith("委員：")
+            )
+            if text
+            else None
+        )
+        member = member_tag.string[3:] if member_tag else ""
+        return VideoEntry(url=self._prepend_domain_name(link), member=member)
+
+    def _prepend_domain_name(self, url: str) -> str:
+        if url.startswith("http"):
+            return url
+        return parse.urljoin(self._origin, url)

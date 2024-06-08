@@ -1,13 +1,13 @@
 # pylint: disable=attribute-defined-outside-init,missing-function-docstring,missing-module-docstring,protected-access
 
-import os
+import dataclasses
 import pathlib
 import unittest
-from legislature import readers
-from utils import testings
-import dataclasses
+from urllib import parse
+
 import pytest
 from legislature import readers
+from utils import testings
 
 # https://ppg.ly.gov.tw/ppg/bills/202110028120000/details
 COMMITEE_PROCEEDING_URL = "legislature_proceeding_2024042201.html"
@@ -399,6 +399,116 @@ def test_read_proceeding(t: ProceedingReaderTestCase):
     if t.progress is not None:
         assert set(r.get_progress()) == set(t.progress)
 
+
+@dataclasses.dataclass
+class IvodReaderTestCase:
+    meet: str = ""
+    videos: list[readers.VideoEntry] | None = None
+    speeches: list[readers.VideoEntry] | None = None
+
+    def get_url(self):
+        qs = parse.urlencode({"Meet": self.meet})
+        return f"https://ivod.ly.gov.tw/Demand/Meetvod?{qs}"
+
+
+read_ivod_testcases: list[IvodReaderTestCase] = [
+    # https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00132704226422162141
+    IvodReaderTestCase(
+        meet="00132704226422162141",
+        videos=[
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Full/300K/15925",
+                member="",
+            ),
+        ],
+        speeches=[
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152673",
+                member="李坤城",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152672",
+                member="蘇巧慧",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152671",
+                member="蔡易餘",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152670",
+                member="吳思瑤",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152669",
+                member="沈發惠",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152668",
+                member="吳思瑤",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152667",
+                member="范雲",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152666",
+                member="吳思瑤",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152665",
+                member="吳思瑤",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152664",
+                member="吳思瑤",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Clip/300K/152663",
+                member="鍾佳濱",
+            ),
+        ],
+    ),
+    # https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00692054771069304605
+    IvodReaderTestCase(
+        meet="00692054771069304605",
+        videos=[
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Full/300K/15928",
+                member="",
+            ),
+            readers.VideoEntry(
+                url="https://ivod.ly.gov.tw/Play/Full/300K/15927",
+                member="",
+            ),
+        ],
+        speeches=[],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "t",
+    read_ivod_testcases,
+    ids=[t.meet for t in read_ivod_testcases],
+)
+@testings.skip_when_no_network
+def test_read_ivod(t: IvodReaderTestCase):
+    r = readers.IvodReader.open(t.get_url())
+
+    if t.videos is not None:
+        assert set(r.get_videos()) == set(t.videos)
+
+    if t.speeches is not None:
+        assert set(r.get_member_speeches()) == set(t.speeches)
+
+
+# Videos
+# 1. https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00692054771069304605 -> 黨團協商
+# 2. https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00046578846529964859 -> commitee
+# 3. 院會, 複雜 (會議: https://ppg.ly.gov.tw/ppg/sittings/2024051509/details?meetingDate=113/05/17&meetingTime=&departmentCode=null)
+#    (1) https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00132704226422162141
+#    (2) https://ivod.ly.gov.tw/Demand/Meetvod?Meet=00299965961770109694
+#    [跨兩天]
 
 if __name__ == "__main__":
     unittest.main()
