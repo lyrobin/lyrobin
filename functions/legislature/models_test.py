@@ -5,6 +5,9 @@ import unittest
 import dataclasses
 import datetime as dt
 from legislature import models
+import pytz
+
+_TZ = pytz.timezone("Asia/Taipei")
 
 
 class TestModels(unittest.TestCase):
@@ -45,8 +48,14 @@ class TestModels(unittest.TestCase):
         m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)
 
         self.assertEqual(m.term, 11)
-        self.assertEqual(m.meeting_date_start, dt.datetime(2024, 2, 1, 8, 0))
-        self.assertEqual(m.meeting_date_end, dt.datetime(2024, 2, 1, 17, 0))
+        self.assertEqual(
+            m.meeting_date_start,
+            dt.datetime(2024, 2, 1, 8, 0, tzinfo=_TZ),
+        )
+        self.assertEqual(
+            m.meeting_date_end,
+            dt.datetime(2024, 2, 1, 17, 0, tzinfo=_TZ),
+        )
 
     def test_meeting_field_name_style(self):
         m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)

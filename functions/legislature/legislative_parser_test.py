@@ -57,12 +57,64 @@ class TestFetchMeetingFromWeb(unittest.TestCase):
         videos = list(
             self.db.collection("meetings")
             .document(m.meeting_no)
-            .collection("videos")
+            .collection("ivods")
             .stream()
         )
 
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(len(videos), 1)
+
+
+class TestFetchProceedingFromWeb(unittest.TestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.db = firestore.client()
+
+    @testings.skip_when_no_network
+    @testings.require_firestore_emulator
+    def test_fetch_proceeding_from_web_not_exist(self):
+        url = utils.get_function_url("fetchProceedingFromWeb")
+
+        requests.post(
+            url,
+            json={
+                "data": {
+                    "billNo": "202110044210000",
+                    "url": "https://ppg.ly.gov.tw/ppg/bills/202110044210000/details",
+                }
+            },
+            headers={"content-type": "application/json"},
+            timeout=60,
+        )
+
+        doc_ref = self.db.document(f"{models.PROCEEDING_COLLECT}/202110044210000")
+        attachs = list(doc_ref.collection(models.ATTACH_COLLECT).stream())
+        assert len(attachs) == 2
+
+    def test_fetch_proceeding_from_web_with_related_bills(self):
+        url = utils.get_function_url("fetchProceedingFromWeb")
+
+        requests.post(
+            url,
+            json={
+                "data": {
+                    "billNo": "202110006550000",
+                    "url": "https://ppg.ly.gov.tw/ppg/bills/202110006550000/details",
+                }
+            },
+            headers={"content-type": "application/json"},
+            timeout=60,
+        )
+
+        doc_ref = self.db.document(f"{models.PROCEEDING_COLLECT}/202110006550000")
+        doc = doc_ref.get()
+        assert doc.exists
+        m: models.Proceeding = models.Proceeding.from_dict(doc.to_dict())
+        assert len(m.related_bills) == 4
+
+        attachs = list(doc_ref.collection(models.ATTACH_COLLECT).stream())
+        assert len(attachs) == 2
 
 
 if __name__ == "__main__":

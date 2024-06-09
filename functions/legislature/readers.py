@@ -49,7 +49,7 @@ class ProceedingEntry:
 
 @dataclasses.dataclass(unsafe_hash=True)
 class AttachmentEntry:
-    """A class to represent a video."""
+    """A class to represent an attached file."""
 
     name: str
     url: str
@@ -122,7 +122,7 @@ class LegislativeMeetingReader:
         ]
 
     def get_videos(self) -> list[AttachmentEntry]:
-        """Get a list of videos."""
+        """Get a list of videos (IVODs)."""
         sec = self._get_main_section()
         return [
             AttachmentEntry(
@@ -298,10 +298,11 @@ class ProceedingReader:
             )
 
         sec = self._s.find("article", id="section-0")
-        links: list[bs4.Tag] = sec.find_all(_is_link_to_bill)
+        links: list[bs4.Tag] = sec.find_all(_is_link_to_bill) if sec else []
 
         sec = self._s.find("article", id="section-2")
-        links.extend(sec.find_all(_is_link_to_bill))
+        if sec:
+            links.extend(sec.find_all(_is_link_to_bill))
 
         return [_to_proceeding(tag) for tag in links]
 
@@ -486,6 +487,10 @@ class VideoReader:
         end_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
         playlist: str | None = None
 
+        def __post_init__(self):
+            self.start_time = self.start_time.astimezone(dt.timezone.utc)
+            self.end_time = self.end_time.astimezone(dt.timezone.utc)
+
     @property
     def meta(self) -> VideoMeta:
         """Get the video meta"""
@@ -504,7 +509,7 @@ class VideoReader:
         return self._playlist
 
     @property
-    def chunks(self) -> m3u8.model.M3U8:
+    def chunks(self) -> m3u8.model.M3U8:  # type(any)
         """Get the chunks (m3u8)"""
         if not self._chunks:
             _chunk: m3u8.model.Segment = self.playlist.playlists[0]
@@ -515,7 +520,7 @@ class VideoReader:
     def _taret_duration(self) -> int:
         """Get the target duration (in seconds)"""
         if not self.__target_duration:
-            self.__target_duration = int(self.chunks.target_duration)
+            self.__target_duration = int(getattr(self.chunks, "target_duration", 0))
         return self.__target_duration
 
     @property

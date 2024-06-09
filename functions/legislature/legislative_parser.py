@@ -4,6 +4,8 @@
 import datetime as dt
 import json
 import logging
+import pytz
+import dataclasses
 
 import requests
 import utils
@@ -60,7 +62,7 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     db = firestore.client()
     data: dict = json.loads(res.text)
     batch = db.batch()
-    collecion = db.collection("meetings")
+    collecion = db.collection(models.MEETING_COLLECT)
     count = 0
     for m in data.get("dataList", []):
         try:
@@ -102,7 +104,7 @@ def _fetch_meeting_when_created(
     """Fetch the meeting from the web."""
     db = firestore.client()
     meet_no = event.params["meetNo"]
-    meet_ref = db.collection("meetings").document(meet_no)
+    meet_ref = db.collection(models.MEETING_COLLECT).document(meet_no)
     meet_doc = meet_ref.get()
     if not meet_doc.exists:
         raise RuntimeError(f"Meeting {meet_no} does not exist.")
@@ -145,13 +147,15 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     meet_no = request.data["meetNo"]
     url = request.data["url"]
     db = firestore.client()
-    meet_doc_ref = db.collection("meetings").document(meet_no)
+    meet_doc_ref = db.collection(models.MEETING_COLLECT).document(meet_no)
     meet_doc = meet_doc_ref.get()
     meet: models.Meeting = None
     if meet_doc.exists:
         meet = models.Meeting.from_dict(meet_doc.to_dict())
     else:
         meet = models.Meeting.from_dict({"meetingNo": meet_no})
+        meet_doc_ref.set(meet.asdict(), merge=True)
+
     if dt.datetime.now(dt.timezone.utc) - meet.last_update_time < dt.timedelta(days=1):
         return
     r = readers.LegislativeMeetingReader.open(url=url)
@@ -167,7 +171,7 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     if r.get_meeting_date_desc() and not meet.meeting_date_desc:
         meet.meeting_date_desc = r.get_meeting_date_desc()
 
-    videos = [models.IVOD(name=v.name, url=v.url) for v in r.get_videos()]
+    ivods = [models.IVOD(name=v.name, url=v.url) for v in r.get_videos()]
     meeting_files = [
         models.MeetingFile(name=a.name, url=a.url)
         for a in r.get_files(allow_download=True)
@@ -180,14 +184,79 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     meet.last_update_time = dt.datetime.now(dt.timezone.utc)
     meet_doc_ref.update(meet.asdict())
 
-    videos_collect = meet_doc_ref.collection("videos")
-    for v in videos:
-        videos_collect.document(v.document_id).set(v.asdict(), merge=True)
+    ivods_collect = meet_doc_ref.collection(models.IVOD_COLLECT)
+    for v in ivods:
+        ivods_collect.document(v.document_id).set(v.asdict(), merge=True)
 
-    files_collect = meet_doc_ref.collection("files")
+    files_collect = meet_doc_ref.collection(models.FILE_COLLECT)
     for f in meeting_files:
         files_collect.document(f.document_id).set(f.asdict(), merge=True)
 
-    proceedings_collect = meet_doc_ref.collection("proceedings")
+    proceedings_collect = meet_doc_ref.collection(models.PROCEEDING_COLLECT)
     for p in proceedings:
         proceedings_collect.document(p.document_id).set(p.asdict(), merge=True)
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
+    rate_limits=RateLimits(max_concurrent_dispatches=20),
+)
+def fetchProceedingFromWeb(request: tasks_fn.CallableRequest) -> any:
+    try:
+        _fetch_proceeding_from_web(request)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(f"Error fetching proceeding: {request.data}") from e
+
+
+def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
+    bill_no: int = request.data["billNo"]
+    url: str = request.data["url"]
+    db = firestore.client()
+
+    proc_ref = db.collection(models.PROCEEDING_COLLECT).document(bill_no)
+    proc_doc = proc_ref.get()
+
+    proc: models.Proceeding
+    if proc_doc.exists:
+        proc = models.Proceeding.from_dict(proc_doc.to_dict())
+    else:
+        proc = models.Proceeding.from_dict({"billNo": bill_no, "url": url})
+        proc_ref.set(proc.asdict(), merge=True)
+
+    if dt.datetime.now(dt.timezone.utc) - proc.last_update_time < dt.timedelta(days=1):
+        return
+
+    r = readers.ProceedingReader.open(url=url)
+    related_bills = r.get_related_bills()
+    proposers = r.get_proposers()
+    sponsors = r.get_sponsors()
+    status = r.get_status()
+    progress = [dataclasses.asdict(s) for s in r.get_progress()]
+    attachments = [
+        models.Attachment(name=a.name, url=a.url) for a in r.get_attachments()
+    ]
+
+    if related_bills:
+        proc.related_bills = related_bills
+
+    if proposers and not proc.proposers:
+        # The proposers are unlikely to change
+        proc.proposers = proposers
+
+    if sponsors and not proc.sponsors:
+        # The sponsors are unlikely to change
+        proc.sponsors = sponsors
+
+    if status:
+        proc.status = status
+
+    if progress:
+        proc.progress = progress
+
+    proc.last_update_time = dt.datetime.now()
+    proc_ref.update(proc.asdict())
+
+    attach_collect = proc_ref.collection(models.ATTACH_COLLECT)
+    for a in attachments:
+        attach_collect.document(a.document_id).set(a.asdict(), merge=True)

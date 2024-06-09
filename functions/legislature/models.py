@@ -10,10 +10,20 @@ from typing import TypeVar
 import datetime as dt
 from urllib import parse
 from legislature import LEGISLATURE_MEETING_URL
+import pytz
+import uuid
 
 import deepdiff
 
+# Collection Constants
+MEETING_COLLECT = "meetings"
+IVOD_COLLECT = "ivods"
+FILE_COLLECT = "files"
+PROCEEDING_COLLECT = "proceedings"
+ATTACH_COLLECT = "attachments"
+
 T = TypeVar("T", bound="FireStoreDocument")
+_TZ = pytz.timezone("Asia/Taipei")
 
 
 def camel_to_snake(name: str) -> str:
@@ -70,7 +80,13 @@ class DateTimeField:
     """
 
     def __init__(self, *, default: dt.datetime | None = None):
-        self._default = default if default is not None else dt.datetime.min
+        if default and default.tzinfo is None:
+            default = default.replace(tzinfo=_TZ).astimezone(dt.timezone.utc)
+        self._default = (
+            default
+            if default is not None
+            else dt.datetime(year=1, month=1, day=1, tzinfo=dt.timezone.utc)
+        )
 
     def __set_name__(self, _: object, name: str) -> None:
         self._name = "_" + name
@@ -85,12 +101,16 @@ class DateTimeField:
         if value is None:
             setattr(instance, self._name, dt.datetime.min)
         elif isinstance(value, dt.datetime):
-            setattr(instance, self._name, value)
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=_TZ)
+            setattr(instance, self._name, value.astimezone(dt.timezone.utc))
         elif isinstance(value, str):
             setattr(
                 instance,
                 self._name,
-                dt.datetime.strptime(value, "%Y/%m/%d %H:%M"),
+                dt.datetime.strptime(value, "%Y/%m/%d %H:%M")
+                .replace(tzinfo=_TZ)
+                .astimezone(dt.timezone.utc),
             )
         else:
             raise TypeError(
@@ -219,16 +239,21 @@ class Video(FireStoreDocument):
 
 
 @dataclasses.dataclass
-class MeetingFile(FireStoreDocument):
-    """
-    An attachment.
-    """
+class Attachment(FireStoreDocument):
+    """An attachment."""
 
     name: str = ""
     url: str = ""
 
     def __post_init__(self):
-        self.document_id = self.url
+        self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex
+
+
+@dataclasses.dataclass
+class MeetingFile(Attachment):
+    """
+    An attachment to a meeting.
+    """
 
 
 @dataclasses.dataclass
@@ -240,6 +265,12 @@ class Proceeding(FireStoreDocument):
     name: str = ""
     url: str = ""
     bill_no: str = ""
+    last_update_time: DateTimeField = DateTimeField()
+    related_bills: list[str] = dataclasses.field(default_factory=list)
+    proposers: list[str] = dataclasses.field(default_factory=list)
+    sponsors: list[str] = dataclasses.field(default_factory=list)
+    status: str = ""
+    progress: list[dict] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         self.document_id = self.bill_no
