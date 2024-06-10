@@ -2,5 +2,6 @@
   "python.testing.pytestArgs": ["functions"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "git.enableCommitSigning": true
+  "git.enableCommitSigning": true,
+  "debugpy.debugJustMyCode": false
 }
