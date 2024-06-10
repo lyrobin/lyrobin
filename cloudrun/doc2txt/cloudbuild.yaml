@@ -1,0 +1,34 @@
+steps:
+  # Build the container image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/doc2txt",
+        ".",
+      ]
+  # Push the container image to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/doc2txt",
+      ]
+  # Deploy container image to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "doc2txt",
+        "--image",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/doc2txt",
+        "--region",
+        "${LOCATION}",
+        "--timeout",
+        "30m"
+      ]
+images:
+  - ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/doc2txt
