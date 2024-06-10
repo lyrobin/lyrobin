@@ -5,15 +5,15 @@ This module contains the models for the Firestore database.
 # pylint: disable=attribute-defined-outside-init
 # pylint: disable=no-member
 import dataclasses
-import re
-from typing import TypeVar
 import datetime as dt
-from urllib import parse
-from legislature import LEGISLATURE_MEETING_URL
-import pytz
+import re
 import uuid
+from typing import TypeVar
+from urllib import parse
 
 import deepdiff
+import pytz
+from legislature import LEGISLATURE_MEETING_URL
 
 # Collection Constants
 MEETING_COLLECT = "meetings"
@@ -24,6 +24,8 @@ ATTACH_COLLECT = "attachments"
 
 T = TypeVar("T", bound="FireStoreDocument")
 _TZ = pytz.timezone("Asia/Taipei")
+
+_PRIMITIVE_TYPES = (int, float, str, bool, type(None))
 
 
 def camel_to_snake(name: str) -> str:
@@ -140,10 +142,27 @@ class FireStoreDocument:
         _data = {camel_to_snake(k): v for k, v in data.items()}
         return cls(**{k: v for k, v in _data.items() if k in fields})
 
+    def _sanitize_fields(self):
+        """Sanitize fields.
+        Make sure the value of field has the same type as it's declared.
+        A field with inconsistent type may cause deepcopy to fail.
+        """
+        for field in dataclasses.fields(self):
+            print(field, getattr(self, field.name, None))
+            if field.type not in _PRIMITIVE_TYPES:
+                continue
+            val = getattr(self, field.name, None)
+            if val is None:
+                continue
+            if field.type == type(val):
+                continue
+            setattr(self, field.name, field.type(val))
+
     def asdict(self) -> dict:
         """
         Returns a dictionary representation of the object.
         """
+        self._sanitize_fields()
         return {
             k: v
             for k, v in dataclasses.asdict(self).items()

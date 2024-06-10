@@ -47,7 +47,6 @@ class TestFetchMeetingFromWeb(unittest.TestCase):
         doc_ref.set(m.asdict())
 
         url = utils.get_function_url("fetchMeetingFromWeb")
-        print(url)
         res = requests.post(
             url,
             json={"data": {"meetNo": m.meeting_no, "url": m.get_url()}},

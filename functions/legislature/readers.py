@@ -120,7 +120,7 @@ class LegislativeMeetingReader:
         bill_links: list[bs4.Tag] = self._s.find_all("a", href=self._BILL_REGEX)
         return [
             ProceedingEntry(
-                name=a.string,
+                name=str(a.string),
                 url=a["href"],
                 bill_no=self._get_bill_no(a["href"]),
             )
@@ -174,7 +174,7 @@ class LegislativeMeetingReader:
     def get_meeting_name(self):
         """Get the name of the meeting"""
         sec = self._get_main_section()
-        return sec.find("div", class_="row").find("span").string
+        return str(sec.find("div", class_="row").find("span").string)
 
     def get_meeting_content(self):
         """Get the content of the meeting"""
@@ -299,7 +299,7 @@ class ProceedingReader:
                 raise TypeError(f"Expected a tag, got {tag.name}")
 
             return ProceedingEntry(
-                name=tag.string,
+                name=str(tag.string),
                 url=self._prepend_domain_name(tag["href"]),
             )
 
@@ -326,7 +326,7 @@ class ProceedingReader:
         psec = sec.find(_is_member_sec)
         if not psec:
             return []
-        return [l.find("a").string for l in psec.find_all("li")]
+        return [str(l.find("a").string) for l in psec.find_all("li")]
 
     def get_proposers(self) -> list[str]:
         """Get a list of proposers."""
@@ -360,7 +360,7 @@ class ProceedingReader:
         """Get a list of progress"""
 
         def _to_step(tag: bs4.Tag) -> StepEntry:
-            name = tag.find("span", class_="Detail-SkedGroup-Sp").string
+            name = str(tag.find("span", class_="Detail-SkedGroup-Sp").string)
             link = tag.find(
                 lambda a: a.name == "a"
                 and "/ppg/sittings/meetingLink" in a.attrs.get("href", "")
@@ -368,11 +368,11 @@ class ProceedingReader:
             if link:
                 return StepEntry(
                     name=name,
-                    title=link.string,
+                    title=str(link.string),
                     url=self._prepend_domain_name(link["href"]),
                 )
             try:
-                title = tag.find("span", class_="card-title").find("span").string
+                title = str(tag.find("span", class_="card-title").find("span").string)
             except AttributeError:
                 title = ""
             return StepEntry(
