@@ -547,5 +547,26 @@ class TestVideoReader(unittest.TestCase):
         # assert r.download_mp4(1) == ""
 
 
+class TestDocumentReader(unittest.TestCase):
+
+    @testings.skip_when_no_network
+    def test_parse_pdf(self):
+        r = readers.DocumentReader.open(
+            "https://ppg.ly.gov.tw/ppg/download/agenda1/02/pdf/11/01/03/LCEWA01_110103_00056.pdf"
+        )
+
+        assert "立法院議案關係文書" in r.content
+
+    @testings.skip_when_no_credential
+    @testings.skip_when_no_network
+    def test_parse_doc(self):
+
+        r = readers.DocumentReader.open(
+            "https://ppg.ly.gov.tw/ppg/download/agenda1/02/word/11/01/03/LCEWA01_110103_00056.doc"
+        )
+
+        assert "立法院議案關係文書" in r.content
+
+
 if __name__ == "__main__":
     unittest.main()

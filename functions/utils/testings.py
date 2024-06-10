@@ -62,6 +62,29 @@ def skip_when_no_network(func):
     return wrapper
 
 
+def skip_when_no_credential(func):
+    """Skip a test when there is no credential.
+    
+        To create a service account and have your application use it for API access, run:
+            $ gcloud iam service-accounts create my-account
+            $ gcloud iam service-accounts keys create key.json \
+                --iam-account=my-account@my-project.iam.gserviceaccount.com
+            $ export GOOGLE_APPLICATION_CREDENTIALS=key.json
+            $ ./my_application.sh
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        cred = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None)
+        if not cred:
+            raise unittest.SkipTest(
+                "Require credential, set GOOGLE_APPLICATION_CREDENTIALS env."
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def disable_background_triggers(func):
     """Disable background triggers."""
 

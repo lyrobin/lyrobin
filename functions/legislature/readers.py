@@ -4,18 +4,24 @@ A module to read a legislative pages.
 
 import dataclasses
 import datetime as dt
+import io
 import json
 import math
+import pathlib
 import re
 import tempfile
 from urllib import parse
 
 import bs4
 import ffmpeg
+import google.auth.transport.requests
+import google.oauth2.id_token
 import m3u8
 import m3u8.model
+import params
 import pytz
 import requests
+import textract
 
 _REQUEST_HEADEER = {
     "User-Agent": " ".join(
@@ -624,3 +630,62 @@ class VideoReader:
         out = ffmpeg.output(i, o)
         ffmpeg.overwrite_output(out).run()
         return o
+
+
+class DocumentReader:
+    """Read a document(doc, pdf) to text."""
+
+    @property
+    def content(self) -> str:
+        """Get the content"""
+        return self._content
+
+    def __init__(self, url: str, content: str) -> None:
+        self._content = content
+        self._url = url
+
+    @classmethod
+    def open(cls, url: str) -> "DocumentReader":
+        """Open a document"""
+        parsed_url = parse.urlparse(url)
+        suffix = pathlib.Path(parsed_url.path).suffix
+        if suffix == ".pdf":
+            return cls(url, cls._pdf2txt(url))
+        elif suffix == ".doc":
+            return cls(url, cls._doc2txt(url))
+
+    @staticmethod
+    def _pdf2txt(url: str) -> str:
+        parsed_url = parse.urlparse(url)
+        filename = parsed_url.path.split("/")[-1]
+        res = requests.get(url, headers=_REQUEST_HEADEER, stream=True, timeout=1800)
+        res.raise_for_status()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fp = pathlib.Path(temp_dir) / filename
+            with fp.open("wb") as f:
+                for chunk in res.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return textract.process(fp, method="pdfminer").decode("utf-8")
+
+    @staticmethod
+    def _doc2txt(url: str) -> str:
+        request = google.auth.transport.requests.Request()
+        token = google.oauth2.id_token.fetch_id_token(
+            request, params.CLOUD_DOC2TXT_API.value
+        )
+        api_url = parse.urljoin(params.CLOUD_DOC2TXT_API.value, "doc2txt")
+        res = requests.get(
+            api_url,
+            headers={
+                "Authorization": "Bearer " + token,
+            },
+            params={"url": parse.quote_plus(url)},
+            timeout=1800,
+            stream=True,
+        )
+        res.raise_for_status()
+        buff = io.BytesIO()
+        for chunk in res.iter_content(chunk_size=8192):
+            buff.write(chunk)
+        return buff.getvalue().decode("utf-8")
