@@ -1,10 +1,33 @@
 """Utilities for interacting with Google Cloud Functions."""
 
 import os
+import re
 import google.auth
 from firebase_functions.options import SupportedRegion
 from google.auth.transport.requests import AuthorizedSession
 from utils import testings
+
+
+def snake_to_camel(snake_str):
+    """Converts a snake_case string to camelCase.
+
+    Args:
+        snake_str (str): The input string in snake_case format.
+
+    Returns:
+        str: The converted string in camelCase format.
+    """
+    components = snake_str.split("_")
+    # Capitalize the first letter of each component except the first one
+    # with the 'title' method and join them together.
+    return components[0] + "".join(x.title() for x in components[1:])
+
+
+def camel_to_snake(name: str) -> str:
+    """
+    Converts a camel case string to snake case.
+    """
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
 def get_function_url(name: str, location: str = SupportedRegion.US_CENTRAL1) -> str:

@@ -6,11 +6,11 @@ This module contains the models for the Firestore database.
 # pylint: disable=no-member
 import dataclasses
 import datetime as dt
-import re
 import uuid
 from typing import TypeVar
 from urllib import parse
 
+import utils
 import deepdiff
 import pytz
 from legislature import LEGISLATURE_MEETING_URL
@@ -26,13 +26,6 @@ T = TypeVar("T", bound="FireStoreDocument")
 _TZ = pytz.timezone("Asia/Taipei")
 
 _PRIMITIVE_TYPES = (int, float, str, bool, type(None))
-
-
-def camel_to_snake(name: str) -> str:
-    """
-    Converts a camel case string to snake case.
-    """
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
 class IntField:
@@ -139,7 +132,7 @@ class FireStoreDocument:
         Creates a new instance from a dictionary.
         """
         fields = {field.name for field in dataclasses.fields(cls)}
-        _data = {camel_to_snake(k): v for k, v in data.items()}
+        _data = {utils.camel_to_snake(k): v for k, v in data.items()}
         return cls(**{k: v for k, v in _data.items() if k in fields})
 
     def _sanitize_fields(self):
@@ -148,7 +141,6 @@ class FireStoreDocument:
         A field with inconsistent type may cause deepcopy to fail.
         """
         for field in dataclasses.fields(self):
-            print(field, getattr(self, field.name, None))
             if field.type not in _PRIMITIVE_TYPES:
                 continue
             val = getattr(self, field.name, None)
@@ -162,11 +154,29 @@ class FireStoreDocument:
         """
         Returns a dictionary representation of the object.
         """
+
+        def is_empty(value):
+            if value is None:
+                return True
+            elif isinstance(value, str):
+                return not value
+            elif isinstance(value, dt.datetime):
+                return value == dt.datetime.min
+            elif (
+                isinstance(value, list)
+                or isinstance(value, tuple)
+                or isinstance(value, set)
+                or isinstance(value, dict)
+            ):
+                return not value
+            else:
+                return False
+
         self._sanitize_fields()
         return {
             k: v
             for k, v in dataclasses.asdict(self).items()
-            if k != "document_id" and v
+            if k != "document_id" and not is_empty(v)
         }
 
 
@@ -263,6 +273,7 @@ class Attachment(FireStoreDocument):
 
     name: str = ""
     url: str = ""
+    full_text: str = ""
 
     def __post_init__(self):
         self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex

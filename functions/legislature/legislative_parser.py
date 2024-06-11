@@ -1,20 +1,19 @@
 """Legislature parser."""
 
 # pylint: disable=invalid-name
+import dataclasses
 import datetime as dt
 import json
 import logging
-import pytz
-import dataclasses
 
 import requests
-import utils
-from firebase_admin import firestore, functions
+from firebase_admin import firestore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import RateLimits, RetryConfig
+from google.cloud.firestore_v1 import DocumentReference
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
 from params import DEFAULT_TIMEOUT_SEC
-from utils import testings
+from utils import tasks
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
 _REQUEST_HEADEER = {
@@ -109,24 +108,8 @@ def _fetch_meeting_when_created(
     if not meet_doc.exists:
         raise RuntimeError(f"Meeting {meet_no} does not exist.")
     meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
-    q = FetchMeetingFromWebQueue()
-    q.run(meet_no, meet.get_url())
-
-
-class FetchMeetingFromWebQueue:
-    """Fetch the meeting from the web."""
-
-    def __init__(self):
-        self.queue = functions.task_queue("fetchMeetingFromWeb")
-        self.target = utils.get_function_url("fetchMeetingFromWeb")
-        self.option = functions.TaskOptions(
-            dispatch_deadline_seconds=1800, uri=self.target
-        )
-
-    @testings.skip_when_using_emulators
-    def run(self, meet_no: str, url: str):
-        """run the task."""
-        self.queue.enqueue({"data": {"meetNo": meet_no, "url": url}}, self.option)
+    q = tasks.CloudRunQueue.open("fetchMeetingFromWeb")
+    q.run(meet_no=meet_no, url=meet.get_url())
 
 
 @tasks_fn.on_task_dispatched(
@@ -197,6 +180,36 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
         proceedings_collect.document(p.document_id).set(p.asdict(), merge=True)
 
 
+@firestore_fn.on_document_created(document="meetings/{meetNo}/proceedings/{billNo}")
+def on_meeting_proceedings_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    """Handle meeting proceedings creation"""
+    try:
+
+        meet_no = event.params["meetNo"]
+        bill_no = event.params["billNo"]
+        _on_meeting_proceedings_create(meet_no, bill_no)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(
+            f"Error handling meeting proceedings creation: {event.params}"
+        ) from e
+
+
+def _on_meeting_proceedings_create(meet_no: str, bill_no: str):
+    db = firestore.client()
+    ref = db.document(
+        f"{models.MEETING_COLLECT}/{meet_no}/{models.PROCEEDING_COLLECT}/{bill_no}"
+    )
+    doc = ref.get()
+    if not doc.exists:
+        return
+    proc: models.Proceeding = models.Proceeding.from_dict(doc.to_dict())
+    q = tasks.CloudRunQueue.open("fetchProceedingFromWeb")
+    q.run(bill_no=proc.bill_no, url=proc.url)
+
+
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
@@ -260,3 +273,61 @@ def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
     attach_collect = proc_ref.collection(models.ATTACH_COLLECT)
     for a in attachments:
         attach_collect.document(a.document_id).set(a.asdict(), merge=True)
+
+
+@firestore_fn.on_document_created(
+    document="proceedings/{procNo}/attachments/{attachNo}"
+)
+def on_proceedings_attachment_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    """Handler on proceedings attachment create."""
+    try:
+        proc_no = event.params["procNo"]
+        attach_no = event.params["attachNo"]
+        db = firestore.client()
+
+        attach_ref = db.document(
+            f"{models.PROCEEDING_COLLECT}/{proc_no}/{models.ATTACH_COLLECT}/{attach_no}"
+        )
+        _upsert_attachment_content(attach_ref)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(
+            f"Error on_proceedings_attachment_create: {event.params}"
+        ) from e
+
+
+def _upsert_attachment_content(ref: DocumentReference):
+    """Upsert attachment content."""
+    doc = ref.get()
+    if not doc.exists:
+        return
+    attach: models.Attachment = models.Attachment.from_dict(doc.to_dict())
+    r = readers.DocumentReader.open(attach.url)
+    if r is None:
+        return
+
+    attach.full_text = r.content
+    ref.update(attach.asdict())
+
+
+@firestore_fn.on_document_created(document="meetings/{meetNo}/files/{fileNo}")
+def on_meetings_attched_file_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    """Handler on meetings attched file create."""
+    try:
+        meet_no = event.params["meetNo"]
+        file_no = event.params["fileNo"]
+        db = firestore.client()
+
+        file_ref = db.document(
+            f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}"
+        )
+        _upsert_attachment_content(file_ref)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(
+            f"Error on_proceedings_attachment_create: {event.params}"
+        ) from e

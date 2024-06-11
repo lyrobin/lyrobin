@@ -4,6 +4,8 @@ import os
 import types
 import unittest
 import functools
+from typing import Callable
+import time
 
 import requests
 from firebase_functions import logger
@@ -12,6 +14,15 @@ from firebase_functions import logger
 def is_using_emulators():
     """Check if we're using firebase emulators."""
     return os.environ.get("FIREBASE_EMULATOR_HUB") is not None
+
+
+def is_background_trigger_enabled():
+    """Check if background triggers are enabled."""
+    return os.environ.get("FIREBASE_BACKGROUND_TRIGGER_ENABLED", "").lower() in (
+        "true",
+        "1",
+        "",
+    )
 
 
 def require_firestore_emulator(func):
@@ -37,6 +48,7 @@ def require_firestore_emulator(func):
 def skip_when_using_emulators(func):
     """Skip a function if we're using firebase emulators."""
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if is_using_emulators():
             logger.info("Skipping function because we're using firebase emulators.")
@@ -88,18 +100,21 @@ def skip_when_no_credential(func):
 def disable_background_triggers(func):
     """Disable background triggers."""
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if not is_using_emulators():
             return func(*args, **kwargs)
         requests.put(
             "http://localhost:4400/functions/disableBackgroundTriggers", timeout=60
         )
+        os.environ["FIREBASE_BACKGROUND_TRIGGER_ENABLED"] = "False"
         try:
             return func(*args, **kwargs)
         finally:
             requests.put(
                 "http://localhost:4400/functions/enableBackgroundTriggers", timeout=60
             )
+            os.environ["FIREBASE_BACKGROUND_TRIGGER_ENABLED"] = "True"
 
     return wrapper
 
@@ -107,3 +122,14 @@ def disable_background_triggers(func):
 def assert_contains_exactly(got: list, want: list):
     """Assert that got contains exactly want."""
     assert len(got) == len(want)
+
+
+def wait_until(func: Callable[[], bool], timeout: int = 60, message: str = ""):
+    """Wait until func returns True."""
+    count_down = timeout
+    while count_down > 0:
+        if func():
+            return
+        count_down -= 1
+        time.sleep(1)
+    raise AssertionError(f"Condition never met: {message} after {timeout} seconds")

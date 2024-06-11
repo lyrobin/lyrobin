@@ -24,6 +24,7 @@ class TestFetchMeetingFromWeb(unittest.TestCase):
 
     @testings.skip_when_no_network
     @testings.require_firestore_emulator
+    @testings.disable_background_triggers
     def test_fetch_meeting_from_web(self):
         m: models.Meeting = models.Meeting.from_dict(
             {
@@ -72,6 +73,7 @@ class TestFetchProceedingFromWeb(unittest.TestCase):
 
     @testings.skip_when_no_network
     @testings.require_firestore_emulator
+    @testings.disable_background_triggers
     def test_fetch_proceeding_from_web_not_exist(self):
         url = utils.get_function_url("fetchProceedingFromWeb")
 
@@ -91,6 +93,7 @@ class TestFetchProceedingFromWeb(unittest.TestCase):
         attachs = list(doc_ref.collection(models.ATTACH_COLLECT).stream())
         assert len(attachs) == 2
 
+    @testings.disable_background_triggers
     def test_fetch_proceeding_from_web_with_related_bills(self):
         url = utils.get_function_url("fetchProceedingFromWeb")
 
@@ -114,6 +117,49 @@ class TestFetchProceedingFromWeb(unittest.TestCase):
 
         attachs = list(doc_ref.collection(models.ATTACH_COLLECT).stream())
         assert len(attachs) == 2
+
+
+@unittest.skip("manul test")
+@testings.skip_when_no_network
+def test_fetch_meeting_from_web_e2e():
+    m: models.Meeting = models.Meeting.from_dict(
+        {
+            "meetingNo": "2024053177",
+            "meetingDateDesc": "113/06/05 09:00-17:30",
+        }
+    )
+    db = firestore.client()
+    ref = db.collection("meetings").document(m.meeting_no)
+    ref.set(m.asdict())
+
+
+@testings.skip_when_no_network
+def test_create_proceeding_e2e():
+    url = utils.get_function_url("fetchProceedingFromWeb")
+    requests.post(
+        url,
+        json={
+            "data": {
+                "billNo": "202110051530000",
+                "url": "https://ppg.ly.gov.tw/ppg/bills/202110051530000/details",
+            }
+        },
+        headers={"content-type": "application/json"},
+        timeout=120,
+    )
+    db = firestore.client()
+    p = f"{models.PROCEEDING_COLLECT}/202110051530000/{models.ATTACH_COLLECT}"
+    testings.wait_until(lambda: len(list(db.collection(p).stream())) > 0)
+    attachs = db.collection(p).where("name", "==", "關係文書PDF").limit(1).get()
+    assert len(attachs) == 1
+    attach = attachs[0]
+
+    def check_attach_text():
+        doc = attach.reference.get()
+        m: models.Attachment = models.Attachment.from_dict(doc.to_dict())
+        return "委員 提案第 11005153 號" in m.full_text
+
+    testings.wait_until(check_attach_text, timeout=20)
 
 
 if __name__ == "__main__":

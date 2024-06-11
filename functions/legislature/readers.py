@@ -11,6 +11,7 @@ import pathlib
 import re
 import tempfile
 from urllib import parse
+from typing import Optional
 
 import bs4
 import ffmpeg
@@ -121,7 +122,7 @@ class LegislativeMeetingReader:
         return [
             ProceedingEntry(
                 name=str(a.string),
-                url=a["href"],
+                url=self._prepend_domain_name(a["href"]),
                 bill_no=self._get_bill_no(a["href"]),
             )
             for a in bill_links
@@ -213,7 +214,7 @@ class LegislativeMeetingReader:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         data: dict[str, str] = res.json()
         return [
-            AttachmentEntry(name=name, url=url)
+            AttachmentEntry(name=name, url=self._prepend_domain_name(url))
             for url, name in [v.split(";") for v in data.values()]
         ]
 
@@ -263,6 +264,11 @@ class LegislativeMeetingReader:
         if not all(k in tag.string for k in keywords):
             return False
         return True
+
+    def _prepend_domain_name(self, url: str) -> str:
+        if url.startswith("http"):
+            return url
+        return parse.urljoin(self._origin, url)
 
 
 class ProceedingReader:
@@ -314,6 +320,8 @@ class ProceedingReader:
 
     def _get_members(self, role: str) -> list[str]:
         sec = self._s.find("article", id="section-1")
+        if not sec:
+            return []
 
         def _is_member_sec(tag: bs4.Tag) -> bool:
             if tag.name != "div":
@@ -645,7 +653,7 @@ class DocumentReader:
         self._url = url
 
     @classmethod
-    def open(cls, url: str) -> "DocumentReader":
+    def open(cls, url: str) -> Optional["DocumentReader"]:
         """Open a document"""
         parsed_url = parse.urlparse(url)
         suffix = pathlib.Path(parsed_url.path).suffix
@@ -653,6 +661,8 @@ class DocumentReader:
             return cls(url, cls._pdf2txt(url))
         elif suffix == ".doc":
             return cls(url, cls._doc2txt(url))
+        else:
+            return None
 
     @staticmethod
     def _pdf2txt(url: str) -> str:
