@@ -5,12 +5,13 @@ import dataclasses
 import datetime as dt
 import json
 import logging
+import os
 
 import requests
-from firebase_admin import firestore
+from firebase_admin import firestore, storage
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import RateLimits, RetryConfig
-from google.cloud.firestore_v1 import DocumentReference
+from google.cloud.firestore_v1 import document
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
 from params import DEFAULT_TIMEOUT_SEC
 from utils import tasks
@@ -298,7 +299,7 @@ def on_proceedings_attachment_create(
         ) from e
 
 
-def _upsert_attachment_content(ref: DocumentReference):
+def _upsert_attachment_content(ref: document.DocumentReference):
     """Upsert attachment content."""
     doc = ref.get()
     if not doc.exists:
@@ -331,3 +332,136 @@ def on_meetings_attched_file_create(
         raise RuntimeError(
             f"Error on_proceedings_attachment_create: {event.params}"
         ) from e
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
+    rate_limits=RateLimits(max_concurrent_dispatches=20),
+)
+def fetchIVODFromWeb(request: tasks_fn.CallableRequest) -> any:
+    try:
+        meet_no = request.data["meetNo"]
+        ivod_no = request.data["ivodNo"]
+        _fetch_ivod_from_web(meet_no, ivod_no)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(f"Error fetching ivod: {request.data}") from e
+
+
+def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
+    db = firestore.client()
+    ref = db.document(
+        f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
+    )
+    doc = ref.get()
+    if not doc.exists:
+        return
+    ivod: models.IVOD = models.IVOD.from_dict(doc.to_dict())
+    r = readers.IvodReader.open(ivod.url)
+
+    videos = [models.Video(url=v.url) for v in r.get_videos()]
+    speeches = [
+        models.Video(url=v.url, member=v.member) for v in r.get_member_speeches()
+    ]
+
+    batch = db.batch()
+
+    for v in videos:
+        batch.update(
+            ref.collection(models.VIDEO_COLLECT).document(v.document_id),
+            v.asdict(),
+        )
+
+    for v in speeches:
+        batch.update(
+            ref.collection(models.SPEECH_COLLECT).document(v.document_id),
+            v.asdict(),
+        )
+    batch.commit()
+
+
+@firestore_fn.on_document_created(document="meetings/{meetNo}/ivods/{ivodNo}")
+def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
+    try:
+        meet_no = event.params["meetNo"]
+        ivod_no = event.params["ivodNo"]
+        q = tasks.CloudRunQueue.open("fetchIVODFromWeb")
+        q.run(meet_no=meet_no, ivod_no=ivod_no)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(f"Error on_meeting_ivod_create: {event.params}") from e
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
+    rate_limits=RateLimits(max_concurrent_dispatches=20),
+)
+def downloadVideo(request: tasks_fn.CallableRequest) -> any:
+    try:
+        meet_no = request.data["meetNo"]
+        ivod_no = request.data["ivodNo"]
+        video_no = request.data["videoNo"]
+        _download_video(meet_no, ivod_no, video_no)
+    except Exception as e:
+        logger.error(f"fail to download video: {e}")
+        raise RuntimeError(f"Error downloading video: {request.data}") from e
+
+
+def _download_video(meet_no: str, ivod_no: str, video_no: str):
+    db = firestore.client()
+
+    ivod_ref = db.document(
+        f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
+    )
+    ivod_doc = ivod_ref.get()
+    if not ivod_doc.exists:
+        return
+    video_ref, collect = _find_video_in_ivod(ivod_ref, video_no)
+    if not video_ref:
+        return
+
+    speech_count = video_ref.collection(models.SPEECH_COLLECT).count().get()[0][0].value
+    if collect == models.VIDEO_COLLECT and speech_count > 0:
+        return
+
+    video: models.Video = models.Video.from_dict(video_ref.get().to_dict())
+    r = readers.VideoReader.open(video.url)
+
+    if r.meta.duration > dt.timedelta(hours=3):
+        logger.warn("Video %s is too long. (> 3 hours)", video.url)
+        return
+
+    video.playlist = r.playlist_url
+    video.start_time = r.meta.start_time
+
+    clips = []
+    temp_mp4 = []
+    bucket = storage.bucket()
+    for i in range(r.clips_count):
+        blob = bucket.blob(f"videos/{video.document_id}/clips/{i}.mp4")
+        mp4 = r.download_mp4(i)
+        temp_mp4.append(mp4)
+        logger.debug("download mp4: %s", mp4)
+        with open(mp4, "rb") as f:
+            blob.upload_from_file(f, content_type="video/mp4")
+        clips.append(f"gs://{bucket.name}/{blob.name}")
+    video.clips = clips
+    video_ref.update(video.asdict())
+    for mp4 in temp_mp4:
+        os.remove(mp4)
+
+
+def _find_video_in_ivod(
+    ivod_ref: document.DocumentReference, video_no: str
+) -> tuple[document.DocumentReference | None, str]:
+    video_ref: document.DocumentReference = ivod_ref.collection(
+        models.VIDEO_COLLECT
+    ).document(video_no)
+    if video_ref.get().exists:
+        return video_ref, models.VIDEO_COLLECT
+
+    video_ref = ivod_ref.collection(models.SPEECH_COLLECT).document(video_no)
+    if video_ref.get().exists:
+        return video_ref, models.SPEECH_COLLECT
+
+    return None, ""

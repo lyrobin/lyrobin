@@ -9,3 +9,9 @@ CLOUD_DOC2TXT_API = StringParam(
     default="http://127.0.0.1:5002",
     description="Cloud Doc2Txt API",
 )
+
+STORAGE_BUCKET = StringParam(
+    name="STORAGE_BUCKET",
+    default="taiwan-legislative-search.appspot.com",
+    description="Storage Bucket",
+)

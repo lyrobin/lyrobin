@@ -5,11 +5,11 @@ Test for legislative_parser.py
 # pylint: disable=missing-function-docstring
 import unittest
 
-import utils
-from utils import testings
-from firebase_admin import firestore
-from legislature import models
 import requests
+import utils
+from firebase_admin import firestore, storage
+from legislature import models
+from utils import testings
 
 
 # fetch_meeting_from_web
@@ -160,6 +160,38 @@ def test_create_proceeding_e2e():
         return "委員 提案第 11005153 號" in m.full_text
 
     testings.wait_until(check_attach_text, timeout=20)
+
+
+@testings.skip_when_no_network
+@testings.disable_background_triggers
+def test_download_video():
+    db = firestore.client()
+    meet_ref = db.collection(models.MEETING_COLLECT).document()
+    meet_ref.set({})
+    ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
+    ivod_ref.set({})
+    video: models.Video = models.Video(
+        url="https://ivod.ly.gov.tw/Play/Clip/300K/152612"
+    )
+    video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
+    video_ref.set(video.asdict())
+    url = utils.get_function_url("downloadVideo")
+    requests.post(
+        url,
+        json={
+            "data": {
+                "meetNo": meet_ref.id,
+                "ivodNo": ivod_ref.id,
+                "videoNo": video_ref.id,
+            }
+        },
+        headers={"content-type": "application/json"},
+        timeout=360,
+    )
+    video = models.Video.from_dict(video_ref.get().to_dict())
+    assert len(video.clips) == 1
+    bucket = storage.bucket()
+    assert bucket.blob(video.clips[0]).exists
 
 
 if __name__ == "__main__":

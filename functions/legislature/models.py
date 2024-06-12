@@ -21,6 +21,9 @@ IVOD_COLLECT = "ivods"
 FILE_COLLECT = "files"
 PROCEEDING_COLLECT = "proceedings"
 ATTACH_COLLECT = "attachments"
+# Sub-collection - ivod
+VIDEO_COLLECT = "videos"
+SPEECH_COLLECT = "speeches"
 
 T = TypeVar("T", bound="FireStoreDocument")
 _TZ = pytz.timezone("Asia/Taipei")
@@ -265,6 +268,9 @@ class Video(FireStoreDocument):
     playlist: str = ""
     start_time: DateTimeField = DateTimeField()
     clips: list[str] = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+        self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex
 
 
 @dataclasses.dataclass

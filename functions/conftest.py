@@ -1,5 +1,6 @@
 """pytest init"""
 
+import os
 import pytest
 
 import firebase_admin
@@ -11,5 +12,6 @@ def initialize_test_environment():
     """
     Initialize the test environment.
     """
+    project = os.environ.get("GCLOUD_PROJECT", "")
     cred = credentials.ApplicationDefault()
-    firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app(cred, {"storageBucket": f"{project}.appspot.com"})

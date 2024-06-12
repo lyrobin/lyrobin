@@ -12,11 +12,11 @@ class CloudRunQueue:
     """Cloud Run Queue"""
 
     def __init__(self, function_name: str):
-        self.function_name = function_name
-        self.queue = functions.task_queue(function_name)
-        self.target = utils.get_function_url(function_name)
-        self.option = functions.TaskOptions(
-            dispatch_deadline_seconds=1800, uri=self.target
+        self._function_name = function_name
+        self._queue = functions.task_queue(function_name)
+        self._target = utils.get_function_url(function_name)
+        self._option = functions.TaskOptions(
+            dispatch_deadline_seconds=1800, uri=self._target
         )
 
     @classmethod
@@ -28,13 +28,13 @@ class CloudRunQueue:
         """Run the task"""
         data = {utils.snake_to_camel(k): v for k, v in kwargs.items()}
         if not testings.is_using_emulators():
-            self.queue.enqueue({"data": data})
+            self._queue.enqueue({"data": data})
             return
         if not testings.is_background_trigger_enabled():
-            logger.debug(f"{self.function_name} isn't forwared.")
+            logger.debug(f"{self._function_name} isn't forwared.")
             return
         res = requests.post(
-            self.target,
+            self._target,
             json={"data": data},
             headers={"content-type": "application/json"},
             timeout=120,
