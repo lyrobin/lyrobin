@@ -194,5 +194,30 @@ def test_download_video():
     assert bucket.blob(video.clips[0]).exists
 
 
+@testings.skip_when_no_network
+def test_on_ivod_video_create():
+    db = firestore.client()
+    meet_ref = db.collection(models.MEETING_COLLECT).document()
+    meet_ref.set({})
+    ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
+    ivod_ref.set({})
+    video: models.Video = models.Video(
+        url="https://ivod.ly.gov.tw/Play/Clip/300K/152575"
+    )
+    video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
+    video_ref.set(video.asdict())
+
+    def check_blob_exist():
+        video = models.Video.from_dict(video_ref.get().to_dict())
+        if len(video.clips) == 0:
+            return False
+        bucket = storage.bucket()
+        return bucket.blob(video.clips[0]).exists
+
+    testings.wait_until(
+        check_blob_exist, timeout=120, message="Fail to download video."
+    )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,7 @@ from legislature import readers
 from utils import testings
 
 # https://ppg.ly.gov.tw/ppg/bills/202110028120000/details
-COMMITEE_PROCEEDING_URL = "legislature_proceeding_2024042201.html"
+COMMITTEE_PROCEEDING_URL = "legislature_proceeding_2024042201.html"
 # https://ppg.ly.gov.tw/ppg/sittings/2024042201/details
 ALL_MEETING_PRCOEDING_URL = "legislature_proceeding_2024041742.html"
 _TZ = pytz.timezone("Asia/Taipei")
@@ -44,7 +44,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         self.assertEqual(r._meeting_no, "2024042201")
 
     def test_get_related_proceedings(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         procs = r.get_related_proceedings()
@@ -61,7 +61,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         )
 
     def test_get_videos_one_video(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         videos = r.get_videos()
@@ -94,14 +94,14 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         self.assertSetEqual(set(names), {"會議影片1", "會議影片2"})
 
     def test_get_attachments(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
-        attachs = r.get_files()
-        urls = [a.url for a in attachs]
-        names = [a.name for a in attachs]
+        attachments = r.get_files()
+        urls = [a.url for a in attachments]
+        names = [a.name for a in attachments]
 
-        self.assertEqual(len(attachs), 2)
+        self.assertEqual(len(attachments), 2)
         self.assertSetEqual(
             set(urls),
             {
@@ -115,9 +115,9 @@ class TestLegislativeMeetingReader(unittest.TestCase):
     def test_get_attachments_with_network(self):
         r = readers.LegislativeMeetingReader.open(self._url, self._qs)
 
-        attachs = r.get_files(allow_download=True)
+        attachments = r.get_files(allow_download=True)
 
-        self.assertEqual(len(attachs), 4)
+        self.assertEqual(len(attachments), 4)
 
     @testings.skip_when_no_network
     def test_get_attachments_with_zip(self):
@@ -126,16 +126,16 @@ class TestLegislativeMeetingReader(unittest.TestCase):
             {"meetingDate": "113/04/09"},
         )
 
-        attachs = r.get_files()
+        attachments = r.get_files()
 
-        self.assertEqual(len(attachs), 4)
+        self.assertEqual(len(attachments), 4)
         self.assertIn(
             "https://ppg.ly.gov.tw/ppg/sittings/download-publication?meetingNo=2024040359",
-            [a.url for a in attachs],
+            [a.url for a in attachments],
         )
 
     def test_get_meeting_name(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         name = r.get_meeting_name()
@@ -143,7 +143,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         self.assertEqual(name, "立法院第11屆第1會期司法及法制委員會第17次全體委員會議")
 
     def test_get_meeting_content(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         content = r.get_meeting_content()
@@ -153,7 +153,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         )
 
     def test_get_meeting_room(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         room = r.get_meeting_room()
@@ -161,7 +161,7 @@ class TestLegislativeMeetingReader(unittest.TestCase):
         self.assertEqual(room, "紅樓302會議室")
 
     def test_get_meeting_date(self):
-        html = _test_file(COMMITEE_PROCEEDING_URL).read_text()
+        html = _test_file(COMMITTEE_PROCEEDING_URL).read_text()
         r = readers.LegislativeMeetingReader(html)
 
         date_desc = r.get_meeting_date_desc()
@@ -538,7 +538,7 @@ class TestVideoReader(unittest.TestCase):
     @testings.skip_when_no_network
     def test_m3u8(self):
         r = readers.VideoReader.open("https://ivod.ly.gov.tw/Play/Clip/300K/152663")
-        assert r._taret_duration == 11
+        assert r._target_duration == 11
         assert r._clip_chunks == 164
         assert r.clips_count == 1
         # assert r._download_mp4() == ""

@@ -24,7 +24,7 @@ import pytz
 import requests
 import textract
 
-_REQUEST_HEADEER = {
+_REQUEST_HEADER = {
     "User-Agent": " ".join(
         [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -111,7 +111,7 @@ class LegislativeMeetingReader:
         """Open a legislative meeting page."""
         if qs is None:
             qs = parse.urlparse(url).params
-        res = requests.get(url, params=qs, timeout=timeout, headers=_REQUEST_HEADEER)
+        res = requests.get(url, params=qs, timeout=timeout, headers=_REQUEST_HEADER)
         if res.status_code != 200:
             raise IOError(f"Failed to open {url}: {res.text}")
         return cls(res.text, url)
@@ -207,7 +207,7 @@ class LegislativeMeetingReader:
         res = requests.get(
             _GET_PROCEEDINGS_API,
             params={"meetingNo": self._meeting_no},
-            headers=_REQUEST_HEADEER,
+            headers=_REQUEST_HEADER,
             timeout=timeout,
         )
         if res.status_code != 200:
@@ -238,8 +238,8 @@ class LegislativeMeetingReader:
 
     def _get_main_section(self) -> bs4.Tag:
         """Get the main section of the page."""
-        outter = self._s.find("section", id="section-0")
-        return outter.find("article")
+        outer = self._s.find("section", id="section-0")
+        return outer.find("article")
 
     def _get_bill_no(self, url: str) -> str:
         """Get the bill number from a URL."""
@@ -276,13 +276,13 @@ class ProceedingReader:
 
     def __init__(self, html: str, url: str):
         self._s = bs4.BeautifulSoup(html, "html.parser")
-        prased_url = parse.urlparse(url)
-        self._origin = f"{prased_url.scheme}://{prased_url.netloc}"
+        parsed_url = parse.urlparse(url)
+        self._origin = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
     @classmethod
     def open(cls, url: str) -> "ProceedingReader":
         """Open a proceedings"""
-        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         return cls(res.text, url)
@@ -331,10 +331,10 @@ class ProceedingReader:
                 return False
             return role in span.string
 
-        psec = sec.find(_is_member_sec)
-        if not psec:
+        member_sec = sec.find(_is_member_sec)
+        if not member_sec:
             return []
-        return [str(l.find("a").string) for l in psec.find_all("li")]
+        return [str(l.find("a").string) for l in member_sec.find_all("li")]
 
     def get_proposers(self) -> list[str]:
         """Get a list of proposers."""
@@ -409,7 +409,7 @@ class IvodReader:
     @classmethod
     def open(cls, url: str):
         """Open an ivod"""
-        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch ivod {url}")
         return cls(res.text, url)
@@ -439,10 +439,10 @@ class IvodReader:
         videos = []
         ptr = self
         for _ in range(max_page):
-            _vidoes = ptr.get_member_speeches(recursive=False)
-            if not _vidoes:
+            _videos = ptr.get_member_speeches(recursive=False)
+            if not _videos:
                 break
-            videos.extend(_vidoes)
+            videos.extend(_videos)
             ptr = ptr.next_page()
         return videos
 
@@ -531,7 +531,7 @@ class VideoReader:
         return self._chunks
 
     @property
-    def _taret_duration(self) -> int:
+    def _target_duration(self) -> int:
         """Get the target duration (in seconds)"""
         if not self.__target_duration:
             self.__target_duration = int(getattr(self.chunks, "target_duration", 0))
@@ -540,7 +540,7 @@ class VideoReader:
     @property
     def _clip_chunks(self) -> int:
         """Number of chunks to a clip"""
-        return math.ceil(self._clip_size.total_seconds() / self._taret_duration)
+        return math.ceil(self._clip_size.total_seconds() / self._target_duration)
 
     @property
     def clips_count(self) -> int:
@@ -560,7 +560,7 @@ class VideoReader:
     @classmethod
     def open(cls, url: str) -> "VideoReader":
         """Open a video"""
-        res = requests.get(url, headers=_REQUEST_HEADEER, timeout=60)
+        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to read video {url}")
         return cls(res.text)
@@ -668,7 +668,7 @@ class DocumentReader:
     def _pdf2txt(url: str) -> str:
         parsed_url = parse.urlparse(url)
         filename = parsed_url.path.split("/")[-1]
-        res = requests.get(url, headers=_REQUEST_HEADEER, stream=True, timeout=1800)
+        res = requests.get(url, headers=_REQUEST_HEADER, stream=True, timeout=1800)
         res.raise_for_status()
 
         with tempfile.TemporaryDirectory() as temp_dir:

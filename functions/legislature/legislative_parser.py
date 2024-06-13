@@ -314,10 +314,10 @@ def _upsert_attachment_content(ref: document.DocumentReference):
 
 
 @firestore_fn.on_document_created(document="meetings/{meetNo}/files/{fileNo}")
-def on_meetings_attched_file_create(
+def on_meetings_attached_file_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
 ):
-    """Handler on meetings attched file create."""
+    """Handler on meetings attached file create."""
     try:
         meet_no = event.params["meetNo"]
         file_no = event.params["fileNo"]
@@ -339,6 +339,7 @@ def on_meetings_attched_file_create(
     rate_limits=RateLimits(max_concurrent_dispatches=20),
 )
 def fetchIVODFromWeb(request: tasks_fn.CallableRequest) -> any:
+    """Handler on fetch ivod from web."""
     try:
         meet_no = request.data["meetNo"]
         ivod_no = request.data["ivodNo"]
@@ -382,6 +383,7 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
 
 @firestore_fn.on_document_created(document="meetings/{meetNo}/ivods/{ivodNo}")
 def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
+    """Handler on meeting ivod create."""
     try:
         meet_no = event.params["meetNo"]
         ivod_no = event.params["ivodNo"]
@@ -397,6 +399,7 @@ def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapsh
     rate_limits=RateLimits(max_concurrent_dispatches=20),
 )
 def downloadVideo(request: tasks_fn.CallableRequest) -> any:
+    """Handler on download video."""
     try:
         meet_no = request.data["meetNo"]
         ivod_no = request.data["ivodNo"]
@@ -465,3 +468,19 @@ def _find_video_in_ivod(
         return video_ref, models.SPEECH_COLLECT
 
     return None, ""
+
+
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}"
+)
+def on_ivod_video_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
+    """Handler on ivod video create."""
+    try:
+        meet_no = event.params["meetNo"]
+        ivod_no = event.params["ivodNo"]
+        video_no = event.params["videoNo"]
+        q = tasks.CloudRunQueue.open("downloadVideo")
+        q.run(meet_no=meet_no, ivod_no=ivod_no, video_no=video_no)
+    except Exception as e:
+        logger.error(f"Fail to on_ivod_video_create: {event.params}")
+        raise RuntimeError(f"Fail to on_ivod_video_create: {event.params}") from e
