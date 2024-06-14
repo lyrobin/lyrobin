@@ -10,7 +10,7 @@ import os
 import requests
 from firebase_admin import firestore, storage
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
-from firebase_functions.options import RateLimits, RetryConfig
+from firebase_functions.options import RateLimits, RetryConfig, MemoryOption
 from google.cloud.firestore_v1 import document
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
 from params import DEFAULT_TIMEOUT_SEC
@@ -39,11 +39,12 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     """
     logger.log("Updating meetings")
     term = request.args.get("term", type=int)
-    logger.debug(f"Term: {term}")
+    period = request.args.get("period", "", type=str)
+    logger.debug(f"Term: {term}, Period: {period}")
     res = requests.get(
         LEGISLATURE_MEETING_INFO_API.value,
         headers=_REQUEST_HEADEER,
-        params={"term": term, "fileType": "json"},
+        params={"term": term, "fileType": "json", "sessionPeriod": period},
         timeout=_DEFAULT_TIMEOUT,
         verify=False,
     )
@@ -62,14 +63,14 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     db = firestore.client()
     data: dict = json.loads(res.text)
     batch = db.batch()
-    collecion = db.collection(models.MEETING_COLLECT)
+    collection = db.collection(models.MEETING_COLLECT)
     count = 0
     for m in data.get("dataList", []):
         try:
             meet: models.Meeting = models.Meeting.from_dict(m)
             if not meet.document_id:
                 continue
-            doc_ref = collecion.document(meet.document_id)
+            doc_ref = collection.document(meet.document_id)
             doc = doc_ref.get()
             if doc.exists and doc != meet:
                 batch.update(doc_ref, meet.asdict())
@@ -397,6 +398,7 @@ def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapsh
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
+    memory=MemoryOption.GB_2,
 )
 def downloadVideo(request: tasks_fn.CallableRequest) -> any:
     """Handler on download video."""

@@ -123,6 +123,12 @@ class FireStoreDocument:
     """
 
     document_id: str = ""
+    ai_summarized: bool = False
+    ai_summarized_at: DateTimeField = DateTimeField()
+    ai_summary: str = ""
+    embedding_vector: list[float] = dataclasses.field(default_factory=list)
+    embedding_updated_at: DateTimeField = DateTimeField()
+    index_updated_at: DateTimeField = DateTimeField()
 
     def __eq__(self, other: object) -> bool:
         if not other.isinstance(self):
