@@ -10,8 +10,8 @@ import math
 import pathlib
 import re
 import tempfile
-from urllib import parse
 from typing import Optional
+from urllib import parse
 
 import bs4
 import ffmpeg
@@ -23,6 +23,9 @@ import params
 import pytz
 import requests
 import textract
+from utils import session
+from firebase_functions import logger
+
 
 _REQUEST_HEADER = {
     "User-Agent": " ".join(
@@ -34,6 +37,7 @@ _REQUEST_HEADER = {
         ]
     ),
 }
+legacy_session = session.new_legacy_session()
 
 _GET_PROCEEDINGS_API = "https://ppg.ly.gov.tw/ppg/api/v1/getProceedingsList"
 
@@ -111,7 +115,9 @@ class LegislativeMeetingReader:
         """Open a legislative meeting page."""
         if qs is None:
             qs = parse.urlparse(url).params
-        res = requests.get(url, params=qs, timeout=timeout, headers=_REQUEST_HEADER)
+        res = legacy_session.get(
+            url, params=qs, timeout=timeout, headers=_REQUEST_HEADER
+        )
         if res.status_code != 200:
             raise IOError(f"Failed to open {url}: {res.text}")
         return cls(res.text, url)
@@ -180,11 +186,16 @@ class LegislativeMeetingReader:
     def get_meeting_content(self):
         """Get the content of the meeting"""
         sec = self._get_main_section()
-        return "\n".join(sec.find("span", class_="card-title").strings)
+        title = sec.find("span", class_="card-title")
+        if title is None:
+            return ""
+        return "\n".join(title.strings)
 
     def get_meeting_room(self):
         """Get the room of the meeting"""
         sec = self._get_main_section()
+        if sec is None:
+            return ""
         return "".join(sec.find("i", class_="fa-map-pin").parent.strings).strip()
 
     def get_meeting_date_desc(self):
@@ -195,6 +206,8 @@ class LegislativeMeetingReader:
             .find("div", class_="row")
             .find(self._is_date_span)
         )
+        if date is None:
+            return ""
         des = date.string
         y, des = des.split("年")
         m, des = des.split("月")
@@ -204,7 +217,7 @@ class LegislativeMeetingReader:
 
     def _fetch_proceedings(self, timeout=60) -> list[AttachmentEntry]:
         """Fetch proceedings with API."""
-        res = requests.get(
+        res = legacy_session.get(
             _GET_PROCEEDINGS_API,
             params={"meetingNo": self._meeting_no},
             headers=_REQUEST_HEADER,
@@ -213,9 +226,10 @@ class LegislativeMeetingReader:
         if res.status_code != 200:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         data: dict[str, str] = res.json()
+        pairs = [pair.split(";") for val in data.values() for pair in val.split(",")]
         return [
             AttachmentEntry(name=name, url=self._prepend_domain_name(url))
-            for url, name in [v.split(";") for v in data.values()]
+            for url, name in pairs
         ]
 
     def _get_badge_name(self, tag: bs4.Tag):
@@ -282,7 +296,7 @@ class ProceedingReader:
     @classmethod
     def open(cls, url: str) -> "ProceedingReader":
         """Open a proceedings"""
-        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         return cls(res.text, url)
@@ -409,7 +423,7 @@ class IvodReader:
     @classmethod
     def open(cls, url: str):
         """Open an ivod"""
-        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch ivod {url}")
         return cls(res.text, url)
@@ -496,6 +510,8 @@ class VideoReader:
     class VideoMeta:
         """Video meta"""
 
+        # The duration here is derived from meta data shown in the webpage.
+        # It could be different to the real video duration.
         duration: dt.timedelta = dataclasses.field(default_factory=dt.timedelta)
         start_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
         end_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
@@ -519,7 +535,7 @@ class VideoReader:
     def playlist(self) -> m3u8.model.M3U8:
         """Get the playlist (m3u8)"""
         if not self._playlist:
-            self._playlist = m3u8.load(self.playlist_url)
+            self._playlist = m3u8.load(self.playlist_url, http_client=self._m3u8_client)
         return self._playlist
 
     @property
@@ -527,7 +543,10 @@ class VideoReader:
         """Get the chunks (m3u8)"""
         if not self._chunks:
             _chunk: m3u8.model.Segment = self.playlist.playlists[0]
-            self._chunks = m3u8.load(parse.urljoin(_chunk.base_uri, _chunk.uri))
+            self._chunks = m3u8.load(
+                parse.urljoin(_chunk.base_uri, _chunk.uri),
+                http_client=self._m3u8_client,
+            )
         return self._chunks
 
     @property
@@ -556,11 +575,12 @@ class VideoReader:
         self._playlist: m3u8.model.M3U8 | None = None
         self._chunks: m3u8.model.M3U8 | None = None
         self.__target_duration = None
+        self._m3u8_client = session.LegacyM3U8Client()
 
     @classmethod
     def open(cls, url: str) -> "VideoReader":
         """Open a video"""
-        res = requests.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to read video {url}")
         return cls(res.text)
@@ -595,12 +615,20 @@ class VideoReader:
             _st, _et = _st.strip(), _et.strip()
             st = dt.datetime.strptime(_st, "%H:%M:%S").time()
             et = dt.datetime.strptime(_et, "%H:%M:%S").time()
+        elif "rsttim" in meta and "rettim" in meta:
+            _st, _et = meta["rsttim"], meta["rettim"]
+            st = dt.datetime.strptime(_st, "%Y-%m-%d %H:%M:%S").time()
+            et = dt.datetime.strptime(_et, "%Y-%m-%d %H:%M:%S").time()
         else:
             st = et = dt.time.min
 
         if "movtim" in meta:
             h, m, s = meta["movtim"].split(":")
             duration = dt.timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+        elif et > st:
+            _st = dt.datetime.combine(meet_date, st)
+            _et = dt.datetime.combine(meet_date, et)
+            duration = _et - _st
         else:
             duration = dt.timedelta.min
 
@@ -617,6 +645,7 @@ class VideoReader:
             clip_index (int, optional): The clip index to download,
                 use -1 to download the full clips. Defaults to -1.
         """
+        logger.debug(f"download_mp4: {clip_index}")
         if clip_index < 0:
             return self._download_mp4()
         idx = clip_index * self._clip_chunks
@@ -625,17 +654,19 @@ class VideoReader:
         chunks = self.chunks.segments[idx : idx + self._clip_chunks]
         if not chunks:
             raise IndexError(f"clip index {clip_index} out of range")
-        streams = [ffmpeg.input(parse.urljoin(c.base_uri, c.uri)) for c in chunks]
+        streams = [
+            ffmpeg.input(parse.urljoin(c.base_uri, c.uri), tls_verify=0) for c in chunks
+        ]
         _, o = tempfile.mkstemp(suffix=".mp4")
         pipe = ffmpeg.concat(*streams)
-        pipe = ffmpeg.output(pipe, o)
+        pipe = ffmpeg.output(pipe, o, tls_verify=0)
         ffmpeg.overwrite_output(pipe).run()
         return o
 
     def _download_mp4(self) -> str:
-        i = ffmpeg.input(self.playlist_url)
+        i = ffmpeg.input(self.playlist_url, tls_verify=0)
         _, o = tempfile.mkstemp(suffix=".mp4")
-        out = ffmpeg.output(i, o)
+        out = ffmpeg.output(i, o, tls_verify=0)
         ffmpeg.overwrite_output(out).run()
         return o
 
@@ -655,7 +686,7 @@ class DocumentReader:
     @classmethod
     def open(cls, url: str) -> Optional["DocumentReader"]:
         """Open a document"""
-        parsed_url = parse.urlparse(url)
+        parsed_url = parse.urlparse(url.replace("\\", "/"))
         suffix = pathlib.Path(parsed_url.path).suffix
         if suffix == ".pdf":
             return cls(url, cls._pdf2txt(url))
@@ -668,7 +699,9 @@ class DocumentReader:
     def _pdf2txt(url: str) -> str:
         parsed_url = parse.urlparse(url)
         filename = parsed_url.path.split("/")[-1]
-        res = requests.get(url, headers=_REQUEST_HEADER, stream=True, timeout=1800)
+        res = legacy_session.get(
+            url, headers=_REQUEST_HEADER, stream=True, timeout=1800
+        )
         res.raise_for_status()
 
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -541,10 +541,17 @@ class TestVideoReader(unittest.TestCase):
         assert r._target_duration == 11
         assert r._clip_chunks == 164
         assert r.clips_count == 1
-        # assert r._download_mp4() == ""
         r.set_clip_size(dt.timedelta(seconds=30))
         assert r.clips_count == 9
-        # assert r.download_mp4(1) == ""
+
+    @testings.skip_when_no_network
+    def test_video_without_mov_time(self):
+        r = readers.VideoReader.open("https://ivod.ly.gov.tw/Play/Full/300K/15664")
+
+        assert r.meta.start_time == dt.datetime(
+            year=2024, month=2, day=1, hour=7, minute=45, second=2, tzinfo=_TZ
+        )
+        assert r.meta.duration == dt.timedelta(seconds=34318)
 
 
 class TestDocumentReader(unittest.TestCase):

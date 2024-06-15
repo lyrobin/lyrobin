@@ -24,14 +24,16 @@ class CloudRunQueue:
         """Open a queue"""
         return cls(function_name)
 
+    @utils.refresh_credentials
     def run(self, **kwargs):
         """Run the task"""
         data = {utils.snake_to_camel(k): v for k, v in kwargs.items()}
         if not testings.is_using_emulators():
-            self._queue.enqueue({"data": data})
+            task_id = self._queue.enqueue({"data": data}, self._option)
+            logger.debug(f"task_id({self._target}): {task_id}")
             return
         if not testings.is_background_trigger_enabled():
-            logger.debug(f"{self._function_name} isn't forwared.")
+            logger.debug(f"{self._function_name} isn't forwarded.")
             return
         res = requests.post(
             self._target,

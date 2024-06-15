@@ -288,6 +288,7 @@ class Attachment(FireStoreDocument):
     full_text: str = ""
 
     def __post_init__(self):
+        self.url = self.url.replace("\\", "/")
         self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex
 
 

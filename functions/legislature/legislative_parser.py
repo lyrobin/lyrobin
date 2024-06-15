@@ -7,14 +7,18 @@ import json
 import logging
 import os
 
-import requests
 from firebase_admin import firestore, storage
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
-from firebase_functions.options import RateLimits, RetryConfig, MemoryOption
+from firebase_functions.options import (
+    MemoryOption,
+    RateLimits,
+    RetryConfig,
+    SupportedRegion,
+)
 from google.cloud.firestore_v1 import document
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
 from params import DEFAULT_TIMEOUT_SEC
-from utils import tasks
+from utils import session, tasks
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
 _REQUEST_HEADEER = {
@@ -27,9 +31,10 @@ _REQUEST_HEADEER = {
         ]
     ),
 }
+_REGION = SupportedRegion.ASIA_EAST1
 
 
-@https_fn.on_request()
+@https_fn.on_request(region=_REGION)
 def update_meetings(request: https_fn.Request) -> https_fn.Response:
     """
     Update the meetings in the database.
@@ -40,13 +45,13 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     logger.log("Updating meetings")
     term = request.args.get("term", type=int)
     period = request.args.get("period", "", type=str)
+    limit = request.args.get("limit", 0, type=int)
     logger.debug(f"Term: {term}, Period: {period}")
-    res = requests.get(
+    res = session.new_legacy_session().get(
         LEGISLATURE_MEETING_INFO_API.value,
         headers=_REQUEST_HEADEER,
         params={"term": term, "fileType": "json", "sessionPeriod": period},
         timeout=_DEFAULT_TIMEOUT,
-        verify=False,
     )
     if res.status_code != 200:
         logger.error(f"Error getting meetSings: {res.status_code}")
@@ -65,7 +70,10 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     batch = db.batch()
     collection = db.collection(models.MEETING_COLLECT)
     count = 0
-    for m in data.get("dataList", []):
+    data_list = data.get("dataList", [])
+    if limit > 0 and len(data_list) > limit:
+        data_list = data_list[0:limit]
+    for m in data_list:
         try:
             meet: models.Meeting = models.Meeting.from_dict(m)
             if not meet.document_id:
@@ -87,8 +95,8 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     )
 
 
-@firestore_fn.on_document_created(document="meetings/{meetNo}")
-def fetch_meeting_when_created(
+@firestore_fn.on_document_created(document="meetings/{meetNo}", region=_REGION)
+def on_meeting_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
 ):
     """Fetch the meeting from the web."""
@@ -117,6 +125,8 @@ def _fetch_meeting_when_created(
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
+    region=_REGION,
+    timeout_sec=300,
 )
 def fetchMeetingFromWeb(request: tasks_fn.CallableRequest) -> any:
     """Fetch the meeting from the web."""
@@ -156,7 +166,14 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     if r.get_meeting_date_desc() and not meet.meeting_date_desc:
         meet.meeting_date_desc = r.get_meeting_date_desc()
 
-    ivods = [models.IVOD(name=v.name, url=v.url) for v in r.get_videos()]
+    ivods = []
+    for v in r.get_videos():
+        try:
+            m = models.IVOD(name=v.name, url=v.url)
+            ivods.append(m)
+        except ValueError as e:
+            logger.error(f"Error parsing IVOD: {v}, error: {e}")
+
     meeting_files = [
         models.MeetingFile(name=a.name, url=a.url)
         for a in r.get_files(allow_download=True)
@@ -169,20 +186,26 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     meet.last_update_time = dt.datetime.now(dt.timezone.utc)
     meet_doc_ref.update(meet.asdict())
 
+    batch = db.batch()
+
     ivods_collect = meet_doc_ref.collection(models.IVOD_COLLECT)
     for v in ivods:
-        ivods_collect.document(v.document_id).set(v.asdict(), merge=True)
+        batch.set(ivods_collect.document(v.document_id), v.asdict(), merge=True)
 
     files_collect = meet_doc_ref.collection(models.FILE_COLLECT)
     for f in meeting_files:
-        files_collect.document(f.document_id).set(f.asdict(), merge=True)
+        batch.set(files_collect.document(f.document_id), f.asdict(), merge=True)
 
     proceedings_collect = meet_doc_ref.collection(models.PROCEEDING_COLLECT)
     for p in proceedings:
-        proceedings_collect.document(p.document_id).set(p.asdict(), merge=True)
+        batch.set(proceedings_collect.document(p.document_id), p.asdict(), merge=True)
+
+    batch.commit()
 
 
-@firestore_fn.on_document_created(document="meetings/{meetNo}/proceedings/{billNo}")
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}/proceedings/{billNo}", region=_REGION
+)
 def on_meeting_proceedings_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
 ):
@@ -215,6 +238,8 @@ def _on_meeting_proceedings_create(meet_no: str, bill_no: str):
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
+    region=_REGION,
+    timeout_sec=300,
 )
 def fetchProceedingFromWeb(request: tasks_fn.CallableRequest) -> any:
     try:
@@ -278,7 +303,9 @@ def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
 
 
 @firestore_fn.on_document_created(
-    document="proceedings/{procNo}/attachments/{attachNo}"
+    document="proceedings/{procNo}/attachments/{attachNo}",
+    region=_REGION,
+    memory=MemoryOption.GB_2,
 )
 def on_proceedings_attachment_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
@@ -314,7 +341,11 @@ def _upsert_attachment_content(ref: document.DocumentReference):
     ref.update(attach.asdict())
 
 
-@firestore_fn.on_document_created(document="meetings/{meetNo}/files/{fileNo}")
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}/files/{fileNo}",
+    region=_REGION,
+    memory=MemoryOption.GB_2,
+)
 def on_meetings_attached_file_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
 ):
@@ -338,6 +369,8 @@ def on_meetings_attached_file_create(
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
+    region=_REGION,
+    timeout_sec=300,
 )
 def fetchIVODFromWeb(request: tasks_fn.CallableRequest) -> any:
     """Handler on fetch ivod from web."""
@@ -369,20 +402,24 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
     batch = db.batch()
 
     for v in videos:
-        batch.update(
+        batch.set(
             ref.collection(models.VIDEO_COLLECT).document(v.document_id),
             v.asdict(),
+            merge=True,
         )
 
     for v in speeches:
-        batch.update(
+        batch.set(
             ref.collection(models.SPEECH_COLLECT).document(v.document_id),
             v.asdict(),
+            merge=True,
         )
     batch.commit()
 
 
-@firestore_fn.on_document_created(document="meetings/{meetNo}/ivods/{ivodNo}")
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}/ivods/{ivodNo}", region=_REGION
+)
 def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
     """Handler on meeting ivod create."""
     try:
@@ -396,9 +433,14 @@ def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapsh
 
 
 @tasks_fn.on_task_dispatched(
-    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=300),
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
-    memory=MemoryOption.GB_2,
+    cpu=4,
+    memory=MemoryOption.GB_4,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=30,
+    concurrency=2,
 )
 def downloadVideo(request: tasks_fn.CallableRequest) -> any:
     """Handler on download video."""
@@ -430,27 +472,47 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str):
         return
 
     video: models.Video = models.Video.from_dict(video_ref.get().to_dict())
+    logger.debug(f"Open video: {video.url}")
     r = readers.VideoReader.open(video.url)
 
     if r.meta.duration > dt.timedelta(hours=3):
         logger.warn("Video %s is too long. (> 3 hours)", video.url)
         return
-
+    elif r.meta.duration <= dt.timedelta.min:
+        logger.warn("Video %s doesn't have duration info, skip it.", video.url)
+        return
+    logger.debug(f"Prepare to download video: {video.url}")
     video.playlist = r.playlist_url
     video.start_time = r.meta.start_time
 
     clips = []
     temp_mp4 = []
     bucket = storage.bucket()
-    for i in range(r.clips_count):
+
+    def _upload_clip(i: int) -> str:
         blob = bucket.blob(f"videos/{video.document_id}/clips/{i}.mp4")
+        gs_path = f"gs://{bucket.name}/{blob.name}"
+        if blob.exists():
+            logger.warn(
+                f"blob exists: {gs_path}, remove blobs if you've changed the clip size."
+            )
+            return gs_path
         mp4 = r.download_mp4(i)
-        temp_mp4.append(mp4)
         logger.debug("download mp4: %s", mp4)
         with open(mp4, "rb") as f:
             blob.upload_from_file(f, content_type="video/mp4")
-        clips.append(f"gs://{bucket.name}/{blob.name}")
-    video.clips = clips
+        try:
+            os.remove(mp4)
+        except (OSError, FileNotFoundError, IOError) as e:
+            temp_mp4.append(mp4)
+            logger.error(e)
+        return gs_path
+
+    for i in range(min(r.clips_count, 10)):
+        # Safe guarded, prevent downloading too many chunks.
+        clips.append(_upload_clip(i))
+    if clips:
+        video.clips = clips
     video_ref.update(video.asdict())
     for mp4 in temp_mp4:
         os.remove(mp4)
@@ -473,7 +535,7 @@ def _find_video_in_ivod(
 
 
 @firestore_fn.on_document_created(
-    document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}"
+    document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}", region=_REGION
 )
 def on_ivod_video_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
     """Handler on ivod video create."""

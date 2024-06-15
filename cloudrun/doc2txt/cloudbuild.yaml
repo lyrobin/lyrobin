@@ -28,7 +28,9 @@ steps:
         "--region",
         "${LOCATION}",
         "--timeout",
-        "30m"
+        "30m",
+        "--memory",
+        "2G"
       ]
 images:
   - ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/doc2txt

@@ -1,9 +1,14 @@
 """Utilities for interacting with Google Cloud Functions."""
 
+import functools
 import os
 import re
+
+import firebase_admin
 import google.auth
+import google.auth.transport.requests
 from firebase_functions.options import SupportedRegion
+from google.auth import credentials
 from google.auth.transport.requests import AuthorizedSession
 from utils import testings
 
@@ -30,7 +35,7 @@ def camel_to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
-def get_function_url(name: str, location: str = SupportedRegion.US_CENTRAL1) -> str:
+def get_function_url(name: str, location: str = SupportedRegion.ASIA_EAST1) -> str:
     """Get the URL of a given v2 cloud function.
 
     Params:
@@ -55,3 +60,19 @@ def get_function_url(name: str, location: str = SupportedRegion.US_CENTRAL1) -> 
     data = response.json()
     function_url = data["serviceConfig"]["uri"]
     return function_url
+
+
+def refresh_credentials(func):
+    """
+    Refresh the credentials of the app.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        req = google.auth.transport.requests.Request()
+        app: firebase_admin.App = firebase_admin.get_app()
+        cred: credentials.Credentials = app.credential.get_credential()
+        cred.refresh(req)
+        return func(*args, **kwargs)
+
+    return wrapper
