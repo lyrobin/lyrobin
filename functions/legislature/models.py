@@ -49,6 +49,9 @@ class IntField:
         return getattr(instance, self._name, self._default)
 
     def __set__(self, instance: object, value: any) -> None:
+        if isinstance(value, type(self)):
+            setattr(instance, self._name, value._default)
+            return
         try:
             setattr(instance, self._name, int(value))
         except TypeError as err:
@@ -98,6 +101,8 @@ class DateTimeField:
     def __set__(self, instance: object, value: str | dt.datetime | None) -> None:
         if value is None:
             setattr(instance, self._name, dt.datetime.min)
+        elif isinstance(value, type(self)):
+            setattr(instance, self._name, value._default)
         elif isinstance(value, dt.datetime):
             if value.tzinfo is None:
                 value = value.replace(tzinfo=_TZ)
@@ -128,7 +133,7 @@ class FireStoreDocument:
     ai_summary: str = ""
     embedding_vector: list[float] = dataclasses.field(default_factory=list)
     embedding_updated_at: DateTimeField = DateTimeField()
-    index_updated_at: DateTimeField = DateTimeField()
+    last_update_time: DateTimeField = DateTimeField()
 
     def __eq__(self, other: object) -> bool:
         if not other.isinstance(self):
@@ -210,7 +215,6 @@ class Meeting(FireStoreDocument):
     meeting_content: str = ""
     co_chairman: str = ""
     attend_legislator: str = ""
-    last_update_time: DateTimeField = DateTimeField()
 
     def __post_init__(self):
         self.document_id = self.meeting_no
@@ -308,12 +312,12 @@ class Proceeding(FireStoreDocument):
     name: str = ""
     url: str = ""
     bill_no: str = ""
-    last_update_time: DateTimeField = DateTimeField()
     related_bills: list[str] = dataclasses.field(default_factory=list)
     proposers: list[str] = dataclasses.field(default_factory=list)
     sponsors: list[str] = dataclasses.field(default_factory=list)
     status: str = ""
     progress: list[dict] = dataclasses.field(default_factory=list)
+    created_date: DateTimeField = DateTimeField()
 
     def __post_init__(self):
         self.document_id = self.bill_no

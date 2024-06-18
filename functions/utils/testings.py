@@ -13,7 +13,8 @@ from firebase_functions import logger
 
 def is_using_emulators():
     """Check if we're using firebase emulators."""
-    return os.environ.get("FIREBASE_EMULATOR_HUB") is not None
+    host = os.environ.get("FIREBASE_EMULATOR_HUB")
+    return host is not None and host != ""
 
 
 def is_background_trigger_enabled():

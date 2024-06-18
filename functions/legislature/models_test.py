@@ -41,8 +41,18 @@ class TestModels(unittest.TestCase):
 
     def test_firebase_document_to_dict(self):
         doc = self.TestDocument(name="test")
-
-        self.assertEqual(doc.asdict(), {"name": "test"})
+        self.assertEqual(
+            doc.asdict(),
+            {
+                "name": "test",
+                "ai_summarized": False,
+                "ai_summarized_at": dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+                "embedding_updated_at": dt.datetime(
+                    1, 1, 1, 0, 0, tzinfo=dt.timezone.utc
+                ),
+                "last_update_time": dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+            },
+        )
 
     def test_meeting_convert_type(self):
         m: models.Meeting = models.Meeting.from_dict(self._TEST_MEETING)

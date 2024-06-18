@@ -269,42 +269,42 @@ read_proeedings_testcases = [
         progress=[
             readers.StepEntry(
                 name="排入院會 (交司法及法制委員會)",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09;院會",
                 title="院會 11-01-08",
             ),
             readers.StepEntry(
                 name="交付審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09;院會",
                 title="院會 11-01-08",
             ),
             readers.StepEntry(
                 name="委員會審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041640;113/04/18",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041640;113/04/18;司法及法制委員會",
                 title="司法及法制委員會",
             ),
             readers.StepEntry(
                 name="委員會審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25;司法及法制委員會",
                 title="司法及法制委員會",
             ),
             readers.StepEntry(
                 name="委員會抽出逕付二讀(交付協商)",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-12;113/05/03",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-12;113/05/03;院會",
                 title="院會 11-01-12",
             ),
             readers.StepEntry(
                 name="排入院會(討論事項)",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-14;113/05/17",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-14;113/05/17;院會",
                 title="院會 11-01-14",
             ),
             readers.StepEntry(
                 name="排入院會(討論事項)",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24;院會",
                 title="院會 11-01-15",
             ),
             readers.StepEntry(
                 name="三讀",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-15;113/05/24;院會",
                 title="院會 11-01-15",
             ),
         ],
@@ -350,22 +350,22 @@ read_proeedings_testcases = [
         progress=[
             readers.StepEntry(
                 name="排入院會 (交司法及法制委員會)",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09;院會",
                 title="院會 11-01-08",
             ),
             readers.StepEntry(
                 name="交付審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=11-01-08;113/04/09;院會",
                 title="院會 11-01-08",
             ),
             readers.StepEntry(
                 name="委員會審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041973;113/04/22",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024041973;113/04/22;司法及法制委員會",
                 title="司法及法制委員會",
             ),
             readers.StepEntry(
                 name="委員會審查",
-                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25",
+                url="https://ppg.ly.gov.tw/ppg/sittings/meetingLink/?id=2024042201;113/04/25;司法及法制委員會",
                 title="司法及法制委員會",
             ),
             readers.StepEntry(name="委員會發文", title="司法及法制委員會", url=""),

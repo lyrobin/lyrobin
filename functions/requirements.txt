@@ -79,6 +79,7 @@ sortedcontainers==2.4.0
 soupsieve==2.5
 SpeechRecognition==3.8.1
 textract==1.6.5
+typesense==0.21.0
 typing_extensions==4.12.0
 tzlocal==5.2
 uritemplate==4.1.1

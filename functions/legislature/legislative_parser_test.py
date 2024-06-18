@@ -4,12 +4,14 @@ Test for legislative_parser.py
 
 # pylint: disable=missing-function-docstring
 import unittest
+import datetime as dt
 
 import requests
 import utils
 from firebase_admin import firestore, storage
 from legislature import models
 from utils import testings
+from google.cloud.firestore import DocumentReference
 
 
 # fetch_meeting_from_web
@@ -197,10 +199,16 @@ def test_download_video():
 @testings.skip_when_no_network
 def test_on_ivod_video_create():
     db = firestore.client()
-    meet_ref = db.collection(models.MEETING_COLLECT).document()
-    meet_ref.set({})
-    ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
-    ivod_ref.set({})
+
+    @testings.disable_background_triggers
+    def init():
+        meet_ref = db.collection(models.MEETING_COLLECT).document()
+        meet_ref.set({})
+        ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
+        ivod_ref.set({})
+        return ivod_ref
+
+    ivod_ref = init()
     video: models.Video = models.Video(
         url="https://ivod.ly.gov.tw/Play/Clip/300K/152575"
     )
@@ -217,6 +225,20 @@ def test_on_ivod_video_create():
     testings.wait_until(
         check_blob_exist, timeout=120, message="Fail to download video."
     )
+
+
+def test_on_meeting_update_create_index():
+
+    db = firestore.client()
+
+    @testings.disable_background_triggers
+    def init() -> DocumentReference:
+        ref = db.collection(models.MEETING_COLLECT).document()
+        ref.set({})
+        return ref
+
+    ref = init()
+    ref.update({"ai_summary": "fake ai summary"})
 
 
 if __name__ == "__main__":

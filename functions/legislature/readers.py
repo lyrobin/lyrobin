@@ -82,7 +82,7 @@ class StepEntry:
         if not _id:
             return
         _id = _id[0]
-        self.meeting_id, self.date = _id.split(";")
+        self.meeting_id, self.date = _id.split(";")[0:2]
 
 
 @dataclasses.dataclass(unsafe_hash=True)

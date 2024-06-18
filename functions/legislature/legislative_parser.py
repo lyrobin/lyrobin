@@ -16,9 +16,15 @@ from firebase_functions.options import (
     SupportedRegion,
 )
 from google.cloud.firestore_v1 import document
+import google.cloud.firestore
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
-from params import DEFAULT_TIMEOUT_SEC
+from params import (
+    DEFAULT_TIMEOUT_SEC,
+    TYPESENSE_API_KEY,
+)
 from utils import session, tasks
+from search import client as search_client
+
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
 _REQUEST_HEADEER = {
@@ -95,7 +101,9 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     )
 
 
-@firestore_fn.on_document_created(document="meetings/{meetNo}", region=_REGION)
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+)
 def on_meeting_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
 ):
@@ -112,14 +120,32 @@ def _fetch_meeting_when_created(
 ):
     """Fetch the meeting from the web."""
     db = firestore.client()
+    se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
     meet_no = event.params["meetNo"]
     meet_ref = db.collection(models.MEETING_COLLECT).document(meet_no)
     meet_doc = meet_ref.get()
     if not meet_doc.exists:
         raise RuntimeError(f"Meeting {meet_no} does not exist.")
     meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
+    se.index(meet_ref.path, search_client.DocType.MEETING)
     q = tasks.CloudRunQueue.open("fetchMeetingFromWeb")
     q.run(meet_no=meet_no, url=meet.get_url())
+
+
+@firestore_fn.on_document_updated(
+    document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+)
+def on_meeting_update(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+):
+    """Update the meeting."""
+    try:
+        se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+        meet_no = event.params["meetNo"]
+        se.index(f"{models.MEETING_COLLECT}/{meet_no}", search_client.DocType.MEETING)
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(f"Failed when updating meeting. {event.params}") from e
 
 
 @tasks_fn.on_task_dispatched(
@@ -196,9 +222,13 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     for f in meeting_files:
         batch.set(files_collect.document(f.document_id), f.asdict(), merge=True)
 
+    root_proceedings_collect = db.collection(models.PROCEEDING_COLLECT)
     proceedings_collect = meet_doc_ref.collection(models.PROCEEDING_COLLECT)
     for p in proceedings:
         batch.set(proceedings_collect.document(p.document_id), p.asdict(), merge=True)
+        batch.set(
+            root_proceedings_collect.document(p.document_id), p.asdict(), merge=True
+        )
 
     batch.commit()
 
@@ -249,6 +279,30 @@ def fetchProceedingFromWeb(request: tasks_fn.CallableRequest) -> any:
         raise RuntimeError(f"Error fetching proceeding: {request.data}") from e
 
 
+def _find_proceeding_created_date(
+    db: google.cloud.firestore.Client, m: models.Proceeding
+) -> dt.datetime:
+    proceedings = (
+        db.collection_group(models.PROCEEDING_COLLECT)
+        .where("bill_no", "==", m.bill_no)
+        .limit(100)
+        .stream()
+    )
+    created_date: dt.datetime = dt.datetime.max
+    for proc in proceedings:
+        proc_ref: document.DocumentReference = proc.reference
+        if not proc_ref.path.startswith(models.MEETING_COLLECT):
+            continue
+        meet_ref = db.document("/".join(proc_ref.path.split("/")[0:2]))
+        meet_doc = meet_ref.get()
+        if not meet_doc.exists:
+            continue
+        meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
+        if meet.meeting_date_start < created_date:
+            created_date = meet.meeting_date_start
+    return created_date
+
+
 def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
     bill_no: int = request.data["billNo"]
     url: str = request.data["url"]
@@ -294,6 +348,7 @@ def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
     if progress:
         proc.progress = progress
 
+    proc.created_date = _find_proceeding_created_date(db, proc)
     proc.last_update_time = dt.datetime.now()
     proc_ref.update(proc.asdict())
 
