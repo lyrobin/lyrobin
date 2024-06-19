@@ -75,6 +75,16 @@ class Document:
         return result
 
 
+class SearchResult:
+
+    def __init__(self, result: dict):
+        self._result = result
+
+    @property
+    def hit_count(self) -> int:
+        return self._result["found"]
+
+
 class DocumentSearchEngine:
     """Document Typesense search engine client."""
 
@@ -118,6 +128,19 @@ class DocumentSearchEngine:
             raise FileNotFoundError(f"Can't find {doc_path}.")
         target = self._convert_to_indexable_document(doc, doc_type)
         self._client.collections["documents"].documents.upsert(target.to_dict())
+
+    def query(self, query: str, query_by="*", filter_by="") -> SearchResult:
+        """Query documents."""
+        res = self._client.collections["documents"].documents.search(
+            {
+                "q": query,
+                "query_by": query_by,
+                "include_fields": "id",
+                "highlight_fields": "name,summary",
+                "filter_by": filter_by,
+            }
+        )
+        return SearchResult(res)
 
     def create_collection(self, schema: dict):
         """Create a collection.
@@ -195,7 +218,7 @@ class DocumentSearchEngine:
         m: models.MeetingFile = models.MeetingFile.from_dict(doc.to_dict())
 
         def get_create_date() -> dt.datetime:
-            if not ref.path.startswith(models.Meeting):
+            if not ref.path.startswith(models.MEETING_COLLECT):
                 return dt.datetime.min
             meet_ref = self._db.document("/".join(ref.path.split("/")[0:2]))
             meet_doc = meet_ref.get()
@@ -218,7 +241,7 @@ class DocumentSearchEngine:
         m: models.Attachment = models.Attachment.from_dict(doc.to_dict())
 
         def get_create_date() -> dt.datetime:
-            if ref.path.startswith(models.Proceeding):
+            if ref.path.startswith(models.PROCEEDING_COLLECT):
                 _doc = self._db.document("/".join(ref.path.split("/")[0:2])).get()
                 if not _doc.exists:
                     return dt.datetime.min
