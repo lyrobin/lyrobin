@@ -603,3 +603,37 @@ def on_ivod_video_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot
     except Exception as e:
         logger.error(f"Fail to on_ivod_video_create: {event.params}")
         raise RuntimeError(f"Fail to on_ivod_video_create: {event.params}") from e
+
+
+@firestore_fn.on_document_created(
+    document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+)
+def on_proceeding_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    try:
+        proc_no = event.params["procNo"]
+        se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+        se.index(
+            f"{models.PROCEEDING_COLLECT}/{proc_no}", search_client.DocType.PROCEEDING
+        )
+    except Exception as e:
+        logger.error(f"Fail on_proceeding_create: {event.params}")
+        raise RuntimeError(f"Fail on_proceeding_create: {event.params}") from e
+
+
+@firestore_fn.on_document_updated(
+    document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+)
+def on_proceeding_update(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+):
+    try:
+        proc_no = event.params["procNo"]
+        se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+        se.index(
+            f"{models.PROCEEDING_COLLECT}/{proc_no}", search_client.DocType.PROCEEDING
+        )
+    except Exception as e:
+        logger.error("Fail on_proceeding_update: %s", event.params)
+        raise RuntimeError(f"Fail on_proceeding_update: {event.params}") from e

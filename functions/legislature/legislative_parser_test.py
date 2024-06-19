@@ -4,7 +4,6 @@ Test for legislative_parser.py
 
 # pylint: disable=missing-function-docstring
 import unittest
-import datetime as dt
 
 import requests
 import utils
@@ -12,6 +11,7 @@ from firebase_admin import firestore, storage
 from legislature import models
 from utils import testings
 from google.cloud.firestore import DocumentReference
+import search.client as search_client
 
 
 # fetch_meeting_from_web
@@ -238,7 +238,16 @@ def test_on_meeting_update_create_index():
         return ref
 
     ref = init()
-    ref.update({"ai_summary": "fake ai summary"})
+    ref.update({"ai_summary": ref.id})
+
+    def document_indexed() -> bool:
+        client = search_client.DocumentSearchEngine.create("xyz")
+        res = client.query(ref.id)
+        return res.hit_count > 0
+
+    testings.wait_until(
+        document_indexed, timeout=10, message="Fail to create document index."
+    )
 
 
 if __name__ == "__main__":
