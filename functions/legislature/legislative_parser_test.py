@@ -250,5 +250,23 @@ def test_on_meeting_update_create_index():
     )
 
 
+def test_on_meeting_file_update_index():
+    db = firestore.client()
+    se = search_client.DocumentSearchEngine.create("xyz")
+
+    @testings.disable_background_triggers
+    def init() -> DocumentReference:
+        meet_ref = db.collection(models.MEETING_COLLECT).document()
+        meet_ref.set({})
+        file_ref = meet_ref.collection(models.FILE_COLLECT).document()
+        file_ref.set({})
+        return file_ref
+
+    file_ref = init()
+    assert se.query("document").hit_count == 0
+    file_ref.update({"ai_summary": "document"})
+    testings.wait_until(lambda: se.query("document").hit_count == 1)
+
+
 if __name__ == "__main__":
     unittest.main()

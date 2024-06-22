@@ -20,6 +20,13 @@ DOCUMENT_SCHEMA_V1 = {
             "num_dim": 768,
             "optional": True,
         },
+        {"name": "name", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "summary", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "content", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "chairman", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "status", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "proposers", "type": "string[]", "optional": True, "locale": "zh"},
+        {"name": "sponsors", "type": "string[]", "optional": True, "locale": "zh"},
         {"name": ".*", "type": "auto"},
     ],
 }
@@ -44,7 +51,7 @@ class DocType(Enum):
 class Document:
     """Typesense Document class."""
 
-    id: str = ""
+    path: str = ""
     doc_type: str = ""
     name: str = ""
     summary: str = ""
@@ -181,7 +188,7 @@ class DocumentSearchEngine:
         ref: DocumentReference = doc.reference
         m: models.Meeting = models.Meeting.from_dict(doc.to_dict())
         return Document(
-            id=ref.path,
+            path=ref.path,
             doc_type=models.Meeting.__name__.lower(),
             name=m.meeting_name,
             summary=m.ai_summary[0:SUMMARY_MAX_LENGTH],
@@ -200,7 +207,7 @@ class DocumentSearchEngine:
         ref: DocumentReference = doc.reference
         m: models.Proceeding = models.Proceeding.from_dict(doc.to_dict())
         return Document(
-            id=ref.path,
+            path=ref.path,
             doc_type=models.Proceeding.__name__.lower(),
             name=m.name,
             summary=m.ai_summary[0:SUMMARY_MAX_LENGTH],
@@ -228,10 +235,11 @@ class DocumentSearchEngine:
             return meet.meeting_date_start
 
         return Document(
-            id=ref.path,
+            path=ref.path,
             doc_type=models.MeetingFile.__name__.lower(),
             name=m.name,
             summary=m.ai_summary[0:SUMMARY_MAX_LENGTH],
+            content=m.full_text if len(m.full_text) < CONTENT_MAX_LENGTH else "",
             created_date=get_create_date(),
             vector=m.embedding_vector,
         )
@@ -250,10 +258,11 @@ class DocumentSearchEngine:
                 return dt.datetime.min
 
         return Document(
-            id=ref.path,
+            path=ref.path,
             doc_type=models.Attachment.__name__.lower(),
             name=m.name,
             summary=m.ai_summary,
+            content=m.full_text if len(m.full_text) < CONTENT_MAX_LENGTH else "",
             created_date=get_create_date(),
             vector=m.embedding_vector,
         )

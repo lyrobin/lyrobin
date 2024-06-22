@@ -1,13 +1,24 @@
 import os
+import pathlib
+import subprocess
 import tempfile
 from urllib import parse
-import pathlib
-import requests
-import subprocess
+import logging
+import google.cloud.logging
+import google.auth.exceptions
 
+import requests
 from flask import Flask, Response, request
 
 app = Flask(__name__)
+try:
+    client = google.cloud.logging.Client()
+    client.setup_logging()
+    handler = google.cloud.logging.handlers.CloudLoggingHandler(client)
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().addHandler(handler)
+except google.auth.exceptions.DefaultCredentialsError:
+    logging.error("Failed to initialize cloud logging")
 
 _REQUEST_HEADEER = {
     "User-Agent": " ".join(
@@ -25,19 +36,27 @@ def soffice_convert_doc(file: pathlib.Path) -> pathlib.Path:
     """
     Convert a DOC file to a plain text file with libreoffice.
     """
-    subprocess.run(
-        [
-            "soffice",
-            "--headless",
-            "--convert-to",
-            "txt:Text",
-            "--outdir",
-            file.parent.as_posix(),
-            file.as_posix(),
-        ],
-        check=True,
-    )
-    return file.with_suffix(".txt")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = subprocess.run(
+            [
+                "soffice",
+                "--headless",
+                f"-env:UserInstallation=file://{tmpdir}",
+                "--convert-to",
+                "txt:Text",
+                "--outdir",
+                file.parent.as_posix(),
+                file.as_posix(),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            logging.info(result.stdout)
+            logging.error(result.stderr)
+            raise RuntimeError(result.stderr)
+        return file.with_suffix(".txt")
 
 
 def convert_doc_to_text(url: str, chunk_size: int = 8192):
@@ -72,7 +91,10 @@ def doc2txt():
     if url is None:
         return Response("Missing url parameter", status=400)
     url = parse.unquote_plus(url)
-    return Response(convert_doc_to_text(url), mimetype="text/plain")
+    try:
+        return Response(convert_doc_to_text(url), mimetype="text/plain")
+    except RuntimeError as e:
+        return Response(str(e), status=500)
 
 
 if __name__ == "__main__":

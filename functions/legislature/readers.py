@@ -196,7 +196,9 @@ class LegislativeMeetingReader:
         sec = self._get_main_section()
         if sec is None:
             return ""
-        return "".join(sec.find("i", class_="fa-map-pin").parent.strings).strip()
+        if (icon := sec.find("i", class_="fa-map-pin")) is not None:
+            return "".join(icon.parent.strings).strip()
+        return ""
 
     def get_meeting_date_desc(self):
         """Get the date and time of the meeting in y/m/d H:M-H:M format"""
@@ -658,15 +660,24 @@ class VideoReader:
             ffmpeg.input(parse.urljoin(c.base_uri, c.uri), tls_verify=0) for c in chunks
         ]
         _, o = tempfile.mkstemp(suffix=".mp4")
-        pipe = ffmpeg.concat(*streams)
-        pipe = ffmpeg.output(pipe, o, tls_verify=0)
-        ffmpeg.overwrite_output(pipe).run()
+        pipe = []
+        for stream in streams:
+            pipe.append(stream.video)
+            pipe.append(stream.audio)
+        nodes = ffmpeg.concat(*pipe, v=1, a=1).node
+        out = ffmpeg.output(
+            nodes[0],
+            nodes[1],
+            o,
+            tls_verify=0,
+        )
+        ffmpeg.overwrite_output(out).run()
         return o
 
     def _download_mp4(self) -> str:
-        i = ffmpeg.input(self.playlist_url, tls_verify=0)
+        i = ffmpeg.input(self.playlist_url)
         _, o = tempfile.mkstemp(suffix=".mp4")
-        out = ffmpeg.output(i, o, tls_verify=0)
+        out = ffmpeg.output(i.video, i.audio, o, tls_verify=0)
         ffmpeg.overwrite_output(out).run()
         return o
 

@@ -52,6 +52,7 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     term = request.args.get("term", type=int)
     period = request.args.get("period", "", type=str)
     limit = request.args.get("limit", 0, type=int)
+    page = request.args.get("page", 0, type=int)
     logger.debug(f"Term: {term}, Period: {period}")
     res = session.new_legacy_session().get(
         LEGISLATURE_MEETING_INFO_API.value,
@@ -78,7 +79,8 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     count = 0
     data_list = data.get("dataList", [])
     if limit > 0 and len(data_list) > limit:
-        data_list = data_list[0:limit]
+        base = page * limit
+        data_list = data_list[base : base + limit]
     for m in data_list:
         try:
             meet: models.Meeting = models.Meeting.from_dict(m)
@@ -146,6 +148,47 @@ def on_meeting_update(
     except Exception as e:
         logging.exception(e)
         raise RuntimeError(f"Failed when updating meeting. {event.params}") from e
+
+
+@firestore_fn.on_document_created(
+    document="meetings/{meetNo}/files/{fileNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+)
+def on_meeting_file_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    try:
+        _index_meeting_file(event)
+    except Exception as e:
+        logger.error(f"Fail on meeting file create: {event.params}")
+        raise RuntimeError(f"Fail on meeting file create: {event.params}") from e
+
+
+@firestore_fn.on_document_updated(
+    document="meetings/{meetNo}/files/{fileNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+)
+def on_meeting_file_update(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+):
+    try:
+        _index_meeting_file(event)
+    except Exception as e:
+        logger.error(f"Fail on meeting file update {event.params}")
+        raise RuntimeError("Fail on meeting file update") from e
+
+
+def _index_meeting_file(event: firestore_fn.Event):
+    """Index the meeting file."""
+    se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+    meet_no = event.params["meetNo"]
+    file_no = event.params["fileNo"]
+    se.index(
+        f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}",
+        search_client.DocType.MEETING_FILE,
+    )
 
 
 @tasks_fn.on_task_dispatched(
@@ -298,7 +341,7 @@ def _find_proceeding_created_date(
         if not meet_doc.exists:
             continue
         meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
-        if meet.meeting_date_start < created_date:
+        if meet.meeting_date_start.replace(tzinfo=None) < created_date:
             created_date = meet.meeting_date_start
     return created_date
 
@@ -637,3 +680,47 @@ def on_proceeding_update(
     except Exception as e:
         logger.error("Fail on_proceeding_update: %s", event.params)
         raise RuntimeError(f"Fail on_proceeding_update: {event.params}") from e
+
+
+@firestore_fn.on_document_created(
+    document="proceedings/{procNo}/attachments/{attachNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+)
+def on_proceeding_attachment_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+):
+    try:
+        _index_proceeding_attachment(event)
+    except Exception as e:
+        logger.error(f"Fail on_proceeding_attachment_create: {event.params}")
+        raise RuntimeError(
+            f"Fail on_proceeding_attachment_create: {event.params}"
+        ) from e
+
+
+@firestore_fn.on_document_updated(
+    document="proceedings/{procNo}/attachments/{attachNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+)
+def on_proceeding_attachment_update(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+):
+    try:
+        _index_proceeding_attachment(event)
+    except Exception as e:
+        logger.error(f"Fail on_proceeding_attachment_update: {event.params}")
+        raise RuntimeError(
+            f"Fail on_proceeding_attachment_update: {event.params}"
+        ) from e
+
+
+def _index_proceeding_attachment(event: firestore_fn.Event):
+    proc_no = event.params["procNo"]
+    attach_no = event.params["attachNo"]
+    se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+    se.index(
+        f"{models.PROCEEDING_COLLECT}/{proc_no}/{models.ATTACH_COLLECT}/{attach_no}",
+        search_client.DocType.ATTACHMENT,
+    )
