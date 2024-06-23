@@ -1,3 +1,4 @@
+annotated-types==0.7.0
 argcomplete==1.10.3
 beautifulsoup4==4.8.2
 blinker==1.8.2
@@ -13,6 +14,7 @@ compressed_rtf==1.0.6
 cryptography==42.0.7
 deepdiff==7.0.1
 deprecation==2.1.0
+docstring_parser==0.16
 docx2txt==0.8
 ebcdic==1.1.1
 extract-msg==0.28.7
@@ -27,12 +29,14 @@ google-api-core==2.19.0
 google-api-python-client==2.131.0
 google-auth==2.29.0
 google-auth-httplib2==0.2.0
+google-cloud-aiplatform==1.56.0
 google-cloud-appengine-logging==1.4.3
 google-cloud-audit-log==0.2.5
 google-cloud-bigquery==3.24.0
 google-cloud-core==2.4.1
 google-cloud-firestore==2.16.0
 google-cloud-logging==3.10.0
+google-cloud-resource-manager==1.12.3
 google-cloud-storage==2.17.0
 google-crc32c==1.5.0
 google-events==0.12.0
@@ -52,6 +56,7 @@ lxml==5.2.2
 m3u8==5.0.0
 MarkupSafe==2.1.5
 msgpack==1.0.8
+numpy==2.0.0
 olefile==0.47
 ordered-set==4.1.0
 packaging==24.0
@@ -64,6 +69,8 @@ pyasn1==0.6.0
 pyasn1_modules==0.4.0
 pycparser==2.22
 pycryptodome==3.20.0
+pydantic==2.7.4
+pydantic_core==2.18.4
 PyJWT==2.8.0
 pyparsing==3.1.2
 pytest==8.2.1
@@ -75,6 +82,7 @@ pytz==2024.1
 PyYAML==6.0.1
 requests==2.32.3
 rsa==4.9
+shapely==2.0.4
 six==1.12.0
 sortedcontainers==2.4.0
 soupsieve==2.5

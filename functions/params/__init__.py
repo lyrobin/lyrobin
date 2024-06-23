@@ -38,3 +38,9 @@ TYPESENSE_API_KEY = SecretParam(
     name="TYPESENSE_API_KEY",
     description="Typesense API Key",
 )
+
+EMBEDDING_MODEL = StringParam(
+    name="EMBEDDING_MODEL",
+    default="text-embedding-004",
+    description="Embedding Model",
+)

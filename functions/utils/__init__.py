@@ -1,16 +1,20 @@
 """Utilities for interacting with Google Cloud Functions."""
 
+# mypy: disable_error_code=return-value
 import functools
 import os
 import re
+from typing import TypeVar, Generic, Callable
 
-import firebase_admin
-import google.auth
-import google.auth.transport.requests
+import firebase_admin  # type: ignore
+import google.auth  # type: ignore
+import google.auth.transport.requests  # type: ignore
 from firebase_functions.options import SupportedRegion
 from google.auth import credentials
 from google.auth.transport.requests import AuthorizedSession
 from utils import testings
+
+T = TypeVar("T")
 
 
 def snake_to_camel(snake_str):
@@ -76,3 +80,32 @@ def refresh_credentials(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+class simple_cached_property(Generic[T]):
+    """Decorator for class property to cache its value.
+    Only not None value will be cached. The cached value will be kept in the instance.
+    """
+
+    def __init__(self, func: Callable[..., T]):
+        self._func = func
+        self._name: str | None = None
+
+    def __set_name__(self, _, name: str):
+        if self._name is None:
+            self._name = name
+        elif self._name != name:
+            raise TypeError("Can't modify the property name after initialization")
+
+    def __get__(self, instance, _) -> T:
+        if instance is None:
+            return self
+        elif self._name is None:
+            raise TypeError("Property not set")
+        cached_value = getattr(instance, "_cached_" + self._name, None)
+        if cached_value is not None:
+            return cached_value
+        value = self._func(instance)
+        if value is not None:
+            setattr(instance, "_cached_" + self._name, value)
+        return value
