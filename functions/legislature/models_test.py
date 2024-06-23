@@ -7,6 +7,8 @@ import datetime as dt
 from legislature import models
 import pytz
 
+from google.cloud.firestore_v1.vector import Vector
+
 _TZ = pytz.timezone("Asia/Taipei")
 
 

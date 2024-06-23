@@ -7,12 +7,13 @@ This module contains the models for the Firestore database.
 import dataclasses
 import datetime as dt
 import uuid
-from typing import TypeVar
+from typing import TypeVar, Type, Any
 from urllib import parse
 
+import deepdiff  # type: ignore
+import pytz  # type: ignore
 import utils
-import deepdiff
-import pytz
+from google.cloud.firestore_v1.vector import Vector
 from legislature import LEGISLATURE_MEETING_URL
 
 # Collection Constants
@@ -44,11 +45,11 @@ class IntField:
         self._default_name = name
 
     def __get__(self, instance: object, _: type) -> int:
-        if instance is None:
+        if instance is None and self._default is not None:
             return self._default
-        return getattr(instance, self._name, self._default)
+        return getattr(instance, self._name, self._default or 0)
 
-    def __set__(self, instance: object, value: any) -> None:
+    def __set__(self, instance: object, value: Any) -> None:
         if isinstance(value, type(self)):
             setattr(instance, self._name, value._default)
             return
@@ -68,7 +69,7 @@ class OptionalIntField(IntField):
     def __init__(self):
         super().__init__(default=None)
 
-    def __set__(self, instance: object, value: any) -> None:
+    def __set__(self, instance: object, value: Any) -> None:
         if value is None or value == "null":
             setattr(instance, self._name, None)
             return
@@ -127,6 +128,8 @@ class FireStoreDocument:
     A Firestore document.
     """
 
+    _SPECIAL_FIELDS = ["document_id", "embedding_vector"]
+
     document_id: str = ""
     ai_summarized: bool = False
     ai_summarized_at: DateTimeField = DateTimeField()
@@ -136,17 +139,21 @@ class FireStoreDocument:
     last_update_time: DateTimeField = DateTimeField()
 
     def __eq__(self, other: object) -> bool:
-        if not other.isinstance(self):
+        if not isinstance(other, type(self)):
             return False
         return not deepdiff.DeepDiff(self.asdict(), other.asdict(), ignore_order=True)
 
     @classmethod
-    def from_dict(cls: T, data: dict) -> T:
+    def from_dict(cls: Type[T], data: dict | None) -> T:
         """
         Creates a new instance from a dictionary.
         """
+        if data is None:
+            raise ValueError("data must be a dict.")
         fields = {field.name for field in dataclasses.fields(cls)}
         _data = {utils.camel_to_snake(k): v for k, v in data.items()}
+        if isinstance((vector := _data.get("embedding_vector", None)), Vector):
+            _data["embedding_vector"] = list(vector)
         return cls(**{k: v for k, v in _data.items() if k in fields})
 
     def _sanitize_fields(self):
@@ -187,11 +194,14 @@ class FireStoreDocument:
                 return False
 
         self._sanitize_fields()
-        return {
+        data = {
             k: v
             for k, v in dataclasses.asdict(self).items()
-            if k != "document_id" and not is_empty(v)
+            if k not in self._SPECIAL_FIELDS and not is_empty(v)
         }
+        if self.embedding_vector:
+            data["embedding_vector"] = Vector(self.embedding_vector)
+        return data
 
 
 @dataclasses.dataclass

@@ -5,12 +5,12 @@ Test for legislative_parser.py
 # pylint: disable=missing-function-docstring
 import unittest
 
-import requests
+import requests  # type: ignore
 import utils
-from firebase_admin import firestore, storage
+from firebase_admin import firestore, storage  # type: ignore
 from legislature import models
 from utils import testings
-from google.cloud.firestore import DocumentReference
+from google.cloud.firestore import DocumentReference  # type: ignore
 import search.client as search_client
 
 
@@ -28,7 +28,7 @@ class TestFetchMeetingFromWeb(unittest.TestCase):
     @testings.require_firestore_emulator
     @testings.disable_background_triggers
     def test_fetch_meeting_from_web(self):
-        m: models.Meeting = models.Meeting.from_dict(
+        m = models.Meeting.from_dict(
             {
                 "term": "11",
                 "sessionPeriod": "0 ",
@@ -114,7 +114,7 @@ class TestFetchProceedingFromWeb(unittest.TestCase):
         doc_ref = self.db.document(f"{models.PROCEEDING_COLLECT}/202110006550000")
         doc = doc_ref.get()
         assert doc.exists
-        m: models.Proceeding = models.Proceeding.from_dict(doc.to_dict())
+        m = models.Proceeding.from_dict(doc.to_dict())
         assert len(m.related_bills) == 4
 
         attachs = list(doc_ref.collection(models.ATTACH_COLLECT).stream())
@@ -124,7 +124,7 @@ class TestFetchProceedingFromWeb(unittest.TestCase):
 @unittest.skip("manul test")
 @testings.skip_when_no_network
 def test_fetch_meeting_from_web_e2e():
-    m: models.Meeting = models.Meeting.from_dict(
+    m = models.Meeting.from_dict(
         {
             "meetingNo": "2024053177",
             "meetingDateDesc": "113/06/05 09:00-17:30",
@@ -158,7 +158,7 @@ def test_create_proceeding_e2e():
 
     def check_attach_text():
         doc = attach.reference.get()
-        m: models.Attachment = models.Attachment.from_dict(doc.to_dict())
+        m = models.Attachment.from_dict(doc.to_dict())
         return "委員 提案第 11005153 號" in m.full_text
 
     testings.wait_until(check_attach_text, timeout=20)
@@ -172,9 +172,7 @@ def test_download_video():
     meet_ref.set({})
     ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
     ivod_ref.set({})
-    video: models.Video = models.Video(
-        url="https://ivod.ly.gov.tw/Play/Clip/300K/152612"
-    )
+    video = models.Video(url="https://ivod.ly.gov.tw/Play/Clip/300K/152612")
     video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
     video_ref.set(video.asdict())
     url = utils.get_function_url("downloadVideo")
@@ -209,9 +207,7 @@ def test_on_ivod_video_create():
         return ivod_ref
 
     ivod_ref = init()
-    video: models.Video = models.Video(
-        url="https://ivod.ly.gov.tw/Play/Clip/300K/152575"
-    )
+    video = models.Video(url="https://ivod.ly.gov.tw/Play/Clip/300K/152575")
     video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
     video_ref.set(video.asdict())
 

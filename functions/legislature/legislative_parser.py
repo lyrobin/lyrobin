@@ -1,13 +1,14 @@
 """Legislature parser."""
 
-# pylint: disable=invalid-name
+# mypy: allow-redefinition
+# pylint: disable=invalid-name,no-member
 import dataclasses
 import datetime as dt
 import json
 import logging
 import os
 
-from firebase_admin import firestore, storage
+from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import (
     MemoryOption,
@@ -16,7 +17,7 @@ from firebase_functions.options import (
     SupportedRegion,
 )
 from google.cloud.firestore_v1 import document
-import google.cloud.firestore
+import google.cloud.firestore  # type: ignore
 from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
 from params import (
     DEFAULT_TIMEOUT_SEC,
@@ -107,7 +108,7 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
 )
 def on_meeting_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     """Fetch the meeting from the web."""
     try:
@@ -118,7 +119,7 @@ def on_meeting_create(
 
 
 def _fetch_meeting_when_created(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     """Fetch the meeting from the web."""
     db = firestore.client()
@@ -138,7 +139,9 @@ def _fetch_meeting_when_created(
     document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
 )
 def on_meeting_update(
-    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
 ):
     """Update the meeting."""
     try:
@@ -156,7 +159,7 @@ def on_meeting_update(
     secrets=[TYPESENSE_API_KEY],
 )
 def on_meeting_file_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     try:
         _index_meeting_file(event)
@@ -171,7 +174,9 @@ def on_meeting_file_create(
     secrets=[TYPESENSE_API_KEY],
 )
 def on_meeting_file_update(
-    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
 ):
     try:
         _index_meeting_file(event)
@@ -197,7 +202,7 @@ def _index_meeting_file(event: firestore_fn.Event):
     region=_REGION,
     timeout_sec=300,
 )
-def fetchMeetingFromWeb(request: tasks_fn.CallableRequest) -> any:
+def fetchMeetingFromWeb(request: tasks_fn.CallableRequest):
     """Fetch the meeting from the web."""
     try:
         _fetch_meeting_from_web(request)
@@ -206,14 +211,14 @@ def fetchMeetingFromWeb(request: tasks_fn.CallableRequest) -> any:
         raise RuntimeError(f"Error fetching meeting: {request.data}") from e
 
 
-def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
+def _fetch_meeting_from_web(request: tasks_fn.CallableRequest):
     logger.debug(f"Fetch meeting from web: {request.data}")
     meet_no = request.data["meetNo"]
     url = request.data["url"]
     db = firestore.client()
     meet_doc_ref = db.collection(models.MEETING_COLLECT).document(meet_no)
     meet_doc = meet_doc_ref.get()
-    meet: models.Meeting = None
+    meet: models.Meeting | None = None
     if meet_doc.exists:
         meet = models.Meeting.from_dict(meet_doc.to_dict())
     else:
@@ -235,7 +240,7 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     if r.get_meeting_date_desc() and not meet.meeting_date_desc:
         meet.meeting_date_desc = r.get_meeting_date_desc()
 
-    ivods = []
+    ivods: list[models.IVOD] = []
     for v in r.get_videos():
         try:
             m = models.IVOD(name=v.name, url=v.url)
@@ -280,7 +285,7 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest) -> any:
     document="meetings/{meetNo}/proceedings/{billNo}", region=_REGION
 )
 def on_meeting_proceedings_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     """Handle meeting proceedings creation"""
     try:
@@ -314,7 +319,7 @@ def _on_meeting_proceedings_create(meet_no: str, bill_no: str):
     region=_REGION,
     timeout_sec=300,
 )
-def fetchProceedingFromWeb(request: tasks_fn.CallableRequest) -> any:
+def fetchProceedingFromWeb(request: tasks_fn.CallableRequest):
     try:
         _fetch_proceeding_from_web(request)
     except Exception as e:
@@ -346,7 +351,7 @@ def _find_proceeding_created_date(
     return created_date
 
 
-def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
+def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest):
     bill_no: int = request.data["billNo"]
     url: str = request.data["url"]
     db = firestore.client()
@@ -375,7 +380,7 @@ def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
     ]
 
     if related_bills:
-        proc.related_bills = related_bills
+        proc.related_bills = [bill.bill_no for bill in related_bills]
 
     if proposers and not proc.proposers:
         # The proposers are unlikely to change
@@ -406,7 +411,7 @@ def _fetch_proceeding_from_web(request: tasks_fn.CallableRequest) -> any:
     memory=MemoryOption.GB_2,
 )
 def on_proceedings_attachment_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     """Handler on proceedings attachment create."""
     try:
@@ -445,7 +450,7 @@ def _upsert_attachment_content(ref: document.DocumentReference):
     memory=MemoryOption.GB_2,
 )
 def on_meetings_attached_file_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     """Handler on meetings attached file create."""
     try:
@@ -470,7 +475,7 @@ def on_meetings_attached_file_create(
     region=_REGION,
     timeout_sec=300,
 )
-def fetchIVODFromWeb(request: tasks_fn.CallableRequest) -> any:
+def fetchIVODFromWeb(request: tasks_fn.CallableRequest):
     """Handler on fetch ivod from web."""
     try:
         meet_no = request.data["meetNo"]
@@ -518,7 +523,9 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
 @firestore_fn.on_document_created(
     document="meetings/{meetNo}/ivods/{ivodNo}", region=_REGION
 )
-def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
+def on_meeting_ivod_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
+):
     """Handler on meeting ivod create."""
     try:
         meet_no = event.params["meetNo"]
@@ -540,7 +547,7 @@ def on_meeting_ivod_create(event: firestore_fn.Event[firestore_fn.DocumentSnapsh
     max_instances=30,
     concurrency=2,
 )
-def downloadVideo(request: tasks_fn.CallableRequest) -> any:
+def downloadVideo(request: tasks_fn.CallableRequest):
     """Handler on download video."""
     try:
         meet_no = request.data["meetNo"]
@@ -580,7 +587,7 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str):
         logger.warn("Video %s doesn't have duration info, skip it.", video.url)
         return
     logger.debug(f"Prepare to download video: {video.url}")
-    video.playlist = r.playlist_url
+    video.playlist = r.playlist_url or ""
     video.start_time = r.meta.start_time
 
     clips = []
@@ -635,7 +642,9 @@ def _find_video_in_ivod(
 @firestore_fn.on_document_created(
     document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}", region=_REGION
 )
-def on_ivod_video_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
+def on_ivod_video_create(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
+):
     """Handler on ivod video create."""
     try:
         meet_no = event.params["meetNo"]
@@ -652,7 +661,7 @@ def on_ivod_video_create(event: firestore_fn.Event[firestore_fn.DocumentSnapshot
     document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
 )
 def on_proceeding_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     try:
         proc_no = event.params["procNo"]
@@ -669,7 +678,9 @@ def on_proceeding_create(
     document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
 )
 def on_proceeding_update(
-    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
 ):
     try:
         proc_no = event.params["procNo"]
@@ -688,7 +699,7 @@ def on_proceeding_update(
     secrets=[TYPESENSE_API_KEY],
 )
 def on_proceeding_attachment_create(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot],
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     try:
         _index_proceeding_attachment(event)
@@ -705,7 +716,9 @@ def on_proceeding_attachment_create(
     secrets=[TYPESENSE_API_KEY],
 )
 def on_proceeding_attachment_update(
-    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot]],
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
 ):
     try:
         _index_proceeding_attachment(event)
