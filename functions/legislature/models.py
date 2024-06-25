@@ -29,6 +29,8 @@ SPEECH_COLLECT = "speeches"
 T = TypeVar("T", bound="FireStoreDocument")
 _TZ = pytz.timezone("Asia/Taipei")
 
+MODEL_TIMEZONE = _TZ
+
 _PRIMITIVE_TYPES = (int, float, str, bool, type(None))
 
 

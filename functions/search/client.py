@@ -3,10 +3,12 @@
 import dataclasses
 import datetime as dt
 from enum import Enum
+from typing import Any
+import uuid
 
-import typesense
-from firebase_admin import firestore
-from google.cloud.firestore import DocumentReference, DocumentSnapshot
+import typesense  # type: ignore
+from firebase_admin import firestore  # type: ignore
+from google.cloud.firestore import DocumentReference, DocumentSnapshot  # type: ignore
 from legislature import models
 from params import TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL
 
@@ -51,6 +53,7 @@ class DocType(Enum):
 class Document:
     """Typesense Document class."""
 
+    id: str = ""
     path: str = ""
     doc_type: str = ""
     name: str = ""
@@ -58,7 +61,10 @@ class Document:
     content: str = ""
     created_date: dt.datetime = dataclasses.field(default=dt.datetime.min)
     vector: list[float] = dataclasses.field(default_factory=list)
-    metadata: dict[str, str] = dataclasses.field(default_factory=dict)
+    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+    def __post_init__(self):
+        self.id = uuid.uuid5(uuid.NAMESPACE_URL, self.path).hex
 
     def to_dict(self):
         """Convert Document to dict."""

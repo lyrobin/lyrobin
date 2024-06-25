@@ -5,6 +5,8 @@ Deploy with `firebase deploy`
 """
 import firebase_admin
 from legislature.legislative_parser import *
+from legislature.crons import *
+from legislature.subscribers import *
 from firebase_admin import credentials
 import params
 

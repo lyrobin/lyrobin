@@ -18,8 +18,12 @@ from params import EMBEDDING_MODEL
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
 import utils
 
-_REGION = SupportedRegion.ASIA_EAST1
+_REGION = SupportedRegion.US_CENTRAL1
+_BUCKET = "gemini-batch"
 _COLLECTION = "gemini"
+
+GEMINI_REGION = _REGION
+GEMINI_BUCKET = _BUCKET
 
 
 @dataclasses.dataclass
@@ -81,7 +85,7 @@ class GeminiBatchEmbeddingJob:
         app: firebase_admin.App = firebase_admin.get_app()
         vertexai.init(project=app.project_id, location=_REGION.value)
         self._uid = uid
-        self._bucket = storage.bucket()
+        self._bucket = storage.bucket(_BUCKET)
         self._db = firestore.client()
 
     @classmethod
@@ -112,20 +116,19 @@ class GeminiBatchEmbeddingJob:
         docs_blob = self._bucket.blob(f"embeddings/{self._uid}/docs.json")
         docs_blob.upload_from_string(json.dumps(docs, indent=2))
 
-        gcs_source = (
-            f"gs://{self._bucket.name}/embeddings/{self._uid}/{content_blob.name}"
-        )
+        gcs_source = f"gs://{self._bucket.name}/{content_blob.name}"
+        gcs_destination_prefix = f"gs://{self._bucket.name}/embeddings/{self._uid}"
 
         model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL.value)
         batch_job = aiplatform.BatchPredictionJob.create(
             model_name=model._model_resource_name,
             job_display_name=f"embedding_{self._uid}",
             gcs_source=gcs_source,
-            gcs_destination_prefix=f"embeddings/{self._uid}",
+            gcs_destination_prefix=gcs_destination_prefix,
             sync=False,
             model_parameters={"output_dimensionality": 768},
         )
-
+        batch_job.wait_for_resource_creation()
         job_model = BatchEmbeddingJob(
             uid=self._uid,
             job_id=batch_job.name,
