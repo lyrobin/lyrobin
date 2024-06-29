@@ -15,7 +15,8 @@ from params import TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL
 DOCUMENT_SCHEMA_V1 = {
     "name": "documents",
     "fields": [
-        {"name": "collection", "type": "string", "facet": True, "optional": True},
+        # TODO: Correct the name to doc_type and update the indexes
+        {"name": "doc_type", "type": "string", "facet": True, "optional": True},
         {
             "name": "embedding",
             "type": "float[]",
@@ -25,10 +26,41 @@ DOCUMENT_SCHEMA_V1 = {
         {"name": "name", "type": "string", "optional": True, "locale": "zh"},
         {"name": "summary", "type": "string", "optional": True, "locale": "zh"},
         {"name": "content", "type": "string", "optional": True, "locale": "zh"},
-        {"name": "chairman", "type": "string", "optional": True, "locale": "zh"},
-        {"name": "status", "type": "string", "optional": True, "locale": "zh"},
-        {"name": "proposers", "type": "string[]", "optional": True, "locale": "zh"},
-        {"name": "sponsors", "type": "string[]", "optional": True, "locale": "zh"},
+        {
+            "name": "meeting_unit",
+            "type": "string",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "chairman",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+        {
+            "name": "status",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+        {
+            "name": "proposers",
+            "type": "string[]",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "sponsors",
+            "type": "string[]",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
         {"name": ".*", "type": "auto"},
     ],
 }

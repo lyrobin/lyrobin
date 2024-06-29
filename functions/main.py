@@ -3,7 +3,7 @@
 Cloud Functions for Firebase for Python.
 Deploy with `firebase deploy`
 """
-import firebase_admin
+import firebase_admin  # type: ignore
 from legislature.legislative_parser import *
 from legislature.crons import *
 from legislature.subscribers import *
