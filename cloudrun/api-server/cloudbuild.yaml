@@ -1,0 +1,48 @@
+steps:
+  # Build the container image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/api-server",
+        ".",
+      ]
+  # Push the container image to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/api-server",
+      ]
+    # Deploy container image to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "api-server",
+        "--image",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/api-server",
+        "--region",
+        "${LOCATION}",
+        "--timeout",
+        "60s",
+        "--memory",
+        "1G",
+        "--max-instances",
+        "50",
+        "--concurrency",
+        "100",
+        "--set-env-vars",
+        '^@^FIREBASE_CONFIG={"projectId":"${PROJECT_ID}","storageBucket":"${PROJECT_ID}.appspot.com","locationId":"${LOCATION}"}',
+        "--set-env-vars",
+        "GCLOUD_PROJECT=${PROJECT_ID}",
+        "--set-env-vars",
+        "TYPESENSE_HOST=35.221.131.186",
+        "--update-secrets",
+        "TYPESENSE_API_KEY=TYPESENSE_API_KEY:latest"
+      ]
+images:
+  - ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/api-server

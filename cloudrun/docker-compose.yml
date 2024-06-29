@@ -14,3 +14,15 @@ services:
     volumes:
       - ./typesense-data:/data
     command: '--data-dir /data --api-key=xyz --enable-cors'
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    ports:
+      - "5003:8081"
+      - "8080:8080"
+    environment:
+      - PORT=8081
+      - TYPESENSE_HOST=typesense
+      - FIRESTORE_EMULATOR_HOST=host.docker.internal:8080
+      - GCLOUD_PROJECT=taiwan-legislative-search
