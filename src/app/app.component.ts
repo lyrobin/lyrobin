@@ -10,6 +10,7 @@ import { filter, map, startWith } from 'rxjs';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -20,6 +21,7 @@ import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.compo
     FirebaseIconComponent,
     ArrowBackIconComponent,
     RouterLink,
+    HttpClientModule,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',

@@ -20,7 +20,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5003:8081"
-      - "8080:8080"
+    expose:
+      - 8080
     environment:
       - PORT=8081
       - TYPESENSE_HOST=typesense
