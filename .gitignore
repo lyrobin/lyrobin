@@ -59,3 +59,5 @@ Thumbs.db
 NOTES.md
 .env.jupyter
 taiwan-legislative-search-*.json
+
+*storybook.log
