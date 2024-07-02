@@ -1,0 +1,10 @@
+<app-search-bar
+  [query]="query"
+  [facets]="result?.facet"
+  (onSearch)="onSearch($event)"></app-search-bar>
+
+<app-search-results
+  [page]="currentPage"
+  [result]="result"
+  (onPageChange)="onPageChange($event)"
+  class="block h-full"></app-search-results>

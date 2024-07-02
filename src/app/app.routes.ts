@@ -24,6 +24,13 @@ export const routes: Routes = [
       import('./pages/ssr/ssr.component').then(c => c.SsrComponent),
   },
   {
+    path: 'search',
+    loadComponent: () =>
+      import('./pages/search-view/search-view.component').then(
+        c => c.SearchViewComponent
+      ),
+  },
+  {
     path: '**',
     loadComponent: () =>
       import('./pages/not-found/not-found.component').then(

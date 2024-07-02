@@ -1,10 +1,72 @@
 {
-    "pipes": [],
+    "pipes": [
+        {
+            "name": "FacetCountPipe",
+            "id": "pipe-FacetCountPipe-c945b101678985e36071e5a38c5f96315801998656c115cbef4b61710ab12c44ab2e8e4301794a5a154f8523343309e4aad2ac0a1ebf75c3692999e24d97965e",
+            "file": "src/app/utils/facet-count.pipe.ts",
+            "type": "pipe",
+            "deprecated": false,
+            "deprecationMessage": "",
+            "description": "",
+            "rawdescription": "\n",
+            "properties": [],
+            "methods": [
+                {
+                    "name": "transform",
+                    "args": [
+                        {
+                            "name": "value",
+                            "type": "FacetCount[]",
+                            "deprecated": false,
+                            "deprecationMessage": ""
+                        },
+                        {
+                            "name": "args",
+                            "type": "[]",
+                            "deprecated": false,
+                            "deprecationMessage": "",
+                            "dotDotDotToken": true
+                        }
+                    ],
+                    "optional": false,
+                    "returnType": "string[]",
+                    "typeParameters": [],
+                    "line": 10,
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "jsdoctags": [
+                        {
+                            "name": "value",
+                            "type": "FacetCount[]",
+                            "deprecated": false,
+                            "deprecationMessage": "",
+                            "tagName": {
+                                "text": "param"
+                            }
+                        },
+                        {
+                            "name": "args",
+                            "type": "[]",
+                            "deprecated": false,
+                            "deprecationMessage": "",
+                            "dotDotDotToken": true,
+                            "tagName": {
+                                "text": "param"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "standalone": true,
+            "ngname": "facetCount",
+            "sourceCode": "import { Pipe, PipeTransform } from '@angular/core';\nimport { FacetCount } from '../providers/search';\n\n@Pipe({\n  name: 'facetCount',\n  standalone: true\n})\nexport class FacetCountPipe implements PipeTransform {\n\n  transform(value: FacetCount[], ...args: unknown[]): string[] {\n    console.log(value);\n    console.log(value.map(c => c.value));\n    return value.map(c => c.value);\n  }\n}\n"
+        }
+    ],
     "interfaces": [],
     "injectables": [
         {
             "name": "SearchService",
-            "id": "injectable-SearchService-8548c0da622b11e4650a9b5c021da81f367372c9428f716dec19e4fd26b72057f6e008eff5393fe4c0e269cc96a8858bfe24d674cd98195b60018f9d7ef0c302",
+            "id": "injectable-SearchService-be740dddcca94741ea335757e6faed19930f39b736eed4a9ba96b744b3ad1478669fdc1432eaf4a82e7b8b7a423fb7407bd398b3442dded0b0b6c6da8e3ebd07",
             "file": "src/app/providers/search.service.ts",
             "properties": [
                 {
@@ -15,7 +77,7 @@
                     "type": "",
                     "optional": false,
                     "description": "",
-                    "line": 11,
+                    "line": 13,
                     "modifierKind": [
                         123,
                         148
@@ -50,7 +112,7 @@
                     "optional": false,
                     "returnType": "Promise<SearchResult>",
                     "typeParameters": [],
-                    "line": 15,
+                    "line": 17,
                     "deprecated": false,
                     "deprecationMessage": "",
                     "jsdoctags": [
@@ -90,7 +152,7 @@
             "deprecationMessage": "",
             "description": "",
             "rawdescription": "\n",
-            "sourceCode": "import { Injectable } from '@angular/core';\nimport {environment} from \"./../../environments/environment\"\nimport { HttpClient } from '@angular/common/http';\nimport {lastValueFrom} from 'rxjs';\n\n@Injectable({\n  providedIn: 'root'\n})\nexport class SearchService {\n\n  private readonly apiUrl = environment.apiUrl;\n\n  constructor(private http: HttpClient) { }\n\n  search(q: string, filter?: string, page: number = 1): Promise<SearchResult> {\n    return lastValueFrom(this.http.get<SearchResult>(`${this.apiUrl}/search`, {\n      params: {\n        q,\n        page,\n        ...(filter !== undefined && {filter})\n      }\n    }));\n  }\n}\n",
+            "sourceCode": "import { Injectable } from '@angular/core';\nimport {environment} from \"./../../environments/environment\"\nimport { HttpClient } from '@angular/common/http';\nimport {lastValueFrom} from 'rxjs';\nimport { SearchResult } from './search';\n\n\n@Injectable({\n  providedIn: 'root'\n})\nexport class SearchService {\n\n  private readonly apiUrl = environment.apiUrl;\n\n  constructor(private http: HttpClient) { }\n\n  search(q: string, filter?: string, page: number = 1): Promise<SearchResult> {\n    return lastValueFrom(this.http.get<SearchResult>(`${this.apiUrl}/search`, {\n      params: {\n        q,\n        page,\n        ...(filter !== undefined && {filter})\n      }\n    }));\n  }\n}\n",
             "constructorObj": {
                 "name": "constructor",
                 "description": "",
@@ -104,7 +166,7 @@
                         "deprecationMessage": ""
                     }
                 ],
-                "line": 11,
+                "line": 13,
                 "jsdoctags": [
                     {
                         "name": "http",
@@ -787,7 +849,7 @@
         },
         {
             "name": "SearchBarComponent",
-            "id": "component-SearchBarComponent-20ed27a81dc25b73f2c8ed9032d640bd29750ce4db7b5c579d491570c1926c995c332cbd7cc478ea4ffd2efaafc4e4fa5082ac1e96eb9dfd36c5c788b58c51b8",
+            "id": "component-SearchBarComponent-a2915cf8bdc653868bded15826f49a04036bae0b96a6c88bf5606e4ca27a1fa5c864e95d996b781601df9a0c6f2c9f26aef63d3dc51fe52969ca2001ad9d182a",
             "file": "src/app/components/search-bar/search-bar.component.ts",
             "encapsulation": [],
             "entryComponents": [],
@@ -802,26 +864,246 @@
             ],
             "viewProviders": [],
             "hostDirectives": [],
-            "inputsClass": [],
-            "outputsClass": [],
+            "inputsClass": [
+                {
+                    "name": "facets",
+                    "defaultValue": "[]",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 30,
+                    "type": "Facet[]",
+                    "decorators": []
+                },
+                {
+                    "required": false,
+                    "name": "query",
+                    "defaultValue": "''",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 29,
+                    "type": "string",
+                    "decorators": []
+                }
+            ],
+            "outputsClass": [
+                {
+                    "name": "onSearch",
+                    "defaultValue": "new EventEmitter<string>()",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 32,
+                    "type": "EventEmitter"
+                },
+                {
+                    "name": "queryChange",
+                    "defaultValue": "new EventEmitter<string>()",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 31,
+                    "type": "EventEmitter"
+                }
+            ],
             "propertiesClass": [],
-            "methodsClass": [],
+            "methodsClass": [
+                {
+                    "name": "onSearchClick",
+                    "args": [],
+                    "optional": false,
+                    "returnType": "void",
+                    "typeParameters": [],
+                    "line": 34,
+                    "deprecated": false,
+                    "deprecationMessage": ""
+                }
+            ],
             "deprecated": false,
             "deprecationMessage": "",
             "hostBindings": [],
             "hostListeners": [],
             "standalone": true,
-            "imports": [],
+            "imports": [
+                {
+                    "name": "DropdownModule",
+                    "type": "module"
+                },
+                {
+                    "name": "FormsModule",
+                    "type": "module"
+                },
+                {
+                    "name": "IconFieldModule",
+                    "type": "module"
+                },
+                {
+                    "name": "InputIconModule",
+                    "type": "module"
+                },
+                {
+                    "name": "InputTextModule",
+                    "type": "module"
+                },
+                {
+                    "name": "MatToolbarModule",
+                    "type": "module"
+                },
+                {
+                    "name": "FacetCountPipe",
+                    "type": "pipe"
+                },
+                {
+                    "name": "NgFor"
+                }
+            ],
             "description": "",
             "rawdescription": "\n",
             "type": "component",
-            "sourceCode": "import { Component } from '@angular/core';\n\n@Component({\n  selector: 'app-search-bar',\n  standalone: true,\n  imports: [],\n  templateUrl: './search-bar.component.html',\n  styleUrl: './search-bar.component.scss'\n})\nexport class SearchBarComponent {\n\n}\n",
+            "sourceCode": "import { Component, EventEmitter, Input, Output } from '@angular/core';\nimport { FormsModule } from '@angular/forms';\nimport { MatToolbarModule } from '@angular/material/toolbar';\nimport { DropdownModule } from 'primeng/dropdown';\nimport { IconFieldModule } from 'primeng/iconfield';\nimport { InputIconModule } from 'primeng/inputicon';\nimport { InputTextModule } from 'primeng/inputtext';\nimport { Facet } from '../../providers/search';\nimport { FacetCountPipe } from '../../utils/facet-count.pipe';\nimport {NgFor} from '@angular/common';\n\n@Component({\n  selector: 'app-search-bar',\n  standalone: true,\n  imports: [\n    DropdownModule,\n    FormsModule,\n    IconFieldModule,\n    InputIconModule,\n    InputTextModule,\n    MatToolbarModule,\n    FacetCountPipe,\n    NgFor\n  ],\n  templateUrl: './search-bar.component.html',\n  styleUrl: './search-bar.component.scss',\n})\nexport class SearchBarComponent{\n  @Input({transform: trimString}) query = '';\n  @Input() facets?: Facet[] = [];\n  @Output() queryChange = new EventEmitter<string>();\n  @Output() onSearch = new EventEmitter<string>();\n\n  onSearchClick() {\n    let query = trimString(this.query);\n    if (query === '') {\n      return;\n    }\n    this.query = query;\n    this.onSearch.emit(query);\n  }\n}\n\nfunction trimString(value: string | undefined) {\n  return value?.trim() ?? '';\n}\n",
             "styleUrl": "./search-bar.component.scss",
             "assetsDirs": [],
             "styleUrlsData": "",
             "stylesData": "",
             "extends": [],
-            "templateData": "<p>search-bar works!</p>\n"
+            "templateData": "<mat-toolbar>\n  <mat-toolbar-row>\n    <span class=\"spacer\"></span>\n    <p-iconField iconPosition=\"right\" class=\"search-field\">\n      <p-inputIcon styleClass=\"pi pi-search\" (click)=\"onSearchClick()\" />\n      <input\n        type=\"text\"\n        class=\"search-input\"\n        pInputText\n        [(ngModel)]=\"query\"\n        (ngModelChange)=\"queryChange.emit($event)\" />\n    </p-iconField>\n    <span class=\"spacer\"></span>\n  </mat-toolbar-row>\n  <mat-toolbar-row class=\"second-toolbar-row\">\n    <span class=\"spacer\"></span>\n    <div class=\"facet-container\">\n      <div *ngFor=\"let facet of facets\">\n        <p-dropdown\n          [options]=\"facet.counts | facetCount\"\n          [placeholder]=\"facet.field\"\n          styleClass=\"line-height-1\"\n          [showClear]=\"true\"/>\n      </div>\n    </div>\n    <span class=\"spacer\"></span>\n  </mat-toolbar-row>\n</mat-toolbar>\n"
+        },
+        {
+            "name": "SearchResultsComponent",
+            "id": "component-SearchResultsComponent-a9ea44551b352d28a588a5566a2522aeea47ba118e0373da2f8688bf70a7adf41a12ec96eae833c2730756a55c6c259f8def70a4a6aff01916050f29a634a1ee",
+            "file": "src/app/components/search-results/search-results.component.ts",
+            "encapsulation": [],
+            "entryComponents": [],
+            "inputs": [],
+            "outputs": [],
+            "providers": [],
+            "selector": "app-search-results",
+            "styleUrls": [],
+            "styles": [],
+            "templateUrl": [
+                "./search-results.component.html"
+            ],
+            "viewProviders": [],
+            "hostDirectives": [],
+            "inputsClass": [
+                {
+                    "name": "page",
+                    "defaultValue": "1",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 17,
+                    "type": "number",
+                    "decorators": []
+                },
+                {
+                    "name": "result",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 15,
+                    "type": "SearchResult",
+                    "decorators": []
+                },
+                {
+                    "name": "rows",
+                    "defaultValue": "20",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 16,
+                    "type": "number",
+                    "decorators": []
+                }
+            ],
+            "outputsClass": [
+                {
+                    "name": "onPageChange",
+                    "defaultValue": "new EventEmitter<number>()",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "line": 18,
+                    "type": "EventEmitter"
+                }
+            ],
+            "propertiesClass": [],
+            "methodsClass": [
+                {
+                    "name": "onPage",
+                    "args": [
+                        {
+                            "name": "event",
+                            "type": "DataViewPageEvent",
+                            "deprecated": false,
+                            "deprecationMessage": ""
+                        }
+                    ],
+                    "optional": false,
+                    "returnType": "void",
+                    "typeParameters": [],
+                    "line": 32,
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "jsdoctags": [
+                        {
+                            "name": "event",
+                            "type": "DataViewPageEvent",
+                            "deprecated": false,
+                            "deprecationMessage": "",
+                            "tagName": {
+                                "text": "param"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "deprecated": false,
+            "deprecationMessage": "",
+            "hostBindings": [],
+            "hostListeners": [],
+            "standalone": true,
+            "imports": [
+                {
+                    "name": "DataViewModule",
+                    "type": "module"
+                },
+                {
+                    "name": "NgFor"
+                }
+            ],
+            "description": "",
+            "rawdescription": "\n",
+            "type": "component",
+            "sourceCode": "import { Component, Input, Output, EventEmitter } from '@angular/core';\nimport { SearchResult, Document } from '../../providers/search';\nimport { DataViewModule } from 'primeng/dataview';\nimport { DataViewPageEvent } from 'primeng/dataview';\nimport { NgFor } from '@angular/common';\n\n@Component({\n  selector: 'app-search-results',\n  standalone: true,\n  imports: [DataViewModule, NgFor],\n  templateUrl: './search-results.component.html',\n  styleUrl: './search-results.component.scss',\n})\nexport class SearchResultsComponent {\n  @Input() result?: SearchResult;\n  @Input() rows: number = 20;\n  @Input() page: number = 1;\n  @Output() onPageChange = new EventEmitter<number>();\n\n  get totalRecords(): number {\n    return this.result?.found || 0;\n  }\n\n  get hits(): Document[] {\n    return this.result?.hits || [];\n  }\n\n  get first(): number {\n    return Math.max((this.page - 1) * this.rows, 0);\n  }\n\n  onPage(event: DataViewPageEvent) {\n    this.onPageChange.emit(Math.floor(event.first / event.rows) + 1);\n  }\n}\n",
+            "styleUrl": "./search-results.component.scss",
+            "assetsDirs": [],
+            "styleUrlsData": "",
+            "stylesData": "",
+            "extends": [],
+            "accessors": {
+                "totalRecords": {
+                    "name": "totalRecords",
+                    "getSignature": {
+                        "name": "totalRecords",
+                        "type": "number",
+                        "returnType": "number",
+                        "line": 20
+                    }
+                },
+                "hits": {
+                    "name": "hits",
+                    "getSignature": {
+                        "name": "hits",
+                        "type": "[]",
+                        "returnType": "Document[]",
+                        "line": 24
+                    }
+                },
+                "first": {
+                    "name": "first",
+                    "getSignature": {
+                        "name": "first",
+                        "type": "number",
+                        "returnType": "number",
+                        "line": 28
+                    }
+                }
+            },
+            "templateData": "<p-dataView\n  [first]=\"first\"\n  [value]=\"hits\"\n  [lazy]=\"true\"\n  [totalRecords]=\"totalRecords\"\n  [showCurrentPageReport]=\"true\"\n  [paginator]=\"true\"\n  [rows]=\"rows\"\n  (onPage)=\"onPage($event)\">\n  <ng-template pTemplate=\"list\" let-hits>\n    <div class=\"grid grid-nogutter\" *ngFor=\"let hit of hits\">\n      <div class=\"col-12\">{{ hit.name }}</div>\n      <div class=\"col-12\">{{ hit.content }}</div>\n    </div>\n  </ng-template>\n</p-dataView>\n"
         },
         {
             "name": "SsgComponent",
@@ -993,7 +1275,7 @@
                 "deprecated": false,
                 "deprecationMessage": "",
                 "type": "ApplicationConfig",
-                "defaultValue": "{\n  providers: [\n    provideRouter(routes),\n    provideClientHydration(),\n    {\n      provide: WINDOW,\n      useFactory: (document: Document) => windowProvider(document),\n      deps: [DOCUMENT],\n    },\n    provideFirebaseApp(() =>\n      initializeApp({\n        projectId: 'taiwan-legislative-search',\n        appId: '1:661598081211:web:febbd559cbf3295bdb999e',\n        storageBucket: 'taiwan-legislative-search.appspot.com',\n        apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',\n        authDomain: 'taiwan-legislative-search.firebaseapp.com',\n        messagingSenderId: '661598081211',\n        measurementId: 'G-Y7KWHXBGXY',\n      })\n    ),\n    provideAuth(() => getAuth()),\n    provideAnalytics(() => getAnalytics()),\n    ScreenTrackingService,\n    UserTrackingService,\n    provideFirestore(() => getFirestore()),\n    provideFunctions(() => getFunctions()),\n    provideMessaging(() => getMessaging()),\n    provideStorage(() => getStorage()), provideAnimationsAsync(),\n  ],\n}"
+                "defaultValue": "{\n  providers: [\n    provideRouter(routes),\n    provideClientHydration(),\n    {\n      provide: WINDOW,\n      useFactory: (document: Document) => windowProvider(document),\n      deps: [DOCUMENT],\n    },\n    provideFirebaseApp(() =>\n      initializeApp({\n        projectId: 'taiwan-legislative-search',\n        appId: '1:661598081211:web:febbd559cbf3295bdb999e',\n        storageBucket: 'taiwan-legislative-search.appspot.com',\n        apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',\n        authDomain: 'taiwan-legislative-search.firebaseapp.com',\n        messagingSenderId: '661598081211',\n        measurementId: 'G-Y7KWHXBGXY',\n      })\n    ),\n    provideAuth(() => getAuth()),\n    provideAnalytics(() => getAnalytics()),\n    ScreenTrackingService,\n    UserTrackingService,\n    provideFirestore(() => getFirestore()),\n    provideFunctions(() => getFunctions()),\n    provideMessaging(() => getMessaging()),\n    provideStorage(() => getStorage()), provideAnimationsAsync(),\n    provideAnimations()\n  ],\n}"
             },
             {
                 "name": "bootstrap",
@@ -1088,6 +1370,32 @@
                 "args": []
             },
             {
+                "name": "trimString",
+                "file": "src/app/components/search-bar/search-bar.component.ts",
+                "ctype": "miscellaneous",
+                "subtype": "function",
+                "deprecated": false,
+                "deprecationMessage": "",
+                "description": "",
+                "args": [
+                    {
+                        "name": "value",
+                        "deprecated": false,
+                        "deprecationMessage": ""
+                    }
+                ],
+                "jsdoctags": [
+                    {
+                        "name": "value",
+                        "deprecated": false,
+                        "deprecationMessage": "",
+                        "tagName": {
+                            "text": "param"
+                        }
+                    }
+                ]
+            },
+            {
                 "name": "windowProvider",
                 "file": "src/app/providers/window.ts",
                 "ctype": "miscellaneous",
@@ -1128,7 +1436,7 @@
                     "deprecated": false,
                     "deprecationMessage": "",
                     "type": "ApplicationConfig",
-                    "defaultValue": "{\n  providers: [\n    provideRouter(routes),\n    provideClientHydration(),\n    {\n      provide: WINDOW,\n      useFactory: (document: Document) => windowProvider(document),\n      deps: [DOCUMENT],\n    },\n    provideFirebaseApp(() =>\n      initializeApp({\n        projectId: 'taiwan-legislative-search',\n        appId: '1:661598081211:web:febbd559cbf3295bdb999e',\n        storageBucket: 'taiwan-legislative-search.appspot.com',\n        apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',\n        authDomain: 'taiwan-legislative-search.firebaseapp.com',\n        messagingSenderId: '661598081211',\n        measurementId: 'G-Y7KWHXBGXY',\n      })\n    ),\n    provideAuth(() => getAuth()),\n    provideAnalytics(() => getAnalytics()),\n    ScreenTrackingService,\n    UserTrackingService,\n    provideFirestore(() => getFirestore()),\n    provideFunctions(() => getFunctions()),\n    provideMessaging(() => getMessaging()),\n    provideStorage(() => getStorage()), provideAnimationsAsync(),\n  ],\n}"
+                    "defaultValue": "{\n  providers: [\n    provideRouter(routes),\n    provideClientHydration(),\n    {\n      provide: WINDOW,\n      useFactory: (document: Document) => windowProvider(document),\n      deps: [DOCUMENT],\n    },\n    provideFirebaseApp(() =>\n      initializeApp({\n        projectId: 'taiwan-legislative-search',\n        appId: '1:661598081211:web:febbd559cbf3295bdb999e',\n        storageBucket: 'taiwan-legislative-search.appspot.com',\n        apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',\n        authDomain: 'taiwan-legislative-search.firebaseapp.com',\n        messagingSenderId: '661598081211',\n        measurementId: 'G-Y7KWHXBGXY',\n      })\n    ),\n    provideAuth(() => getAuth()),\n    provideAnalytics(() => getAnalytics()),\n    ScreenTrackingService,\n    UserTrackingService,\n    provideFirestore(() => getFirestore()),\n    provideFunctions(() => getFunctions()),\n    provideMessaging(() => getMessaging()),\n    provideStorage(() => getStorage()), provideAnimationsAsync(),\n    provideAnimations()\n  ],\n}"
                 }
             ],
             "src/main.server.ts": [
@@ -1235,6 +1543,34 @@
                     "deprecationMessage": "",
                     "description": "",
                     "args": []
+                }
+            ],
+            "src/app/components/search-bar/search-bar.component.ts": [
+                {
+                    "name": "trimString",
+                    "file": "src/app/components/search-bar/search-bar.component.ts",
+                    "ctype": "miscellaneous",
+                    "subtype": "function",
+                    "deprecated": false,
+                    "deprecationMessage": "",
+                    "description": "",
+                    "args": [
+                        {
+                            "name": "value",
+                            "deprecated": false,
+                            "deprecationMessage": ""
+                        }
+                    ],
+                    "jsdoctags": [
+                        {
+                            "name": "value",
+                            "deprecated": false,
+                            "deprecationMessage": "",
+                            "tagName": {
+                                "text": "param"
+                            }
+                        }
+                    ]
                 }
             ],
             "src/app/providers/window.ts": [
@@ -1393,7 +1729,26 @@
                 "linktype": "component",
                 "name": "SearchBarComponent",
                 "coveragePercent": 0,
+                "coverageCount": "0/6",
+                "status": "low"
+            },
+            {
+                "filePath": "src/app/components/search-bar/search-bar.component.ts",
+                "type": "function",
+                "linktype": "miscellaneous",
+                "linksubtype": "function",
+                "name": "trimString",
+                "coveragePercent": 0,
                 "coverageCount": "0/1",
+                "status": "low"
+            },
+            {
+                "filePath": "src/app/components/search-results/search-results.component.ts",
+                "type": "component",
+                "linktype": "component",
+                "name": "SearchResultsComponent",
+                "coveragePercent": 0,
+                "coverageCount": "0/6",
                 "status": "low"
             },
             {
@@ -1494,6 +1849,15 @@
                 "linktype": "miscellaneous",
                 "linksubtype": "variable",
                 "name": "WINDOW",
+                "coveragePercent": 0,
+                "coverageCount": "0/1",
+                "status": "low"
+            },
+            {
+                "filePath": "src/app/utils/facet-count.pipe.ts",
+                "type": "pipe",
+                "linktype": "pipe",
+                "name": "FacetCountPipe",
                 "coveragePercent": 0,
                 "coverageCount": "0/1",
                 "status": "low"

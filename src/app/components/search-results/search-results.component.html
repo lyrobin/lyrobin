@@ -1,0 +1,16 @@
+<p-dataView
+  [first]="first"
+  [value]="hits"
+  [lazy]="true"
+  [totalRecords]="totalRecords"
+  [showCurrentPageReport]="true"
+  [paginator]="true"
+  [rows]="rows"
+  (onPage)="onPage($event)">
+  <ng-template pTemplate="list" let-hits>
+    <div class="grid grid-nogutter" *ngFor="let hit of hits">
+      <div class="col-12" [innerHTML]="hit.name"></div>
+      <div class="col-12" [innerHTML]="hit.content"></div>
+    </div>
+  </ng-template>
+</p-dataView>

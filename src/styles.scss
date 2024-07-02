@@ -35,6 +35,12 @@ $firebase-app-hosting-angular-theme: mat.define-light-theme((
 // that you are using.
 @include mat.all-component-themes($firebase-app-hosting-angular-theme);
 
+// PRIME NG Styles
+@import "primeicons/primeicons.css";
+@import "primeng/resources/themes/lara-light-blue/theme.css";
+@import "primeng/resources/primeng.css";
+@import "primeflex/primeflex.css";
+
 :root {
   --primary-contrast: #0b151e;
   --secondary-contrast: #0b151e99;

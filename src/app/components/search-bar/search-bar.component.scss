@@ -1,0 +1,36 @@
+:host::ng-deep p-inputicon > .p-input-icon{
+    top: 30%;
+    font-size: large;
+    cursor: pointer;
+}
+
+.search-field {
+    flex: 2 2 auto;
+}
+
+.search-input {
+    display: flex;
+    width: 100%;
+}
+
+.spacer {
+    flex: 1 1 auto;
+}
+
+.second-toolbar-row {
+    height: 36px;
+}
+
+.facet-container {
+    display: flex;
+    flex-direction: row;
+}
+
+:host::ng-deep .p-dropdown-clear-icon {
+    position: inherit;
+    top: 0%;
+}
+
+:host::ng-deep timesicon {
+    align-items: center;
+}

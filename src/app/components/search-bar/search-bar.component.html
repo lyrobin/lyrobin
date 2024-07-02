@@ -1,0 +1,29 @@
+<mat-toolbar>
+  <mat-toolbar-row>
+    <span class="spacer"></span>
+    <p-iconField iconPosition="right" class="search-field">
+      <p-inputIcon styleClass="pi pi-search" (click)="onSearchClick()" />
+      <input
+        type="text"
+        class="search-input"
+        pInputText
+        [(ngModel)]="query"
+        (keydown.enter)="onSearchClick()"
+        (ngModelChange)="queryChange.emit($event)" />
+    </p-iconField>
+    <span class="spacer"></span>
+  </mat-toolbar-row>
+  <mat-toolbar-row class="second-toolbar-row">
+    <span class="spacer"></span>
+    <div class="facet-container">
+      <div *ngFor="let facet of facets">
+        <p-dropdown
+          [options]="facet.counts | facetCount"
+          [placeholder]="facet.field"
+          styleClass="line-height-1"
+          [showClear]="true" />
+      </div>
+    </div>
+    <span class="spacer"></span>
+  </mat-toolbar-row>
+</mat-toolbar>
