@@ -15,11 +15,17 @@
   </mat-toolbar-row>
   <mat-toolbar-row class="second-toolbar-row">
     <span class="spacer"></span>
+    <mat-chip-set>
+      <mat-chip *ngFor="let f of filters">{{ f }}</mat-chip>
+    </mat-chip-set>
     <div class="facet-container">
       <div *ngFor="let facet of facets">
         <p-dropdown
-          [options]="facet.counts | facetCount"
-          [placeholder]="facet.field"
+          [options]="facet.counts | facetCount | facetValue"
+          [placeholder]="facet.field | facetFieldName"
+          optionLabel="name"
+          optionValue="value"
+          (onChange)="onFacetChangeHandler($event, facet.field)"
           styleClass="line-height-1"
           [showClear]="true" />
       </div>

@@ -52,6 +52,7 @@ type Document struct {
 	Name    string `json:"name,omitempty"`
 	Content string `json:"content,omitempty"`
 	URL     string `json:"url,omitempty"`
+	DocType string `json:"doctype,omitempty"`
 }
 
 type SearchEngine interface {
@@ -81,14 +82,16 @@ func NewTypesenseEngine(cfg config.TypeSense, store models.StoreReader) SearchEn
 
 func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchResult, error) {
 	params := &api.SearchCollectionParams{
-		Q:               req.Query,
-		QueryBy:         "name,content,summary,*",
-		FacetBy:         pointer.String("*"),
-		FilterBy:        pointer.String(req.Filter),
-		ExcludeFields:   pointer.String("vector"),
-		HighlightFields: pointer.String("name,content,summary"),
-		PerPage:         pointer.Int(20),
-		Page:            pointer.Int((req.Page)),
+		Q:                       req.Query,
+		QueryBy:                 "name,content,summary,*",
+		FacetBy:                 pointer.String("*"),
+		FilterBy:                pointer.String(req.Filter),
+		ExcludeFields:           pointer.String("vector"),
+		HighlightFields:         pointer.String("name,content,summary"),
+		SnippetThreshold:        pointer.Int(500),
+		HighlightAffixNumTokens: pointer.Int(200),
+		PerPage:                 pointer.Int(20),
+		Page:                    pointer.Int((req.Page)),
 	}
 	result, err := e.client.Collection(collection).Documents().Search(ctx, params)
 	if err != nil {
@@ -145,6 +148,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			Path:    path,
 			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
 			URL:     m.GetURL(),
+			DocType: docType,
 		}, nil
 	case MeetingFile:
 		m, err := e.store.GetMeetingFile(ctx, path)
@@ -156,6 +160,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			Path:    path,
 			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
 			URL:     m.URL,
+			DocType: docType,
 		}, nil
 	case Attachment:
 		m, err := e.store.GetAttachment(ctx, path)
@@ -167,6 +172,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			Path:    path,
 			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
 			URL:     m.URL,
+			DocType: docType,
 		}, nil
 	default:
 		return Document{}, errors.New("invalid document type " + docType)
@@ -185,8 +191,9 @@ func (h Highlights) getSnippet(field string, d string) string {
 }
 
 func trimString(s string, max int) string {
-	if len(s) <= max {
+	runes := []rune(s)
+	if len(runes) <= max {
 		return s
 	}
-	return s[:max] + "…"
+	return string(runes[:max]) + "…"
 }

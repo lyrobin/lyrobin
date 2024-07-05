@@ -97,11 +97,11 @@ code {
 }
 
 a {
-  color: var(--primary-contrast);
+  color: var(--primary-500);
   transition: color 0.2s;
 }
 a:hover {
-  color: var(--secondary-contrast);
+  color: var(--primary-700);
 }
 
 .dots {

@@ -1,16 +1,47 @@
-<p-dataView
-  [first]="first"
-  [value]="hits"
-  [lazy]="true"
-  [totalRecords]="totalRecords"
-  [showCurrentPageReport]="true"
-  [paginator]="true"
-  [rows]="rows"
-  (onPage)="onPage($event)">
-  <ng-template pTemplate="list" let-hits>
-    <div class="grid grid-nogutter" *ngFor="let hit of hits">
-      <div class="col-12" [innerHTML]="hit.name"></div>
-      <div class="col-12" [innerHTML]="hit.content"></div>
+<div class="flex flex-column h-full w-full">
+  <div
+    class="flex flex-grow-1 gap-4 my-4 align-items-start justify-content-between w-full">
+    <div class="flex-grow-1">
+      <p-dataView
+        [first]="first"
+        [value]="hits"
+        [lazy]="true"
+        [totalRecords]="totalRecords"
+        [showCurrentPageReport]="true"
+        styleClass="h-full w-full p-6"
+        [rows]="rows"
+        (onPage)="onPage($event)">
+        <ng-template pTemplate="list" let-hits>
+          <div *ngIf="!loading" class="flex flex-column gap-6">
+            <div class="grid grid-nogutter" *ngFor="let hit of hits">
+              <div class="mr-3">
+                <mat-icon
+                  [fontIcon]="hit | doctypeIcon"
+                  class="h-full w-full text-5xl text-center vertical-align-middle"></mat-icon>
+              </div>
+              <div class="col-11">
+                <div [innerHTML]="hit.name" class="font-semibold text-lg"></div>
+                <div>
+                  <a [href]="hit.url" target="_blank">{{ hit.url }}</a>
+                </div>
+              </div>
+              <div class="col-12 my-3 p-2" [innerHTML]="hit.content"></div>
+            </div>
+          </div>
+          <div *ngIf="loading" class="surface-card">
+            <p-skeleton height="5rem" />
+          </div>
+        </ng-template>
+      </p-dataView>
     </div>
-  </ng-template>
-</p-dataView>
+    <p-card header="Simple Card" class="flex-none col-3 sticky top-0">
+      <p class="m-0">Lorem ipsum dolor sit amet...</p>
+    </p-card>
+  </div>
+  <p-paginator
+    [first]="first"
+    [rows]="rows"
+    [totalRecords]="totalRecords"
+    styleClass="flex align-content-end col-12"
+    (onPageChange)="onPage($event)"></p-paginator>
+</div>

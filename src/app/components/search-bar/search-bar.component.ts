@@ -1,13 +1,21 @@
+import { NgFor } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { DropdownModule } from 'primeng/dropdown';
+import { DropdownChangeEvent, DropdownModule } from 'primeng/dropdown';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { Facet } from '../../providers/search';
 import { FacetCountPipe } from '../../utils/facet-count.pipe';
-import {NgFor} from '@angular/common';
+import { FacetFieldNamePipe } from '../../utils/facet-field-name.pipe';
+import { FacetValuePipe } from '../../utils/facet-value.pipe';
+
+export interface FacetChange {
+  facet: string;
+  value: string;
+}
 
 @Component({
   selector: 'app-search-bar',
@@ -20,16 +28,21 @@ import {NgFor} from '@angular/common';
     InputTextModule,
     MatToolbarModule,
     FacetCountPipe,
-    NgFor
+    FacetFieldNamePipe,
+    FacetValuePipe,
+    NgFor,
+    MatChipsModule,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
 })
-export class SearchBarComponent{
-  @Input({transform: trimString}) query = '';
+export class SearchBarComponent {
+  @Input({ transform: trimString }) query = '';
   @Input() facets?: Facet[] = [];
+  @Input() filters: string[] = [];
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
+  @Output() onFacetChange = new EventEmitter<FacetChange>();
 
   onSearchClick() {
     let query = trimString(this.query);
@@ -38,6 +51,13 @@ export class SearchBarComponent{
     }
     this.query = query;
     this.onSearch.emit(query);
+  }
+
+  onFacetChangeHandler(event: DropdownChangeEvent, facet: string) {
+    this.onFacetChange.emit({
+      facet,
+      value: event.value,
+    });
   }
 }
 

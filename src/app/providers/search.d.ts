@@ -13,6 +13,7 @@ export interface Document {
   name: string;
   content: string;
   url: string;
+  doctype: 'meeting' | 'proceeding' | 'video' | 'meetingfile' | 'attachment';
 }
 
 export interface SearchResult {

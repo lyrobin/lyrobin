@@ -1,10 +1,13 @@
 <app-search-bar
   [query]="query"
-  [facets]="result?.facet"
-  (onSearch)="onSearch($event)"></app-search-bar>
+  [facets]="facets"
+  [filters]="filterArray"
+  (onSearch)="onSearch($event)"
+  (onFacetChange)="onFacetChange($event)"></app-search-bar>
 
 <app-search-results
   [page]="currentPage"
   [result]="result"
+  [loading]="loading"
   (onPageChange)="onPageChange($event)"
-  class="block h-full"></app-search-results>
+  class="flex-grow-1"></app-search-results>
