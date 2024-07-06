@@ -1,10 +1,10 @@
 """Cloud Run uilties"""
 
-import requests
+import requests  # type: ignore
 
 import utils
 from utils import testings
-from firebase_admin import functions
+from firebase_admin import functions  # type: ignore
 from firebase_functions import logger
 
 

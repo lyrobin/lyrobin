@@ -5,18 +5,20 @@ import dataclasses
 import json
 import pathlib
 import urllib.parse
-from typing import Optional
+from typing import Any, Optional
 
 import firebase_admin  # type: ignore
+import requests  # type: ignore
+import utils
 import vertexai  # type: ignore
 from firebase_admin import firestore, storage
 from firebase_functions.options import SupportedRegion
 from google.api_core.exceptions import InvalidArgument, NotFound
-from google.cloud import aiplatform
+from google.cloud import aiplatform, bigquery
 from google.cloud.storage import Blob  # type: ignore
 from params import EMBEDDING_MODEL
+from vertexai.generative_models import GenerativeModel, Part  # type: ignore
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
-import utils
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -166,3 +168,23 @@ class GeminiBatchEmbeddingJob:
         if not predictions:
             return []
         return predictions[0].get("embeddings", {}).get("values", [])
+
+
+VIDEO_SUMMARY_PROMPT = """\
+請根據影片實際發生的內容，以繁體中文作出詳盡的人物及事件介紹
+"""
+
+
+class GeminiVideoSummaryJob:
+
+    def __init__(self, gs_url: str):
+        app: firebase_admin.App = firebase_admin.get_app()
+        vertexai.init(project=app.project_id, location=_REGION.value)
+        self._url = gs_url
+
+    def run(self) -> str | None:
+        model = GenerativeModel(model_name="gemini-1.5-flash")
+        response = model.generate_content(
+            [VIDEO_SUMMARY_PROMPT, Part.from_uri(self._url, mime_type="video/mp4")]
+        )
+        return response.text

@@ -7,6 +7,7 @@ import firebase_admin  # type: ignore
 from legislature.legislative_parser import *
 from legislature.crons import *
 from legislature.subscribers import *
+from legislature.tasks import *
 from firebase_admin import credentials
 import params
 

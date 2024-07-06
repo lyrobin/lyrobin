@@ -7,7 +7,7 @@ import unittest
 from urllib import parse
 
 import pytest
-import pytz
+import pytz  # type: ignore
 from legislature import readers
 from utils import testings
 

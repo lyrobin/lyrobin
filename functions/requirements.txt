@@ -58,6 +58,7 @@ MarkupSafe==2.1.5
 msgpack==1.0.8
 numpy==2.0.0
 olefile==0.47
+opencc-python-reimplemented==0.1.7
 ordered-set==4.1.0
 packaging==24.0
 pdfminer.six==20191110

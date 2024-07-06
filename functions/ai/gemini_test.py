@@ -4,10 +4,13 @@ import pathlib
 import unittest
 import uuid
 from unittest import mock
+import logging
 
 from ai import gemini
 from firebase_admin import firestore, storage  # type: ignore
 from utils import testings
+
+logger = logging.getLogger(__name__)
 
 
 def _test_file(name: str) -> pathlib.Path:
@@ -75,6 +78,18 @@ class TestGeminiBatchEmbeddingJob(unittest.TestCase):
         assert all(isinstance(v, float) for v in results[0].embedding)
         assert len(results[1].embedding) == 768
         assert all(isinstance(v, float) for v in results[1].embedding)
+
+
+class TestGeminiVideoSummaryJob(unittest.TestCase):
+
+    @unittest.skip("for manual test")
+    def test_run(self):
+        job = gemini.GeminiVideoSummaryJob(
+            "gs://taiwan-legislative-search.appspot.com/videos/0089757e842c31968a8bd475f9ccd1d4/clips/0.mp4"
+        )
+        summary = job.run()
+        logger.debug(summary)
+        self.assertIsNotNone(summary)
 
 
 if __name__ == "__main__":

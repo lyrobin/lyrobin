@@ -10,19 +10,19 @@ import math
 import pathlib
 import re
 import tempfile
-from typing import Optional
+from typing import Optional, Any
 from urllib import parse
 
-import bs4
-import ffmpeg
-import google.auth.transport.requests
-import google.oauth2.id_token
-import m3u8
-import m3u8.model
-import params
-import pytz
-import requests
-import textract
+import bs4  # type: ignore
+import ffmpeg  # type: ignore
+import google.auth.transport.requests  # type: ignore
+import google.oauth2.id_token  # type: ignore
+import m3u8  # type: ignore
+import m3u8.model  # type: ignore
+import params  # type: ignore
+import pytz  # type: ignore
+import requests  # type: ignore
+import textract  # type: ignore
 from utils import session
 from firebase_functions import logger
 
@@ -100,7 +100,7 @@ class LegislativeMeetingReader:
     # ppg/bills/202110028120000/details
     _BILL_REGEX = re.compile(r"/ppg/bills/(\d+)/details")
 
-    def __init__(self, html: str, url: str = None):
+    def __init__(self, html: str, url: str | None = None):
         self._s = bs4.BeautifulSoup(html, "html.parser")
         if url is None:
             return
@@ -110,11 +110,12 @@ class LegislativeMeetingReader:
 
     @classmethod
     def open(
-        cls, url: str, qs: dict[str, any] = None, timeout=60
+        cls, url: str, qs: dict[str, Any] | None = None, timeout=60
     ) -> "LegislativeMeetingReader":
         """Open a legislative meeting page."""
         if qs is None:
-            qs = parse.urlparse(url).params
+            parsed_url = parse.urlparse(url)
+            qs = parse.parse_qs(parsed_url.query)
         res = legacy_session.get(
             url, params=qs, timeout=timeout, headers=_REQUEST_HEADER
         )
@@ -259,7 +260,10 @@ class LegislativeMeetingReader:
 
     def _get_bill_no(self, url: str) -> str:
         """Get the bill number from a URL."""
-        return self._BILL_REGEX.search(url).group(1)
+        match = self._BILL_REGEX.search(url)
+        if not match:
+            return ""
+        return match.group(1)
 
     def _parse_zip_link(self, url: str) -> str | None:
         """Parse a zip link."""
@@ -479,7 +483,7 @@ class IvodReader:
         )
         return IvodReader.open(f"{self._url}?{qs}")
 
-    def _to_video_entry(self, tag: bs4.Tag) -> VideoEntry:
+    def _to_video_entry(self, tag: bs4.Tag) -> VideoEntry | None:
         link_tag = tag.find(
             lambda t: t.name == "a"
             and t.attrs.get("href", "").startswith("/Play")
@@ -515,22 +519,41 @@ class VideoReader:
         # The duration here is derived from meta data shown in the webpage.
         # It could be different to the real video duration.
         duration: dt.timedelta = dataclasses.field(default_factory=dt.timedelta)
-        start_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
-        end_time: dt.datetime = dataclasses.field(default_factory=dt.datetime)
+        start_time: dt.datetime = dataclasses.field(
+            default_factory=lambda: dt.datetime(1970, 1, 1)
+        )
+        end_time: dt.datetime = dataclasses.field(
+            default_factory=lambda: dt.datetime(1970, 1, 1)
+        )
         playlist: str | None = None
 
         def __post_init__(self):
             self.start_time = self.start_time.astimezone(dt.timezone.utc)
             self.end_time = self.end_time.astimezone(dt.timezone.utc)
 
+    def __init__(
+        self, html: str, clip_size: dt.timedelta = dt.timedelta(minutes=30)
+    ) -> None:
+        self._s = bs4.BeautifulSoup(html, "html.parser")
+        self._meta = self._get_meta()
+        self._clip_size = clip_size
+        self._playlist: m3u8.model.M3U8 | None = None
+        self._chunks: m3u8.model.M3U8 | None = None
+        self.__target_duration: int | None = None
+        self._m3u8_client: session.LegacyM3U8Client = session.LegacyM3U8Client()
+
     @property
     def meta(self) -> VideoMeta:
         """Get the video meta"""
+        if self._meta is None:
+            return self.VideoMeta()
         return self._meta
 
     @property
     def playlist_url(self) -> str | None:
         """Get the playlist url"""
+        if not self.meta:
+            return None
         return self.meta.playlist
 
     @property
@@ -568,17 +591,6 @@ class VideoReader:
         """Get the number of clips"""
         return math.ceil(len(self.chunks.segments) / self._clip_chunks)
 
-    def __init__(
-        self, html: str, clip_size: dt.timedelta = dt.timedelta(minutes=30)
-    ) -> None:
-        self._s = bs4.BeautifulSoup(html, "html.parser")
-        self._meta = self._get_meta()
-        self._clip_size = clip_size
-        self._playlist: m3u8.model.M3U8 | None = None
-        self._chunks: m3u8.model.M3U8 | None = None
-        self.__target_duration = None
-        self._m3u8_client = session.LegacyM3U8Client()
-
     @classmethod
     def open(cls, url: str) -> "VideoReader":
         """Open a video"""
@@ -591,9 +603,9 @@ class VideoReader:
         """Set the clip size"""
         self._clip_size = clip_size
 
-    def _get_meta(self) -> str | None:
+    def _get_meta(self) -> VideoMeta | None:
         scripts = self._s.find_all("script", type="text/javascript", src=None)
-        codes = []
+        codes: list[str] = []
         for script in scripts:
             codes.extend(
                 line.strip() for line in "\n".join(script.strings).splitlines()
