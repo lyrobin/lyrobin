@@ -12,6 +12,7 @@ import { filter, map, startWith } from 'rxjs';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -29,7 +30,9 @@ import { FirebaseIconComponent } from './components/icons/firebase-icon.componen
 })
 export class AppComponent {
   private readonly router = inject(Router);
-  private readonly analytics = inject(Analytics);
+  private readonly analytics = environment.production
+    ? inject(Analytics)
+    : null;
   private readonly isMainPage$ = this.router.events.pipe(
     filter((event): event is NavigationEnd => event instanceof NavigationEnd),
     map((event: NavigationEnd) => event.url === '/'),

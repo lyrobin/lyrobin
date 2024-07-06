@@ -1,3 +1,14 @@
-:host::ng-deep .p-dataview .p-dataview-content{
-    background: transparent;    
+:host::ng-deep .p-dataview .p-dataview-content {
+    background: transparent;
+    color: var(--surface-300);
+}
+
+:host::ng-deep {
+    .p-skeleton:after {
+        background: linear-gradient(90deg, rgba(65, 92, 209, 0), rgba(15, 38, 138, 0.2), rgba(65, 92, 209, 0))
+    }
+}
+
+:host::ng-deep.small-bar {
+    height: 0.5rem;
 }

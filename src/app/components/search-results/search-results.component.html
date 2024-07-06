@@ -12,31 +12,90 @@
         [rows]="rows"
         (onPage)="onPage($event)">
         <ng-template pTemplate="list" let-hits>
-          <div *ngIf="!loading" class="flex flex-column gap-6">
-            <div class="grid grid-nogutter" *ngFor="let hit of hits">
+          @if (!loading) {
+            <div @inTrigger class="flex flex-column gap-6">
+              @for (hit of hits; track hit.focus; let idx = $index) {
+                <div class="grid grid-nogutter">
+                  <div class="mr-3">
+                    <mat-icon
+                      [fontIcon]="hit | doctypeIcon"
+                      class="h-full w-full text-5xl text-center vertical-align-middle"></mat-icon>
+                  </div>
+                  <div class="col-11">
+                    <div
+                      [innerHTML]="hit.name"
+                      class="font-semibold text-lg"></div>
+                    <div>
+                      <a [href]="hit.url" target="_blank">{{ hit.url }}</a>
+                    </div>
+                  </div>
+                  <div class="col-12 my-3">
+                    @if (hit.focus) {
+                      <p-progressBar
+                        class="block w-8"
+                        styleClass="small-bar"
+                        [showValue]="false"
+                        [value]="holdProgress" />
+                    }
+                    <div
+                      class="p-2"
+                      pTooltip="長按看重點"
+                      tooltipPosition="bottom"
+                      showDelay="1500"
+                      (mousedown)="onHoldDescription($event, hit, idx)"
+                      (mouseup)="onLeaveDescription($event, hit, idx)"
+                      [innerHTML]="hit.content"></div>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div
+              @inTrigger
+              class="grid grid-nogutter mb-3"
+              *ngFor="let _ of [].constructor(3)">
               <div class="mr-3">
-                <mat-icon
-                  [fontIcon]="hit | doctypeIcon"
-                  class="h-full w-full text-5xl text-center vertical-align-middle"></mat-icon>
+                <p-skeleton shape="circle" size="3rem" styleClass="mr-2" />
               </div>
               <div class="col-11">
-                <div [innerHTML]="hit.name" class="font-semibold text-lg"></div>
-                <div>
-                  <a [href]="hit.url" target="_blank">{{ hit.url }}</a>
-                </div>
+                <p-skeleton
+                  width="10rem"
+                  height="1.5rem"
+                  styleClass="mb-2"
+                  borderRadius="16px" />
+                <p-skeleton
+                  width="20rem"
+                  height="0.875rem"
+                  styleClass="mb-2"
+                  borderRadius="16px" />
               </div>
-              <div class="col-12 my-3 p-2" [innerHTML]="hit.content"></div>
+              <div class="flex flex-column my-2">
+                <p-skeleton width="30rem" height="1rem" styleClass="mb-2" />
+                <p-skeleton width="35rem" height="1rem" styleClass="mb-2" />
+                <p-skeleton width="40rem" height="1rem" styleClass="mb-2" />
+              </div>
             </div>
-          </div>
-          <div *ngIf="loading" class="surface-card">
-            <p-skeleton height="5rem" />
-          </div>
+          }
         </ng-template>
       </p-dataView>
     </div>
-    <p-card header="Simple Card" class="flex-none col-3 sticky top-0">
-      <p class="m-0">Lorem ipsum dolor sit amet...</p>
-    </p-card>
+    <div class="flex-none col-3 sticky top-0">
+      @if (showSummary) {
+        <p-card @inoutTrigger header="重點筆記" styleClass="my-4">
+          @if (loadingSummary) {
+            <p-skeleton styleClass="mb-2 w-4" />
+            <p-skeleton styleClass="mb-2 w-6" />
+            <p-skeleton styleClass="mb-2 w-8" />
+          } @else {
+            @if (summary) {
+              <p @inTrigger class="m-0" [innerHTML]="summary"></p>
+            } @else {
+              <p @inTrigger class="m-0">目前沒有內容，試試其它資料。</p>
+            }
+          }
+        </p-card>
+      }
+    </div>
   </div>
   <p-paginator
     [first]="first"

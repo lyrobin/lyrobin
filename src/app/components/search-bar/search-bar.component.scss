@@ -34,3 +34,24 @@
 :host::ng-deep timesicon {
     align-items: center;
 }
+
+:host::ng-deep {
+    $dropdown-font-size: 0.875rem;
+    .p-dropdown {
+        border-radius: 20px;
+        height: 2rem;
+    }
+
+    .p-dropdown-label {
+        font-size: $dropdown-font-size;
+        padding: 0.45rem;
+    }
+
+    .p-dropdown-item {
+        font-size: $dropdown-font-size;
+    }
+}
+
+.second-toolbar-row {
+    min-height: 3rem;
+}

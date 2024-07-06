@@ -7,6 +7,7 @@ import { DropdownChangeEvent, DropdownModule } from 'primeng/dropdown';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { Facet } from '../../providers/search';
 import { FacetCountPipe } from '../../utils/facet-count.pipe';
 import { FacetFieldNamePipe } from '../../utils/facet-field-name.pipe';
@@ -22,16 +23,17 @@ export interface FacetChange {
   standalone: true,
   imports: [
     DropdownModule,
+    FacetCountPipe,
+    FacetFieldNamePipe,
+    FacetValuePipe,
     FormsModule,
     IconFieldModule,
     InputIconModule,
     InputTextModule,
-    MatToolbarModule,
-    FacetCountPipe,
-    FacetFieldNamePipe,
-    FacetValuePipe,
-    NgFor,
     MatChipsModule,
+    MatToolbarModule,
+    NgFor,
+    ProgressSpinnerModule,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
@@ -40,6 +42,7 @@ export class SearchBarComponent {
   @Input({ transform: trimString }) query = '';
   @Input() facets?: Facet[] = [];
   @Input() filters: string[] = [];
+  @Input() loading: boolean = false;
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
   @Output() onFacetChange = new EventEmitter<FacetChange>();
