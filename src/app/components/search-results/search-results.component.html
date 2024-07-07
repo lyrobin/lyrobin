@@ -29,6 +29,14 @@
                       <div
                         [innerHTML]="hit.name"
                         class="font-semibold text-lg"></div>
+                      <p-button
+                        icon="pi pi-pen-to-square"
+                        size="small"
+                        width="26px"
+                        [outlined]="true"
+                        class="lg:hidden mx-1"
+                        styleClass="p-1"
+                        (onClick)="aiSummary(hit)" />
                     </div>
                     <div class="link-container ml-4 lg:ml-0">
                       <a [href]="hit.url" target="_blank" class="block">{{
@@ -51,8 +59,6 @@
                       showDelay="1500"
                       (mousedown)="onHoldDescription($event, hit, idx)"
                       (mouseup)="onLeaveDescription($event, hit, idx)"
-                      (touchstart)="onHoldDescription($event, hit, idx)"
-                      (touchend)="onLeaveDescription($event, hit, idx)"
                       [innerHTML]="hit.content"></div>
                   </div>
                 </div>

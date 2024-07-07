@@ -27,6 +27,7 @@ import {
   Breakpoints,
 } from '@angular/cdk/layout';
 import { DialogModule } from 'primeng/dialog';
+import { ButtonModule } from 'primeng/button';
 
 interface Hit extends Document {
   focus: boolean;
@@ -51,6 +52,7 @@ interface Hit extends Document {
     MarkdownSanitizePipe,
     LayoutModule,
     DialogModule,
+    ButtonModule,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
