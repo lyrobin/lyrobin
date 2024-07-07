@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/config"
@@ -23,6 +24,7 @@ const (
 	MeetingFile DocType = "meetingfile"
 	Attachment  DocType = "attachment"
 	Proceeding  DocType = "proceeding"
+	Video       DocType = "video"
 )
 
 type SearchRequest struct {
@@ -171,6 +173,35 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			Name:    highlights.getSnippet("name", m.Name),
 			Path:    path,
 			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
+			URL:     m.URL,
+			DocType: docType,
+		}, nil
+	case Proceeding:
+		m, err := e.store.GetProceeding(ctx, path)
+		if err != nil {
+			return Document{}, err
+		}
+		return Document{
+			Name:    highlights.getSnippet("name", m.Name),
+			Path:    path,
+			Content: highlights.getSnippet("content", trimString(m.Status, 500)),
+			URL:     m.URL,
+			DocType: docType,
+		}, nil
+	case Video:
+		meetPath := strings.Join(strings.Split(path, "/")[0:2], "/")
+		meet, err := e.store.GetMeeting(ctx, meetPath)
+		if err != nil {
+			return Document{}, err
+		}
+		m, err := e.store.GetVideo(ctx, path)
+		if err != nil {
+			return Document{}, err
+		}
+		return Document{
+			Name:    meet.Name + " - " + m.Member,
+			Path:    path,
+			Content: highlights.getSnippet("summary", trimString(m.Summary, 20)),
 			URL:     m.URL,
 			DocType: docType,
 		}, nil

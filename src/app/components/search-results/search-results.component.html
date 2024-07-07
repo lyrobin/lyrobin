@@ -79,7 +79,7 @@
         </ng-template>
       </p-dataView>
     </div>
-    <div class="flex-none col-3 sticky top-0">
+    <div class="flex-none col-4 sticky top-0">
       @if (showSummary) {
         <p-card @inoutTrigger header="重點筆記" styleClass="my-4">
           @if (loadingSummary) {
@@ -87,11 +87,17 @@
             <p-skeleton styleClass="mb-2 w-6" />
             <p-skeleton styleClass="mb-2 w-8" />
           } @else {
-            @if (summary) {
-              <p @inTrigger class="m-0" [innerHTML]="summary"></p>
-            } @else {
-              <p @inTrigger class="m-0">目前沒有內容，試試其它資料。</p>
-            }
+            <p-scrollPanel styleClass="summary-content-panel">
+              @if (summary) {
+                <markdown
+                  @inTrigger
+                  class="m-0"
+                  [data]="summary | markdownSanitize"></markdown>
+                <!-- <p @inTrigger class="m-0" [innerHTML]="summary"></p> -->
+              } @else {
+                <p @inTrigger class="m-0">目前沒有內容，試試其它資料。</p>
+              }
+            </p-scrollPanel>
           }
         </p-card>
       }

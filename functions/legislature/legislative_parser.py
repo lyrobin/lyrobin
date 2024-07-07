@@ -41,7 +41,7 @@ _REQUEST_HEADEER = {
 _REGION = SupportedRegion.ASIA_EAST1
 
 
-@https_fn.on_request(region=_REGION)
+@https_fn.on_request(region=_REGION, memory=MemoryOption.MB_512)
 def update_meetings(request: https_fn.Request) -> https_fn.Response:
     """
     Update the meetings in the database.
@@ -105,7 +105,10 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
 
 
 @firestore_fn.on_document_created(
-    document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+    document="meetings/{meetNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -136,7 +139,10 @@ def _fetch_meeting_when_created(
 
 
 @firestore_fn.on_document_updated(
-    document="meetings/{meetNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+    document="meetings/{meetNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_update(
     event: firestore_fn.Event[
@@ -157,6 +163,7 @@ def on_meeting_update(
     document="meetings/{meetNo}/files/{fileNo}",
     region=_REGION,
     secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_file_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -172,6 +179,7 @@ def on_meeting_file_create(
     document="meetings/{meetNo}/files/{fileNo}",
     region=_REGION,
     secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_file_update(
     event: firestore_fn.Event[
@@ -201,6 +209,7 @@ def _index_meeting_file(event: firestore_fn.Event):
     rate_limits=RateLimits(max_concurrent_dispatches=20),
     region=_REGION,
     timeout_sec=300,
+    memory=MemoryOption.MB_512,
 )
 def fetchMeetingFromWeb(request: tasks_fn.CallableRequest):
     """Fetch the meeting from the web."""
@@ -282,7 +291,9 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest):
 
 
 @firestore_fn.on_document_created(
-    document="meetings/{meetNo}/proceedings/{billNo}", region=_REGION
+    document="meetings/{meetNo}/proceedings/{billNo}",
+    region=_REGION,
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_proceedings_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -318,6 +329,7 @@ def _on_meeting_proceedings_create(meet_no: str, bill_no: str):
     rate_limits=RateLimits(max_concurrent_dispatches=20),
     region=_REGION,
     timeout_sec=300,
+    memory=MemoryOption.MB_512,
 )
 def fetchProceedingFromWeb(request: tasks_fn.CallableRequest):
     try:
@@ -474,6 +486,7 @@ def on_meetings_attached_file_create(
     rate_limits=RateLimits(max_concurrent_dispatches=20),
     region=_REGION,
     timeout_sec=300,
+    memory=MemoryOption.MB_512,
 )
 def fetchIVODFromWeb(request: tasks_fn.CallableRequest):
     """Handler on fetch ivod from web."""
@@ -521,7 +534,9 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
 
 
 @firestore_fn.on_document_created(
-    document="meetings/{meetNo}/ivods/{ivodNo}", region=_REGION
+    document="meetings/{meetNo}/ivods/{ivodNo}",
+    region=_REGION,
+    memory=MemoryOption.MB_512,
 )
 def on_meeting_ivod_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -640,7 +655,9 @@ def _find_video_in_ivod(
 
 
 @firestore_fn.on_document_created(
-    document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}", region=_REGION
+    document="meetings/{meetNo}/ivods/{ivodNo}/{videoCollect}/{videoNo}",
+    region=_REGION,
+    memory=MemoryOption.MB_512,
 )
 def on_ivod_video_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -658,7 +675,10 @@ def on_ivod_video_create(
 
 
 @firestore_fn.on_document_created(
-    document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+    document="proceedings/{procNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_proceeding_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -675,7 +695,10 @@ def on_proceeding_create(
 
 
 @firestore_fn.on_document_updated(
-    document="proceedings/{procNo}", region=_REGION, secrets=[TYPESENSE_API_KEY]
+    document="proceedings/{procNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_proceeding_update(
     event: firestore_fn.Event[
@@ -697,6 +720,7 @@ def on_proceeding_update(
     document="proceedings/{procNo}/attachments/{attachNo}",
     region=_REGION,
     secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_proceeding_attachment_create(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
@@ -714,6 +738,7 @@ def on_proceeding_attachment_create(
     document="proceedings/{procNo}/attachments/{attachNo}",
     region=_REGION,
     secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
 )
 def on_proceeding_attachment_update(
     event: firestore_fn.Event[

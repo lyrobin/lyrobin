@@ -19,6 +19,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { AicoreService } from '../../providers/aicore.service';
 import { animate, style, transition, trigger } from '@angular/animations';
+import { MarkdownModule } from 'ngx-markdown';
+import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
 
 interface Hit extends Document {
   focus: boolean;
@@ -39,6 +41,8 @@ interface Hit extends Document {
     DoctypeIconPipe,
     TooltipModule,
     ProgressBarModule,
+    MarkdownModule,
+    MarkdownSanitizePipe,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',

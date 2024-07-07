@@ -48,6 +48,8 @@ Thumbs.db
 
 # Firebase
 .firebase
+.firebase.*
+.firebase.*/**
 *-debug.log
 .runtimeconfig.json
 

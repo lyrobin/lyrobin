@@ -65,6 +65,18 @@ DOCUMENT_SCHEMA_V1 = {
     ],
 }
 
+DOCUMENT_SCHEMA_V2 = {
+    "name": "documents",
+    "fields": [
+        {
+            "name": "member",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+    ],
+}
 
 SUMMARY_MAX_LENGTH = 1000
 CONTENT_MAX_LENGTH = 10000
@@ -198,6 +210,13 @@ class DocumentSearchEngine:
             return
         self._client.collections.create(schema)
 
+    def update_collection(self, schema: dict = DOCUMENT_SCHEMA_V2):
+        name = schema.get("name")
+        if not name:
+            return
+        new_schema = {k: v for k, v in schema.items() if k != "name"}
+        self._client.collections[name].update(new_schema)
+
     def drop_collection(self):
         """Drop the collection."""
         collections = self._client.collections.retrieve()
@@ -218,6 +237,8 @@ class DocumentSearchEngine:
                 target = self._meet_file_to_doc(doc)
             case DocType.ATTACHMENT:
                 target = self._attachment_to_doc(doc)
+            case DocType.VIDEO:
+                target = self._video_to_doc(doc)
             case _:
                 raise TypeError(f"Unsupported doc type {doc_type}.")
         return target
@@ -303,4 +324,17 @@ class DocumentSearchEngine:
             content=m.full_text if len(m.full_text) < CONTENT_MAX_LENGTH else "",
             created_date=get_create_date(),
             vector=m.embedding_vector,
+        )
+
+    def _video_to_doc(self, doc: DocumentSnapshot) -> Document:
+        ref: DocumentReference = doc.reference
+        m: models.Video = models.Video.from_dict(doc.to_dict())
+        return Document(
+            path=ref.path,
+            doc_type=models.Video.__name__.lower(),
+            name=m.name,
+            summary=m.ai_summary,
+            created_date=m.start_time,
+            vector=m.embedding_vector,
+            metadata={"member": m.member},
         )

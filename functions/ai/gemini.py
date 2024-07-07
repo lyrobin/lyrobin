@@ -6,6 +6,7 @@ import json
 import pathlib
 import urllib.parse
 from typing import Any, Optional
+import itertools
 
 import firebase_admin  # type: ignore
 import requests  # type: ignore
@@ -171,7 +172,7 @@ class GeminiBatchEmbeddingJob:
 
 
 VIDEO_SUMMARY_PROMPT = """\
-請根據影片實際發生的內容，以繁體中文作出詳盡的人物及事件介紹
+請根據影片實際發生的內容，以繁體中文作出詳盡的事件介紹
 """
 
 
@@ -188,3 +189,102 @@ class GeminiVideoSummaryJob:
             [VIDEO_SUMMARY_PROMPT, Part.from_uri(self._url, mime_type="video/mp4")]
         )
         return response.text
+
+
+class GeminiSpeechSummaryJob:
+
+    def __init__(self, member: str, gs_url: str):
+        app: firebase_admin.App = firebase_admin.get_app()
+        vertexai.init(project=app.project_id, location=_REGION.value)
+        self._member = member
+        self._url = gs_url
+
+    def run(self) -> str | None:
+        model = GenerativeModel(model_name="gemini-1.5-flash")
+        response = model.generate_content(
+            [
+                f"影片中的立法委員是 {self._member}。\n",
+                VIDEO_SUMMARY_PROMPT,
+                Part.from_uri(self._url, mime_type="video/mp4"),
+            ]
+        )
+        return response.text
+
+
+@dataclasses.dataclass
+class BatchSummaryQuery:
+    doc_path: str
+    content: str
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": json.dumps(
+                {
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [
+                                {
+                                    "text": "請根據下述的內容，以繁體中文做出詳盡的人物及事件介紹"
+                                },
+                                {"text": self.content},
+                            ],
+                        }
+                    ]
+                }
+            ),
+            "doc_path": self.doc_path,
+        }
+
+
+class GeminiBatchDocumentSummaryJob:
+
+    MODEL = "publishers/google/models/gemini-1.5-flash-001"
+    DATESET = "gemini"
+    SCHEMA = [
+        bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+        bigquery.SchemaField("doc_path", "STRING"),
+    ]
+
+    def __init__(self, uid: str):
+        app: firebase_admin.App = firebase_admin.get_app()
+        vertexai.init(project=app.project_id, location=_REGION.value)
+        self._client = bigquery.Client(project=app.project_id)
+        self._uid = uid
+        self._project = app.project_id
+        self._token = app.credential.get_access_token().access_token
+
+    def run(self, queries: list[BatchSummaryQuery]) -> bool:
+        # TODO: create a better table name for debugging
+        input_uri = self._write_quires(queries)
+        output_uri = f"{self._project}.{self.DATESET}.output-summary-{self._uid}"
+        response = requests.post(
+            f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self._project}/locations/us-central1/batchPredictionJobs",
+            json={
+                "displayName": f"summary-{self._uid}",
+                "model": self.MODEL,
+                "inputConfig": {
+                    "instancesFormat": "bigquery",
+                    "bigquerySource": {"inputUri": f"bq://{input_uri}"},
+                },
+                "outputConfig": {
+                    "predictionsFormat": "bigquery",
+                    "bigqueryDestination": {"outputUri": f"bq://{output_uri}"},
+                },
+            },
+            headers={"Authorization": f"Bearer {self._token}"},
+            timeout=60,
+        )
+        return response.ok
+
+    def _write_quires(self, queries: list[BatchSummaryQuery]) -> str:
+        table_id = f"input-summary-{self._uid}"
+        dataset_ref = self._client.dataset(self.DATESET)
+        table_ref = dataset_ref.table(table_id)
+        table = bigquery.Table(table_ref, schema=self.SCHEMA)
+        table = self._client.create_table(table, exists_ok=True)
+        rows_to_inserts = [q.to_request() for q in queries]
+        resource = f"{self._project}.{self.DATESET}.{table_id}"
+        for batch in itertools.batched(rows_to_inserts, 10):
+            self._client.insert_rows_json(resource, batch, timeout=300)
+        return resource

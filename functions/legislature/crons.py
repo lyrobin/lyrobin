@@ -9,6 +9,7 @@ from firebase_functions import logger, scheduler_fn
 from firebase_functions.options import Timezone, MemoryOption
 from google.cloud.firestore import DocumentSnapshot, FieldFilter  # type: ignore
 from legislature import models
+from utils import tasks
 
 _TZ = Timezone("Asia/Taipei")
 
@@ -20,6 +21,7 @@ _TZ = Timezone("Asia/Taipei")
     max_instances=2,
     concurrency=2,
     memory=MemoryOption.GB_4,
+    timeout_sec=3600,
 )
 def update_meeting_files_embeddings(_: scheduler_fn.ScheduledEvent):
     try:
@@ -70,6 +72,7 @@ def _update_meeting_files_embeddings():
     max_instances=2,
     concurrency=2,
     memory=MemoryOption.GB_4,
+    timeout_sec=3600,
 )
 def update_proceeding_attachment_embedding(_):
     try:
@@ -117,4 +120,152 @@ def _update_proceeding_attachment_embedding():
             and attachment.embedding_updated_at <= attachment.last_update_time
         ]
         uid = uuid.uuid4().hex
+        # TODO: create a better job name for debugging
         gemini.GeminiBatchEmbeddingJob.create(uid).submit(queries)
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 19 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+)
+def update_meeting_files_summaries(_):
+    try:
+        _update_meeting_files_summaries()
+    except Exception as e:
+        logger.error(f"Fail to update meeting files summaries, {e}")
+        raise RuntimeError("Fail to update meeting files summaries.") from e
+
+
+def _update_meeting_files_summaries():
+    db = firestore.client()
+
+    def get_docs_for_update(
+        last_doc: DocumentSnapshot | None = None,
+    ) -> list[DocumentSnapshot]:
+        collections = db.collection_group(models.FILE_COLLECT).where(
+            filter=FieldFilter(
+                "ai_summarized_at",
+                "<=",
+                dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+            )
+        )
+        if last_doc is not None:
+            collections = collections.start_after(last_doc)
+        return list(collections.limit(100).stream())
+
+    last_doc: DocumentSnapshot | None = None
+    while docs := get_docs_for_update(last_doc):
+        last_doc = docs[-1]
+        files = [models.MeetingFile.from_dict(doc.to_dict()) for doc in docs]
+        queries = [
+            gemini.BatchSummaryQuery(doc.reference.path, file.full_text)
+            for doc, file in zip(docs, files)
+            if file.full_text
+        ]
+        uid = uuid.uuid4().hex
+        # TODO: create a better job name for debugging
+        ok = gemini.GeminiBatchDocumentSummaryJob(uid).run(queries)
+        if not ok:
+            logger.error("Fail to create batch summary job.")
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 19 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+)
+def update_attachments_summaries(_):
+    try:
+        _update_attachments_summaries()
+    except Exception as e:
+        logger.error(f"Fail to update attachments summaries, {e}")
+        raise RuntimeError("Fail to update attachments summaries.") from e
+
+
+def _update_attachments_summaries():
+    db = firestore.client()
+
+    def get_docs_for_update(
+        last_doc: DocumentSnapshot | None = None,
+    ) -> list[DocumentSnapshot]:
+        collections = db.collection_group(models.ATTACH_COLLECT).where(
+            filter=FieldFilter(
+                "ai_summarized_at",
+                "<=",
+                dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+            )
+        )
+        if last_doc is not None:
+            collections = collections.start_after(last_doc)
+        return list(collections.limit(100).stream())
+
+    last_doc: DocumentSnapshot | None = None
+    while docs := get_docs_for_update(last_doc):
+        last_doc = docs[-1]
+        files = [models.Attachment.from_dict(doc.to_dict()) for doc in docs]
+        queries = [
+            gemini.BatchSummaryQuery(doc.reference.path, file.full_text)
+            for doc, file in zip(docs, files)
+            if file.full_text
+        ]
+        uid = uuid.uuid4().hex
+        ok = gemini.GeminiBatchDocumentSummaryJob(uid).run(queries)
+        if not ok:
+            logger.error("Fail to create batch summary job.")
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 19 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+)
+def update_speeches_summaries(_):
+    try:
+        _update_speeches_summaries()
+    except Exception as e:
+        logger.error(f"Fail to update speeches summaries, {e}")
+        raise RuntimeError("Fail to update speeches summaries.") from e
+
+
+def _update_speeches_summaries():
+    db = firestore.client()
+
+    def get_docs_for_update(
+        last_doc: DocumentSnapshot | None = None,
+    ) -> list[DocumentSnapshot]:
+        collections = db.collection_group(models.SPEECH_COLLECT).where(
+            filter=FieldFilter(
+                "ai_summarized_at",
+                "<=",
+                dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+            )
+        )
+        if last_doc is not None:
+            collections = collections.start_after(last_doc)
+        return list(collections.limit(200).stream())
+
+    tasks_queue = tasks.CloudRunQueue.open(
+        "summarizeVideo", region=gemini.GEMINI_REGION
+    )
+    last_doc: DocumentSnapshot | None = None
+    while docs := get_docs_for_update(last_doc):
+        last_doc = docs[-1]
+        videos = [models.Video.from_dict(doc.to_dict()) for doc in docs]
+        for doc, video in zip(docs, videos):
+            if len(video.clips) != 1:
+                logger.warn(f"Speech {video.url} has {len(video.clips)} clips, skip.")
+                continue
+            tasks_queue.run(path=doc.reference.path)

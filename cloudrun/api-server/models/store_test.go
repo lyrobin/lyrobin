@@ -36,4 +36,13 @@ func TestGet(t *testing.T) {
 			t.Error(diff)
 		}
 	})
+	t.Run("Proceeding", func(t *testing.T) {
+		m, err := store.GetProceeding(ctx, "proceedings/202110010660000")
+		if err != nil {
+			t.Error(err)
+		}
+		if diff := cmp.Diff(m.Name, "本院委員伍麗華Saidhai Tahovecahe等16人擬具「海洋保育法草案」，請審議案。"); diff != "" {
+			t.Error(diff)
+		}
+	})
 }

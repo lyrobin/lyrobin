@@ -17,6 +17,7 @@ type StoreReader interface {
 	GetMeetingFile(ctx context.Context, path string) (MeetingFile, error)
 	GetAttachment(ctx context.Context, path string) (Attachment, error)
 	GetProceeding(ctx context.Context, path string) (Proceeding, error)
+	GetVideo(ctx context.Context, path string) (Video, error)
 }
 
 type Document struct {
@@ -46,12 +47,18 @@ type Attachment struct {
 }
 
 type Proceeding struct {
-	Name      string `firestore:"name,omitempty"`
-	URL       string `firestore:"url,omitempty"`
-	Summary   string `firestore:"ai_summary,omitempty"`
-	Status    string `firestore:"status,omitempty"`
-	Proposers string `firestore:"proposers,omitempty"`
-	Sponsors  string `firestore:"sponsors,omitempty"`
+	Name      string   `firestore:"name,omitempty"`
+	URL       string   `firestore:"url,omitempty"`
+	Summary   string   `firestore:"ai_summary,omitempty"`
+	Status    string   `firestore:"status,omitempty"`
+	Proposers []string `firestore:"proposers,omitempty"`
+	Sponsors  []string `firestore:"sponsors,omitempty"`
+}
+
+type Video struct {
+	URL     string `firestore:"url,omitempty"`
+	Summary string `firestore:"ai_summary,omitempty"`
+	Member  string `firestore:"member,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}
@@ -116,8 +123,27 @@ func (s *FireStore) GetProceeding(ctx context.Context, path string) (Proceeding,
 		return Proceeding{}, errors.New(path + " not found")
 	}
 	var proceeding Proceeding
-	doc.DataTo(&proceeding)
+	if err := doc.DataTo(&proceeding); err != nil {
+		return Proceeding{}, err
+	}
 	return proceeding, nil
+}
+
+func (s *FireStore) GetVideo(ctx context.Context, path string) (Video, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return Video{}, err
+	}
+	defer client.Close()
+	doc, err := client.Doc(path).Get(ctx)
+	if err != nil || !doc.Exists() {
+		return Video{}, errors.New(path + " not found")
+	}
+	var video Video
+	if err := doc.DataTo(&video); err != nil {
+		return Video{}, err
+	}
+	return video, nil
 }
 
 func (m Meeting) GetURL() string {

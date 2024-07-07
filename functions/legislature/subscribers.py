@@ -75,7 +75,11 @@ def on_receive_bigquery_batch_predictions(event: CloudEvent):
             logger.warn(f"No document found for {doc_path}")
             continue
         doc = models.FireStoreDocument.from_dict(ref.get().to_dict())
-        response:list[dict[str, Any]] = json.loads(row.get("response"))
+        payload = row.get("response")
+        if not payload:
+            logger.warn(f"No response found for {doc_path}")
+            continue
+        response:list[dict[str, Any]] = json.loads(payload)
         if len(response) != 1:
             logger.warn(f"Unsupported response for {doc_path}, {response}")
             continue

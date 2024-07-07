@@ -6,23 +6,24 @@ import utils
 from utils import testings
 from firebase_admin import functions  # type: ignore
 from firebase_functions import logger
+from firebase_functions.options import SupportedRegion
 
 
 class CloudRunQueue:
     """Cloud Run Queue"""
 
-    def __init__(self, function_name: str):
+    def __init__(self, function_name: str, region: str = SupportedRegion.ASIA_EAST1):
         self._function_name = function_name
         self._queue = functions.task_queue(function_name)
-        self._target = utils.get_function_url(function_name)
+        self._target = utils.get_function_url(function_name, region)
         self._option = functions.TaskOptions(
             dispatch_deadline_seconds=1800, uri=self._target
         )
 
     @classmethod
-    def open(cls, function_name: str):
+    def open(cls, function_name: str, region: str = SupportedRegion.ASIA_EAST1):
         """Open a queue"""
-        return cls(function_name)
+        return cls(function_name, region=region)
 
     @utils.refresh_credentials
     def run(self, **kwargs):

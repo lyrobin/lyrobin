@@ -7,6 +7,9 @@
     .p-skeleton:after {
         background: linear-gradient(90deg, rgba(65, 92, 209, 0), rgba(15, 38, 138, 0.2), rgba(65, 92, 209, 0))
     }
+    .summary-content-panel {
+        height: 50vh;
+    }
 }
 
 :host::ng-deep.small-bar {

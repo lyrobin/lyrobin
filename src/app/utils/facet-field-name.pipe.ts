@@ -16,6 +16,18 @@ export class FacetFieldNamePipe implements PipeTransform {
       case 'chairman': {
         return '召集人';
       }
+      case 'status': {
+        return '進度';
+      }
+      case 'proposers': {
+        return '提案人';
+      }
+      case 'sponsors': {
+        return '連署人';
+      }
+      case 'member': {
+        return '發言人';
+      }
       default: {
         return '';
       }

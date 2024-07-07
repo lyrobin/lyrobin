@@ -8,18 +8,17 @@ from firebase_functions.options import (
     MemoryOption,
     RateLimits,
     RetryConfig,
-    SupportedRegion,
 )
 from legislature import models
 
 
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=2, max_backoff_seconds=300),
-    rate_limits=RateLimits(max_concurrent_dispatches=20),
+    rate_limits=RateLimits(max_concurrent_dispatches=50),
     max_instances=20,
-    memory=MemoryOption.GB_1,
+    memory=MemoryOption.MB_512,
     timeout_sec=600,
-    region=SupportedRegion.ASIA_EAST1,
+    region=gemini.GEMINI_REGION,
 )
 def summarizeVideo(request: tasks_fn.CallableRequest):
     try:
@@ -42,7 +41,10 @@ def _summarize_video(doc_path: str):
         logger.warn(f"Multiple clips video is not supported: {doc_path}")
         return
     clip = v.clips[0]
-    summary = gemini.GeminiVideoSummaryJob(clip).run()
+    if v.member:
+        summary = gemini.GeminiSpeechSummaryJob(v.member, clip).run()
+    else:
+        summary = gemini.GeminiVideoSummaryJob(clip).run()
     if not summary:
         raise RuntimeError(f"fail to summarize {doc_path}")
     cc = opencc.OpenCC("s2tw")
