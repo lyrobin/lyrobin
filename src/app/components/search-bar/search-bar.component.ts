@@ -12,6 +12,9 @@ import { Facet } from '../../providers/search';
 import { FacetCountPipe } from '../../utils/facet-count.pipe';
 import { FacetFieldNamePipe } from '../../utils/facet-field-name.pipe';
 import { FacetValuePipe } from '../../utils/facet-value.pipe';
+import { AvatarModule } from 'primeng/avatar';
+import { ButtonModule } from 'primeng/button';
+import { Router } from '@angular/router';
 
 export interface FacetChange {
   facet: string;
@@ -34,6 +37,8 @@ export interface FacetChange {
     MatToolbarModule,
     NgFor,
     ProgressSpinnerModule,
+    AvatarModule,
+    ButtonModule,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
@@ -46,6 +51,8 @@ export class SearchBarComponent {
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
   @Output() onFacetChange = new EventEmitter<FacetChange>();
+
+  constructor(private router: Router) {}
 
   onSearchClick() {
     let query = trimString(this.query);
@@ -61,6 +68,10 @@ export class SearchBarComponent {
       facet,
       value: event.value,
     });
+  }
+
+  goHome() {
+    this.router.navigate(['/']);
   }
 }
 

@@ -98,7 +98,7 @@ export class SearchResultsComponent implements OnChanges {
 
   get hits(): Hit[] {
     return (
-      this.result?.hits.map((d, i) => ({
+      this.result?.hits?.map((d, i) => ({
         ...d,
         focus: i === this.holdItem,
       })) || []

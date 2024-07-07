@@ -1,8 +1,15 @@
 <mat-toolbar>
   <mat-toolbar-row>
+    <p-avatar
+      image="/assets/logo.png"
+      styleClass="mr-2 cursor-pointer"
+      size="large"
+      shape="circle"
+      (click)="goHome()" />
     <span class="spacer"></span>
-    <p-iconField iconPosition="right" class="search-field">
-      <p-inputIcon styleClass="pi pi-search" (click)="onSearchClick()" />
+    <!-- <p-iconField iconPosition="right" class="search-field"> -->
+    <!-- <p-inputIcon styleClass="pi pi-search" (click)="onSearchClick()" /> -->
+    <div class="flex align-items-center w-5">
       <input
         type="text"
         class="search-input"
@@ -10,7 +17,16 @@
         [(ngModel)]="query"
         (keydown.enter)="onSearchClick()"
         (ngModelChange)="queryChange.emit($event)" />
-    </p-iconField>
+      <!-- </p-iconField> -->
+      <p-button
+        styleClass="mx-2"
+        icon="pi pi-search"
+        size="small"
+        [outlined]="true"
+        [rounded]="true"
+        (onClick)="onSearchClick()" />
+      <span class="spacer"></span>
+    </div>
     <span class="spacer"></span>
   </mat-toolbar-row>
   <mat-toolbar-row class="second-toolbar-row">
