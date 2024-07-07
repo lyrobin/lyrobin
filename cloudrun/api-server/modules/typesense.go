@@ -201,7 +201,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 		return Document{
 			Name:    meet.Name + " - " + m.Member,
 			Path:    path,
-			Content: highlights.getSnippet("summary", trimString(m.Summary, 20)),
+			Content: trimString(m.Summary, 30),
 			URL:     m.URL,
 			DocType: docType,
 		}, nil
