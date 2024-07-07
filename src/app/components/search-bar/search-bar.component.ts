@@ -15,6 +15,7 @@ import { FacetValuePipe } from '../../utils/facet-value.pipe';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { Router } from '@angular/router';
+import { ScrollPanelModule } from 'primeng/scrollpanel';
 
 export interface FacetChange {
   facet: string;
@@ -39,6 +40,7 @@ export interface FacetChange {
     ProgressSpinnerModule,
     AvatarModule,
     ButtonModule,
+    ScrollPanelModule,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',

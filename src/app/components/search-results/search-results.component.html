@@ -1,14 +1,14 @@
 <div class="flex flex-column h-full w-full">
   <div
     class="flex flex-grow-1 gap-4 my-4 align-items-start justify-content-between w-full">
-    <div class="flex-grow-1">
+    <div class="flex-grow-1 max-w-full">
       <p-dataView
         [first]="first"
         [value]="hits"
         [lazy]="true"
         [totalRecords]="totalRecords"
         [showCurrentPageReport]="true"
-        styleClass="h-full w-full p-6"
+        styleClass="block h-full max-w-full p-1 lg:p-6"
         [rows]="rows"
         (onPage)="onPage($event)">
         <ng-template pTemplate="list" let-hits>
@@ -16,20 +16,27 @@
             <div @inTrigger class="flex flex-column gap-6">
               @for (hit of hits; track hit.focus; let idx = $index) {
                 <div class="grid grid-nogutter">
-                  <div class="mr-3">
+                  <div class="mr-3 hidden lg:block">
                     <mat-icon
                       [fontIcon]="hit | doctypeIcon"
                       class="h-full w-full text-5xl text-center vertical-align-middle"></mat-icon>
                   </div>
-                  <div class="col-11">
-                    <div
-                      [innerHTML]="hit.name"
-                      class="font-semibold text-lg"></div>
-                    <div>
-                      <a [href]="hit.url" target="_blank">{{ hit.url }}</a>
+                  <div class="col-12 lg:col-11">
+                    <div class="flex">
+                      <mat-icon
+                        class="lg:hidden mx-1"
+                        [fontIcon]="hit | doctypeIcon"></mat-icon>
+                      <div
+                        [innerHTML]="hit.name"
+                        class="font-semibold text-lg"></div>
+                    </div>
+                    <div class="link-container ml-4 lg:ml-0">
+                      <a [href]="hit.url" target="_blank" class="block">{{
+                        hit.url
+                      }}</a>
                     </div>
                   </div>
-                  <div class="col-12 my-3">
+                  <div class="col-12 my-3 description-box">
                     @if (hit.focus) {
                       <p-progressBar
                         class="block w-8"
@@ -44,6 +51,8 @@
                       showDelay="1500"
                       (mousedown)="onHoldDescription($event, hit, idx)"
                       (mouseup)="onLeaveDescription($event, hit, idx)"
+                      (touchstart)="onHoldDescription($event, hit, idx)"
+                      (touchend)="onLeaveDescription($event, hit, idx)"
                       [innerHTML]="hit.content"></div>
                   </div>
                 </div>
@@ -54,13 +63,13 @@
               @inTrigger
               class="grid grid-nogutter mb-3"
               *ngFor="let _ of [].constructor(3)">
-              <div class="mr-3">
+              <div class="mr-3 hidden lg:block">
                 <p-skeleton shape="circle" size="3rem" styleClass="mr-2" />
               </div>
               <div class="col-11">
                 <p-skeleton
                   width="10rem"
-                  height="1.5rem"
+                  height="1.2rem"
                   styleClass="mb-2"
                   borderRadius="16px" />
                 <p-skeleton
@@ -70,16 +79,16 @@
                   borderRadius="16px" />
               </div>
               <div class="flex flex-column my-2">
-                <p-skeleton width="30rem" height="1rem" styleClass="mb-2" />
-                <p-skeleton width="35rem" height="1rem" styleClass="mb-2" />
-                <p-skeleton width="40rem" height="1rem" styleClass="mb-2" />
+                <p-skeleton class="w-10rem" height="1rem" styleClass="mb-2" />
+                <p-skeleton class="w-16rem" height="1rem" styleClass="mb-2" />
+                <p-skeleton class="w-24rem" height="1rem" styleClass="mb-2" />
               </div>
             </div>
           }
         </ng-template>
       </p-dataView>
     </div>
-    <div class="flex-none col-3 sticky top-0">
+    <div class="flex-none hidden lg:block lg:col-3 sticky top-0">
       @if (showSummary) {
         <p-card @inoutTrigger header="重點筆記" styleClass="my-4">
           @if (loadingSummary) {
@@ -107,6 +116,26 @@
     [first]="first"
     [rows]="rows"
     [totalRecords]="totalRecords"
+    [showPageLinks]="!isHandset"
     styleClass="flex align-content-end col-12"
     (onPageChange)="onPage($event)"></p-paginator>
 </div>
+<p-dialog
+  header="重點筆記"
+  [modal]="true"
+  [(visible)]="showDialog"
+  [style]="{ width: '25rem' }">
+  @if (loadingSummary) {
+    <p-skeleton styleClass="mb-2 w-4" />
+    <p-skeleton styleClass="mb-2 w-6" />
+    <p-skeleton styleClass="mb-2 w-8" />
+  } @else if (summary) {
+    <markdown
+      @inTrigger
+      class="m-0"
+      [data]="summary | markdownSanitize"></markdown>
+    <!-- <p @inTrigger class="m-0" [innerHTML]="summary"></p> -->
+  } @else {
+    <p @inTrigger class="m-0">目前沒有內容，試試其它資料。</p>
+  }
+</p-dialog>

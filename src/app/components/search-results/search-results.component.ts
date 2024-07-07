@@ -21,6 +21,12 @@ import { AicoreService } from '../../providers/aicore.service';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { MarkdownModule } from 'ngx-markdown';
 import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
+import {
+  LayoutModule,
+  BreakpointObserver,
+  Breakpoints,
+} from '@angular/cdk/layout';
+import { DialogModule } from 'primeng/dialog';
 
 interface Hit extends Document {
   focus: boolean;
@@ -43,6 +49,8 @@ interface Hit extends Document {
     ProgressBarModule,
     MarkdownModule,
     MarkdownSanitizePipe,
+    LayoutModule,
+    DialogModule,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
@@ -77,8 +85,17 @@ export class SearchResultsComponent implements OnChanges {
   summaryTimeout?: ReturnType<typeof setTimeout>;
   readonly holdTotalMilliseconds = 2500;
   readonly holdIntervalStep = 300;
+  isHandset: boolean = false;
+  showDialog: boolean = false;
 
-  constructor(private aicore: AicoreService) {}
+  constructor(
+    private aicore: AicoreService,
+    private breakpointObserver: BreakpointObserver
+  ) {
+    this.breakpointObserver.observe([Breakpoints.Handset]).subscribe(result => {
+      this.isHandset = result.matches;
+    });
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     let loading = changes['loading'];
@@ -121,7 +138,7 @@ export class SearchResultsComponent implements OnChanges {
     );
   }
 
-  onHoldDescription(event: MouseEvent, hit: Hit, index: number) {
+  onHoldDescription(event: MouseEvent | TouchEvent, hit: Hit, index: number) {
     if (this.holdInterval) {
       clearInterval(this.holdInterval);
       this.holdItem = undefined;
@@ -142,6 +159,9 @@ export class SearchResultsComponent implements OnChanges {
 
   aiSummary(doc: Document) {
     this.showSummary = true;
+    if (this.isHandset) {
+      this.showDialog = true;
+    }
     this.loadingSummary = true;
     if (this.summaryTimeout) {
       clearTimeout(this.summaryTimeout);
@@ -159,7 +179,8 @@ export class SearchResultsComponent implements OnChanges {
     });
   }
 
-  onLeaveDescription(event: MouseEvent, hit: Hit, index: number) {
+  onLeaveDescription(event: MouseEvent | TouchEvent, hit: Hit, index: number) {
+    console.log('leave');
     if (this.holdInterval) {
       clearInterval(this.holdInterval);
       this.holdInterval = undefined;

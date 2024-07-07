@@ -10,6 +10,19 @@
     .summary-content-panel {
         height: 50vh;
     }
+    .link-container{
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        a {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+    }
+    .description-box:hover {
+        cursor: pointer;
+    }
 }
 
 :host::ng-deep.small-bar {
