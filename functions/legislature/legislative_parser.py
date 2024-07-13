@@ -28,16 +28,6 @@ from search import client as search_client
 
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
-_REQUEST_HEADEER = {
-    "User-Agent": " ".join(
-        [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "AppleWebKit/537.36 (KHTML, like Gecko)",
-            "Chrome/91.0.4472.124",
-            "Safari/537.36",
-        ]
-    ),
-}
 _REGION = SupportedRegion.ASIA_EAST1
 
 
@@ -57,7 +47,7 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
     logger.debug(f"Term: {term}, Period: {period}")
     res = session.new_legacy_session().get(
         LEGISLATURE_MEETING_INFO_API.value,
-        headers=_REQUEST_HEADEER,
+        headers=session.REQUEST_HEADER,
         params={"term": term, "fileType": "json", "sessionPeriod": period},
         timeout=_DEFAULT_TIMEOUT,
     )
@@ -568,13 +558,18 @@ def downloadVideo(request: tasks_fn.CallableRequest):
         meet_no = request.data["meetNo"]
         ivod_no = request.data["ivodNo"]
         video_no = request.data["videoNo"]
-        _download_video(meet_no, ivod_no, video_no)
+        doc_path = _download_video(meet_no, ivod_no, video_no)
+        q = tasks.CloudRunQueue.open("extractAudio")
+        q.run(path=doc_path)
     except Exception as e:
         logger.error(f"fail to download video: {e}")
         raise RuntimeError(f"Error downloading video: {request.data}") from e
 
 
-def _download_video(meet_no: str, ivod_no: str, video_no: str):
+def _download_video(meet_no: str, ivod_no: str, video_no: str) -> str | None:
+    """
+    Return: firestore path to the updated video.
+    """
     db = firestore.client()
 
     ivod_ref = db.document(
@@ -582,14 +577,14 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str):
     )
     ivod_doc = ivod_ref.get()
     if not ivod_doc.exists:
-        return
+        return None
     video_ref, collect = _find_video_in_ivod(ivod_ref, video_no)
     if not video_ref:
-        return
+        return None
 
     speech_count = video_ref.collection(models.SPEECH_COLLECT).count().get()[0][0].value
     if collect == models.VIDEO_COLLECT and speech_count > 0:
-        return
+        return None
 
     video: models.Video = models.Video.from_dict(video_ref.get().to_dict())
     logger.debug(f"Open video: {video.url}")
@@ -597,10 +592,10 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str):
 
     if r.meta.duration > dt.timedelta(hours=3):
         logger.warn("Video %s is too long. (> 3 hours)", video.url)
-        return
+        return None
     elif r.meta.duration <= dt.timedelta.min:
         logger.warn("Video %s doesn't have duration info, skip it.", video.url)
-        return
+        return None
     logger.debug(f"Prepare to download video: {video.url}")
     video.playlist = r.playlist_url or ""
     video.start_time = r.meta.start_time
@@ -636,6 +631,7 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str):
     video_ref.update(video.asdict())
     for mp4 in temp_mp4:
         os.remove(mp4)
+    return video_ref.path
 
 
 def _find_video_in_ivod(

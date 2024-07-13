@@ -5,9 +5,9 @@ import tempfile
 from urllib import parse
 import logging
 import google.cloud.logging
-import google.auth.exceptions
+import google.auth.exceptions  # type: ignore
 
-import requests
+import requests  # type: ignore
 from flask import Flask, Response, request
 
 app = Flask(__name__)
@@ -20,16 +20,7 @@ try:
 except google.auth.exceptions.DefaultCredentialsError:
     logging.error("Failed to initialize cloud logging")
 
-_REQUEST_HEADEER = {
-    "User-Agent": " ".join(
-        [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "AppleWebKit/537.36 (KHTML, like Gecko)",
-            "Chrome/91.0.4472.124",
-            "Safari/537.36",
-        ]
-    ),
-}
+_REQUEST_HEADER = {"User-Agent": ""}
 
 
 def soffice_convert_doc(file: pathlib.Path) -> pathlib.Path:
@@ -65,7 +56,7 @@ def convert_doc_to_text(url: str, chunk_size: int = 8192):
     """
     parsed_url = parse.urlparse(url)
     filename = pathlib.Path(parsed_url.path).name
-    res = requests.get(url, headers=_REQUEST_HEADEER, timeout=1800)
+    res = requests.get(url, headers=_REQUEST_HEADER, timeout=1800)
     res.raise_for_status()
 
     with tempfile.TemporaryDirectory() as tmpdir:

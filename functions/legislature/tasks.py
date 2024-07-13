@@ -1,15 +1,21 @@
 import datetime as dt
+from urllib import parse
+import pathlib
+import tempfile
 
 import opencc  # type: ignore
 from ai import gemini
-from firebase_admin import firestore  # type: ignore
+from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, tasks_fn
 from firebase_functions.options import (
     MemoryOption,
     RateLimits,
     RetryConfig,
+    SupportedRegion,
 )
-from legislature import models
+from legislature import models, readers
+
+_REGION = SupportedRegion.ASIA_EAST1
 
 
 @tasks_fn.on_task_dispatched(
@@ -51,4 +57,65 @@ def _summarize_video(doc_path: str):
     v.ai_summary = cc.convert(summary)
     v.ai_summarized = True
     v.ai_summarized_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+    ref.update(v.asdict())
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=20),
+    max_instances=20,
+    cpu=4,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+    region=_REGION,
+    concurrency=2,
+)
+def extractAudio(request: tasks_fn.CallableRequest):
+    try:
+        doc_path = request.data["path"]
+        logger.info(f"extract audio: {doc_path}")
+        _extractAudio(doc_path)
+    except Exception as e:
+        logger.error(e)
+        raise RuntimeError("fail to extract audio") from e
+
+
+def _extractAudio(doc_path: str):
+    db = firestore.client()
+    ref = db.document(doc_path)
+    doc = ref.get()
+    if not doc.exists:
+        raise RuntimeError(f"{doc_path} doesn't exist.")
+    v = models.Video.from_dict(doc.to_dict())
+
+    bucket = storage.bucket()
+    audios = []
+    for clip in v.clips:
+        url = parse.urlparse(clip)
+        clip_path = pathlib.PurePath(url.path.strip("/"))
+        audio_path = (
+            clip_path.parent.parent
+            / "audio"
+            / clip_path.name.replace(clip_path.suffix, ".mp3")
+        )
+        gs_audio_path = f"gs://{bucket.name}/{audio_path.as_posix()}"
+
+        if (blob := bucket.blob(audio_path.as_posix())).exists():
+            logger.warn(f"audio {blob.name} exists, remove it to download again.")
+            audios.append(gs_audio_path)
+            continue
+
+        blob = bucket.blob(url.path.strip("/"))
+        with tempfile.TemporaryDirectory(delete=False) as tempdir:
+            temp_folder = pathlib.Path(tempdir)
+            mp4 = temp_folder / clip_path.name
+            with mp4.open("wb") as f:
+                blob.download_to_file(f)
+            mp3 = temp_folder / clip_path.name.replace(clip_path.suffix, ".mp3")
+            mp3 = readers.AudioReader(mp4).to_mp3(mp3)
+            with mp3.open("rb") as f:
+                bucket.blob(audio_path.as_posix()).upload_from_file(f)
+
+        audios.append(gs_audio_path)
+        v.audios = audios
     ref.update(v.asdict())

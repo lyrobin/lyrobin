@@ -2,10 +2,20 @@ import ssl
 import urllib.request
 from urllib import parse
 
-import m3u8
-import requests
-from requests.adapters import HTTPAdapter
+import m3u8  # type: ignore
+import requests  # type: ignore
+from requests.adapters import HTTPAdapter  # type: ignore
 from urllib3.poolmanager import PoolManager
+
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "AppleWebKit/537.36 (KHTML, like Gecko)",
+    "Chrome/126.0.0.0",
+    "Safari/537.36",
+]
+
+REQUEST_HEADER = {"User-Agent": ""}
 
 
 class TLSAdapter(HTTPAdapter):

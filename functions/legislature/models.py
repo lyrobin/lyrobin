@@ -290,6 +290,9 @@ class Video(FireStoreDocument):
     playlist: str = ""
     start_time: DateTimeField = DateTimeField()
     clips: list[str] = dataclasses.field(default_factory=list)
+    audios: list[str] = dataclasses.field(default_factory=list)
+    transcript: str = ""
+    transcript_updated_at: DateTimeField = DateTimeField()
 
     def __post_init__(self):
         self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex

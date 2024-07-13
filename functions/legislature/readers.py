@@ -26,17 +26,6 @@ import textract  # type: ignore
 from utils import session
 from firebase_functions import logger
 
-
-_REQUEST_HEADER = {
-    "User-Agent": " ".join(
-        [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "AppleWebKit/537.36 (KHTML, like Gecko)",
-            "Chrome/91.0.4472.124",
-            "Safari/537.36",
-        ]
-    ),
-}
 legacy_session = session.new_legacy_session()
 
 _GET_PROCEEDINGS_API = "https://ppg.ly.gov.tw/ppg/api/v1/getProceedingsList"
@@ -115,9 +104,11 @@ class LegislativeMeetingReader:
         """Open a legislative meeting page."""
         if qs is None:
             parsed_url = parse.urlparse(url)
-            qs = parse.parse_qs(parsed_url.query)
+            _qs = parse.parse_qsl(parsed_url.query)
+            qs = {k: v for k, v in _qs}
+            url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
         res = legacy_session.get(
-            url, params=qs, timeout=timeout, headers=_REQUEST_HEADER
+            url, params=qs, timeout=timeout, headers=session.REQUEST_HEADER
         )
         if res.status_code != 200:
             raise IOError(f"Failed to open {url}: {res.text}")
@@ -223,7 +214,7 @@ class LegislativeMeetingReader:
         res = legacy_session.get(
             _GET_PROCEEDINGS_API,
             params={"meetingNo": self._meeting_no},
-            headers=_REQUEST_HEADER,
+            headers=session.REQUEST_HEADER,
             timeout=timeout,
         )
         if res.status_code != 200:
@@ -302,7 +293,7 @@ class ProceedingReader:
     @classmethod
     def open(cls, url: str) -> "ProceedingReader":
         """Open a proceedings"""
-        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=session.REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         return cls(res.text, url)
@@ -429,7 +420,7 @@ class IvodReader:
     @classmethod
     def open(cls, url: str):
         """Open an ivod"""
-        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=session.REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to fetch ivod {url}")
         return cls(res.text, url)
@@ -594,7 +585,7 @@ class VideoReader:
     @classmethod
     def open(cls, url: str) -> "VideoReader":
         """Open a video"""
-        res = legacy_session.get(url, headers=_REQUEST_HEADER, timeout=60)
+        res = legacy_session.get(url, headers=session.REQUEST_HEADER, timeout=60)
         if res.status_code != 200:
             raise IOError(f"Failed to read video {url}")
         return cls(res.text)
@@ -694,6 +685,23 @@ class VideoReader:
         return o
 
 
+class AudioReader:
+
+    def __init__(self, p: str | pathlib.Path):
+        if isinstance(p, str):
+            p = pathlib.Path(p)
+        self._p = p
+
+    def to_mp3(self, o: pathlib.Path | None = None) -> pathlib.Path:
+        if o is None:
+            _, fd = tempfile.mkstemp(suffix=".mp3")
+            o = pathlib.Path(fd)
+        i = ffmpeg.input(self._p.as_posix(), f="mp4")
+        out = ffmpeg.output(i, o.as_posix(), tls_verify=0, f="mp3")
+        ffmpeg.overwrite_output(out).run()
+        return o
+
+
 class DocumentReader:
     """Read a document(doc, pdf) to text."""
 
@@ -723,7 +731,7 @@ class DocumentReader:
         parsed_url = parse.urlparse(url)
         filename = parsed_url.path.split("/")[-1]
         res = legacy_session.get(
-            url, headers=_REQUEST_HEADER, stream=True, timeout=1800
+            url, headers=session.REQUEST_HEADER, stream=True, timeout=1800
         )
         res.raise_for_status()
 

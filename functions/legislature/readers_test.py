@@ -575,5 +575,11 @@ class TestDocumentReader(unittest.TestCase):
         assert "立法院議案關係文書" in r.content
 
 
+def test_audio():
+    p = _test_file("clip.mp4")
+    o = readers.AudioReader(p).to_mp3()
+    assert o.exists()
+
+
 if __name__ == "__main__":
     unittest.main()

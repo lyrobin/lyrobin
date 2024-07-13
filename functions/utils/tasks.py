@@ -14,7 +14,9 @@ class CloudRunQueue:
 
     def __init__(self, function_name: str, region: str = SupportedRegion.ASIA_EAST1):
         self._function_name = function_name
-        self._queue = functions.task_queue(function_name)
+        self._queue = functions.task_queue(
+            f"locations/{region}/functions/{function_name}"
+        )
         self._target = utils.get_function_url(function_name, region)
         self._option = functions.TaskOptions(
             dispatch_deadline_seconds=1800, uri=self._target
