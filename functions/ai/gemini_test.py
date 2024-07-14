@@ -22,7 +22,7 @@ class TestGeminiBatchEmbeddingJob(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self._db = firestore.client()
-        self._bucket = storage.bucket()
+        self._bucket = storage.bucket(gemini.GEMINI_BUCKET)
         self._batch_job_patcher = mock.patch("ai.gemini.aiplatform.BatchPredictionJob")
         self._mock_batch_job_cls = self._batch_job_patcher.start()
         self._mock_batch_job = mock.MagicMock()

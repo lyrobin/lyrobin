@@ -5,8 +5,13 @@ import dataclasses
 import json
 import pathlib
 import urllib.parse
-from typing import Any, Optional
+from typing import Any, Optional, Generic, TypeVar
 import itertools
+import datetime as dt
+import pytz  # type: ignore
+import abc
+from collections.abc import Iterable
+import uuid
 
 import firebase_admin  # type: ignore
 import requests  # type: ignore
@@ -18,15 +23,19 @@ from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
 from google.cloud.storage import Blob  # type: ignore
 from params import EMBEDDING_MODEL
-from vertexai.generative_models import GenerativeModel, Part  # type: ignore
+from vertexai.generative_models import GenerativeModel, Part, SafetySetting  # type: ignore
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
-_COLLECTION = "gemini"
+_TZ = pytz.timezone("Asia/Taipei")
+
+GEMINI_COLLECTION = "gemini"
 
 GEMINI_REGION = _REGION
 GEMINI_BUCKET = _BUCKET
+
+T = TypeVar("T")
 
 
 @dataclasses.dataclass
@@ -45,6 +54,30 @@ class EmbeddingResult:
 class BatchEmbeddingJob:
     uid: str
     job_id: str  # Vertex AI batch job ID
+
+
+PREDICTION_JOB_AUDIO_TRANSCRIPT = "transcript"
+PREDICTION_JOB_DOC_SUMMARY = "summary"
+
+
+@dataclasses.dataclass
+class BatchPredictionJob:
+    name: str
+    uid: str
+    job_type: str
+    source: str  # bigquery source table
+    destination: str  # bigquery destination table
+    finished: bool = False
+    submit_time: dt.datetime = dataclasses.field(
+        default_factory=lambda: dt.datetime.now(tz=_TZ)
+    )
+
+
+class BatchPredictionQuery(abc.ABC):
+
+    @abc.abstractmethod
+    def to_request(self) -> dict[str, Any]:
+        raise NotImplementedError
 
 
 class GeminiBatchEmbeddingJob:
@@ -78,7 +111,7 @@ class GeminiBatchEmbeddingJob:
 
     @utils.simple_cached_property
     def _job_id(self) -> str | None:
-        doc = self._db.collection(_COLLECTION).document(self._document_name).get()
+        doc = self._db.collection(GEMINI_COLLECTION).document(self._document_name).get()
         if doc.exists:
             job = BatchEmbeddingJob(**doc.to_dict())
             return job.job_id
@@ -136,7 +169,7 @@ class GeminiBatchEmbeddingJob:
             uid=self._uid,
             job_id=batch_job.name,
         )
-        self._db.collection(_COLLECTION).document(self._document_name).set(
+        self._db.collection(GEMINI_COLLECTION).document(self._document_name).set(
             dataclasses.asdict(job_model)
         )
 
@@ -237,6 +270,156 @@ class BatchSummaryQuery:
         }
 
 
+class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
+
+    DATASET = "gemini"
+
+    @utils.simple_cached_property
+    def source_table(self) -> str:
+        table_id = f"prediction-source-{self._uid}"
+        dataset_ref = self._client.dataset(self.DATASET)
+        table_ref = dataset_ref.table(table_id)
+        table = bigquery.Table(table_ref, schema=self.schema)
+        table = self._client.create_table(table, exists_ok=True)
+        return table.full_table_id.replace(":", ".")
+
+    @property
+    def source_table_url(self) -> str:
+        return f"bq://{self.source_table}"
+
+    @property
+    def destination_table(self) -> str:
+        return f"{self.project}.{self.DATASET}.prediction-destination-{self._uid}"
+
+    @property
+    def destination_table_url(self) -> str:
+        return f"bq://{self.destination_table}"
+
+    @property
+    def model(self) -> str:
+        return "publishers/google/models/gemini-1.5-pro-001"
+
+    @property
+    def project(self) -> str:
+        return self._project_id
+
+    @property
+    def bq_load_config(self) -> bigquery.LoadJobConfig:
+        return bigquery.LoadJobConfig(
+            schema=self.schema,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        )
+
+    def __init__(self, uid: str):
+        app: firebase_admin.App = firebase_admin.get_app()
+        vertexai.init(project=app.project_id, location=_REGION.value)
+        self._client = bigquery.Client(project=app.project_id)
+        self._uid = uid
+        self._app = app
+        self._project_id = app.project_id
+        self._db = firestore.client()
+        self._bucket = storage.bucket(_BUCKET)
+
+    def write_queries(self, queries: list[BatchPredictionQuery]):
+        rows_to_inserts = [q.to_request() for q in queries]
+        for batch in itertools.batched(rows_to_inserts, 50):
+            jsonl = "\n".join(json.dumps(r) for r in batch)
+            uid = uuid.uuid4().hex
+            blob = self._bucket.blob(f"predictions/{self._uid}/{uid}")
+            blob.upload_from_string(jsonl, timeout=600)
+            del jsonl
+            uri = f"gs://{self._bucket.name}/{blob.name}"
+            load_job = self._client.load_table_from_uri(
+                uri,
+                self.source_table,
+                location=GEMINI_REGION,
+                job_config=self.bq_load_config,
+                timeout=600,
+            )
+            load_job.result(timeout=600)
+
+    def submit(self) -> BatchPredictionJob:
+        token = self._app.credential.get_access_token().access_token
+        response = requests.post(
+            f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.project}/locations/us-central1/batchPredictionJobs",
+            json={
+                "displayName": f"prediction-{self.job_type}-{self._uid}",
+                "model": self.model,
+                "inputConfig": {
+                    "instancesFormat": "bigquery",
+                    "bigquerySource": {"inputUri": self.source_table_url},
+                },
+                "outputConfig": {
+                    "predictionsFormat": "bigquery",
+                    "bigqueryDestination": {"outputUri": self.destination_table_url},
+                },
+            },
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=60,
+        )
+        if not response.ok:
+            raise RuntimeError(response.text)
+        data: dict[str, Any] = response.json()
+        name = data.get("name", None)
+        if not name:
+            raise RuntimeError("fail to create batch prediction job.")
+        job = BatchPredictionJob(
+            name=name,
+            uid=self._uid,
+            job_type=self.job_type,
+            source=self.source_table_url,
+            destination=self.destination_table_url,
+        )
+        doc_ref = self._db.collection(GEMINI_COLLECTION).document(self._uid)
+        doc_ref.set(dataclasses.asdict(job))
+        return job
+
+    def mark_as_done(self):
+        doc_ref = self._db.collection(GEMINI_COLLECTION).document(self._uid)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise RuntimeError(f"Job {self._uid} doesn't exist.")
+        job = BatchPredictionJob(**doc.to_dict())
+        job.finished = True
+        doc_ref.set(dataclasses.asdict(job))
+
+    def list_results(self, skip_invalid_row: bool = True) -> Iterable[T | None]:
+        page_token = ""
+        fields = [s for s in self.schema if s.name != "request"] + [
+            bigquery.SchemaField("response", "STRING"),
+            bigquery.SchemaField("status", "STRING"),
+        ]
+        while page_token is not None:
+            row_iter = self._client.list_rows(
+                self.destination_table,
+                max_results=50,
+                page_token=page_token,
+                selected_fields=fields,
+                timeout=300,
+            )
+            for row in row_iter:
+                v = self.parse_row(row)
+                if v is None and not skip_invalid_row:
+                    raise ValueError(f"Invalid row {row}")
+                elif v is not None:
+                    yield self.parse_row(row)
+            page_token = row_iter.next_page_token
+
+    @abc.abstractmethod
+    def parse_row(self, row: bigquery.Row) -> T | None:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def schema(self) -> list[bigquery.SchemaField]:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def job_type(self) -> str:
+        raise NotImplementedError
+
+
 class GeminiBatchDocumentSummaryJob:
 
     MODEL = "publishers/google/models/gemini-1.5-flash-001"
@@ -288,3 +471,111 @@ class GeminiBatchDocumentSummaryJob:
         for batch in itertools.batched(rows_to_inserts, 10):
             self._client.insert_rows_json(resource, batch, timeout=300)
         return resource
+
+
+@dataclasses.dataclass
+class BatchAudioTranscriptQuery(BatchPredictionQuery):
+    doc_path: str
+    audio: bytes  # audio base64 encoded string
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": "Please transcribe the audio using zh-TW as the language."
+                            },
+                            {
+                                "inlineData": {
+                                    "mimeType": "audio/mp3",
+                                    "data": str(self.audio, "utf-8"),
+                                }
+                            },
+                        ],
+                    }
+                ],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "responseSchema": {
+                        "type": "object",
+                        "properties": {
+                            "subtitles": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {"text": {"type": "string"}},
+                                    "required": ["text"],
+                                },
+                            }
+                        },
+                    },
+                    "maxOutputTokens": 8192,
+                },
+                "safetySettings": [
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                ],
+            },
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class BatchAudioTranscriptResult:
+    doc_path: str
+    transcript: str
+
+
+class GeminiBatchAudioTranscriptJob(
+    GeminiBatchPredictionJob[BatchAudioTranscriptResult]
+):
+
+    @property
+    def schema(self) -> list[bigquery.SchemaField]:
+        return [
+            bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+            bigquery.SchemaField("doc_path", "STRING"),
+        ]
+
+    @property
+    def job_type(self) -> str:
+        return PREDICTION_JOB_AUDIO_TRANSCRIPT
+
+    def parse_row(self, row: bigquery.Row) -> BatchAudioTranscriptResult | None:
+        doc_path = row.get("doc_path", None)
+        if doc_path is None:
+            raise ValueError(f"Can't find doc_path in row {row}")
+        response = row.get("response", "[]")
+        if not response:
+            return None
+        candidates = json.loads(response)
+        if not candidates:
+            return None
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            return None
+        try:
+            data = json.loads(parts[0].get("text", "{}"))
+            transcript = "\n".join(
+                subtitle.get("text", "") for subtitle in data.get("subtitles", [])
+            )
+            return BatchAudioTranscriptResult(doc_path, transcript)
+        except json.JSONDecodeError:
+            return None
