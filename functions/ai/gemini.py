@@ -1,19 +1,19 @@
 """Gemini module"""
 
 # pylint: disable=protected-access,no-member
+import abc
 import dataclasses
+import datetime as dt
+import itertools
 import json
 import pathlib
 import urllib.parse
-from typing import Any, Optional, Generic, TypeVar
-import itertools
-import datetime as dt
-import pytz  # type: ignore
-import abc
-from collections.abc import Iterable
 import uuid
+from collections.abc import Iterable
+from typing import Any, Generic, Optional, TypeVar
 
 import firebase_admin  # type: ignore
+import pytz  # type: ignore
 import requests  # type: ignore
 import utils
 import vertexai  # type: ignore
@@ -23,8 +23,14 @@ from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
 from google.cloud.storage import Blob  # type: ignore
 from params import EMBEDDING_MODEL
-from vertexai.generative_models import GenerativeModel, Part, SafetySetting  # type: ignore
+from vertexai.generative_models import (  # type: ignore
+    GenerativeModel,
+    Part,
+    SafetySetting,
+)
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
+from cloudevents.http.event import CloudEvent
+from google.cloud.firestore import FieldFilter
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -276,7 +282,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 
     @utils.simple_cached_property
     def source_table(self) -> str:
-        table_id = f"prediction-source-{self._uid}"
+        table_id = f"prediction-{self.job_type}-source-{self._uid}"
         dataset_ref = self._client.dataset(self.DATASET)
         table_ref = dataset_ref.table(table_id)
         table = bigquery.Table(table_ref, schema=self.schema)
@@ -289,7 +295,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 
     @property
     def destination_table(self) -> str:
-        return f"{self.project}.{self.DATASET}.prediction-destination-{self._uid}"
+        return f"{self.project}.{self.DATASET}.prediction-{self.job_type}-destination-{self._uid}"
 
     @property
     def destination_table_url(self) -> str:
@@ -319,6 +325,22 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         self._project_id = app.project_id
         self._db = firestore.client()
         self._bucket = storage.bucket(_BUCKET)
+
+    @classmethod
+    def from_bq_event(cls, event: CloudEvent):
+        resource: str | None = event.get("resourcename")
+        if not resource:
+            raise ValueError(f"Need bigquery event, got {event}.")
+        tokens = resource.strip("/").split("/")
+        attributes = {k: v for k, v in zip(tokens[0::2], tokens[1::2])}
+        uri = f"bq://{attributes["projects"]}.{attributes["datasets"]}.{attributes["tables"]}"
+        db = firestore.client()
+        query = db.collection(GEMINI_COLLECTION).where(filter=FieldFilter("destination", "==", uri)).limit(1)
+        results = query.get()
+        if not results:
+            raise ValueError(f"Can't find job write to {uri}")
+        job = BatchPredictionJob(**results[0].to_dict())
+        return cls(job.uid)
 
     def write_queries(self, queries: list[BatchPredictionQuery]):
         rows_to_inserts = [q.to_request() for q in queries]

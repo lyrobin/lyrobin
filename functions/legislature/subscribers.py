@@ -96,3 +96,21 @@ def on_receive_bigquery_batch_predictions(event: CloudEvent):
         doc.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
         batch.update(ref, doc.asdict())
     batch.commit()
+
+
+@functions_framework.cloud_event
+def on_receive_bigquery_batch_audio_transcripts(event: CloudEvent):
+    db = firestore.client()
+    job = gemini.GeminiBatchAudioTranscriptJob.from_bq_event(event)
+    batch = db.batch()
+    for row in job.list_results():
+        ref = db.document(row.doc_path)
+        doc = ref.get()
+        if not doc.exists:
+            logger.warn(f"No document found for {row.doc_path}")
+            continue
+        video = models.Video.from_dict(doc.to_dict())
+        video.transcript = row.transcript
+        video.transcript_updated_at = dt.datetime.now(tz=_EAST_TZ)
+        batch.update(ref, video.asdict())
+    batch.commit()

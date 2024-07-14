@@ -78,6 +78,18 @@ DOCUMENT_SCHEMA_V2 = {
     ],
 }
 
+DOCUMENT_SCHEMA_V3 = {
+    "name": "documents",
+    "fields": [
+        {
+            "name": "transcript",
+            "type": "string",
+            "optional": True,
+            "locale": "zh",
+        },
+    ],
+}
+
 SUMMARY_MAX_LENGTH = 1000
 CONTENT_MAX_LENGTH = 10000
 QUERY_LIMIT = 100
@@ -210,7 +222,7 @@ class DocumentSearchEngine:
             return
         self._client.collections.create(schema)
 
-    def update_collection(self, schema: dict = DOCUMENT_SCHEMA_V2):
+    def update_collection(self, schema: dict = DOCUMENT_SCHEMA_V3):
         name = schema.get("name")
         if not name:
             return
@@ -336,5 +348,5 @@ class DocumentSearchEngine:
             summary=m.ai_summary,
             created_date=m.start_time,
             vector=m.embedding_vector,
-            metadata={"member": m.member},
+            metadata={"member": m.member, "transcript": m.transcript},
         )

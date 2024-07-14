@@ -758,3 +758,34 @@ def _index_proceeding_attachment(event: firestore_fn.Event):
         f"{models.PROCEEDING_COLLECT}/{proc_no}/{models.ATTACH_COLLECT}/{attach_no}",
         search_client.DocType.ATTACHMENT,
     )
+
+
+@firestore_fn.on_document_updated(
+    document="meetings/{meetNo}/ivods/{videoNo}/speeches/{speechNo}",
+    region=_REGION,
+    secrets=[TYPESENSE_API_KEY],
+    memory=MemoryOption.MB_512,
+)
+def on_speech_update(
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
+):
+    try:
+        meet_no = event.params["meetNo"]
+        video_no = event.params["videoNo"]
+        speech_no = event.params["speechNo"]
+        doc_path = (
+            f"{models.MEETING_COLLECT}/{meet_no}/"
+            f"{models.IVOD_COLLECT}/{video_no}/"
+            f"{models.SPEECH_COLLECT}/{speech_no}"
+        )
+        _index_speech(doc_path)
+    except Exception as e:
+        logger.error(f"Fail on_speech_update: {event.params}")
+        raise RuntimeError(f"Fail on_speech_update: {event.params}") from e
+
+
+def _index_speech(doc_path: str):
+    se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
+    se.index(doc_path, search_client.DocType.VIDEO)
