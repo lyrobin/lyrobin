@@ -4,7 +4,7 @@ steps:
   args:
     - "-c"
     - |
-      gcloud functions deploy on_receive_bigquery_batch_predictions \
+      gcloud functions deploy on_receive_bigquery_batch_document_summary \
       --gen2 \
       --region=${LOCATION} \
       --source=. \
@@ -12,7 +12,28 @@ steps:
       --trigger-event-filters="type=google.cloud.audit.log.v1.written" \
       --trigger-event-filters="serviceName=bigquery.googleapis.com" \
       --trigger-event-filters="methodName=google.cloud.bigquery.v2.JobService.InsertJob" \
-      --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gemini/tables/output*" \
+      --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gemini/tables/prediction-summary-destination-*" \
+      --timeout=540 \
+      --memory="2G" \
+      --max-instances=10 \
+      --concurrency=10 \
+      --set-env-vars='^@^FIREBASE_CONFIG={"projectId":"${PROJECT_ID}","storageBucket":"${PROJECT_ID}.appspot.com","locationId":"asia-east1"}' \
+      --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: "bash"
+  args:
+    - "-c"
+    - |
+      gcloud functions deploy on_receive_bigquery_batch_audio_transcripts \
+      --gen2 \
+      --region=${LOCATION} \
+      --source=. \
+      --runtime=python312 \
+      --trigger-event-filters="type=google.cloud.audit.log.v1.written" \
+      --trigger-event-filters="serviceName=bigquery.googleapis.com" \
+      --trigger-event-filters="methodName=google.cloud.bigquery.v2.JobService.InsertJob" \
+      --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gemini/tables/prediction-transcript-destination-*" \
+      --timeout=540 \
       --memory="2G" \
       --max-instances=10 \
       --concurrency=10 \
