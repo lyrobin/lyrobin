@@ -30,7 +30,7 @@ from vertexai.generative_models import (  # type: ignore
 )
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
 from cloudevents.http.event import CloudEvent
-from google.cloud.firestore import FieldFilter
+from google.cloud.firestore import FieldFilter  # type: ignore
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -79,7 +79,7 @@ class BatchPredictionJob:
     )
 
 
-class BatchPredictionQuery(abc.ABC):
+class PredictionQuery(abc.ABC):
 
     @abc.abstractmethod
     def to_request(self) -> dict[str, Any]:
@@ -250,32 +250,6 @@ class GeminiSpeechSummaryJob:
         return response.text
 
 
-@dataclasses.dataclass
-class BatchSummaryQuery:
-    doc_path: str
-    content: str
-
-    def to_request(self) -> dict[str, Any]:
-        return {
-            "request": json.dumps(
-                {
-                    "contents": [
-                        {
-                            "role": "user",
-                            "parts": [
-                                {
-                                    "text": "請根據下述的內容，以繁體中文做出詳盡的人物及事件介紹"
-                                },
-                                {"text": self.content},
-                            ],
-                        }
-                    ]
-                }
-            ),
-            "doc_path": self.doc_path,
-        }
-
-
 class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 
     DATASET = "gemini"
@@ -333,16 +307,23 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
             raise ValueError(f"Need bigquery event, got {event}.")
         tokens = resource.strip("/").split("/")
         attributes = {k: v for k, v in zip(tokens[0::2], tokens[1::2])}
-        uri = f"bq://{attributes["projects"]}.{attributes["datasets"]}.{attributes["tables"]}"
+        project = attributes["projects"]
+        dateset = attributes["datasets"]
+        table = attributes["tables"]
+        uri = f"bq://{project}.{dateset}.{table}"
         db = firestore.client()
-        query = db.collection(GEMINI_COLLECTION).where(filter=FieldFilter("destination", "==", uri)).limit(1)
+        query = (
+            db.collection(GEMINI_COLLECTION)
+            .where(filter=FieldFilter("destination", "==", uri))
+            .limit(1)
+        )
         results = query.get()
         if not results:
             raise ValueError(f"Can't find job write to {uri}")
         job = BatchPredictionJob(**results[0].to_dict())
         return cls(job.uid)
 
-    def write_queries(self, queries: list[BatchPredictionQuery]):
+    def write_queries(self, queries: list[PredictionQuery]):
         rows_to_inserts = [q.to_request() for q in queries]
         for batch in itertools.batched(rows_to_inserts, 50):
             jsonl = "\n".join(json.dumps(r) for r in batch)
@@ -442,7 +423,63 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         raise NotImplementedError
 
 
-class GeminiBatchDocumentSummaryJob:
+@dataclasses.dataclass
+class DocumentSummaryQuery(PredictionQuery):
+    doc_path: str
+    content: str
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": "請根據下述的內容，以繁體中文做出詳盡的人物及事件介紹。"
+                            },
+                            {"text": self.content},
+                        ],
+                    }
+                ]
+            },
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class TranscriptSummaryQuery(PredictionQuery):
+    doc_path: str
+    content: str
+    member: str
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": f"影片中的立法委員是 {self.member}。\n",
+                            },
+                            {"text": "請根據下述的內容，以繁體中文做出總結。"},
+                            {"text": self.content},
+                        ],
+                    }
+                ]
+            },
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class DocumentSummaryResult:
+    doc_path: str
+    text: str
+
+
+class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResult]):
 
     MODEL = "publishers/google/models/gemini-1.5-flash-001"
     DATESET = "gemini"
@@ -451,52 +488,38 @@ class GeminiBatchDocumentSummaryJob:
         bigquery.SchemaField("doc_path", "STRING"),
     ]
 
-    def __init__(self, uid: str):
-        app: firebase_admin.App = firebase_admin.get_app()
-        vertexai.init(project=app.project_id, location=_REGION.value)
-        self._client = bigquery.Client(project=app.project_id)
-        self._uid = uid
-        self._project = app.project_id
-        self._token = app.credential.get_access_token().access_token
+    def parse_row(self, row: bigquery.Row) -> DocumentSummaryResult | None:
+        doc_path = row.get("doc_path", None)
+        if doc_path is None:
+            raise ValueError(f"Can't find doc_path in row {row}")
+        payload = row.get("response")
+        if not payload:
+            return None
+        response: list[dict[str, Any]] = json.loads(payload)
+        if len(response) != 1:
+            return None
+        parts = response[0].get("content", {}).get("parts", [])
+        if not parts:
+            return None
+        text = parts[0].get("text", "")
+        if not text:
+            return None
+        return DocumentSummaryResult(doc_path, text)
 
-    def run(self, queries: list[BatchSummaryQuery]) -> bool:
-        # TODO: create a better table name for debugging
-        input_uri = self._write_quires(queries)
-        output_uri = f"{self._project}.{self.DATESET}.output-summary-{self._uid}"
-        response = requests.post(
-            f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self._project}/locations/us-central1/batchPredictionJobs",
-            json={
-                "displayName": f"summary-{self._uid}",
-                "model": self.MODEL,
-                "inputConfig": {
-                    "instancesFormat": "bigquery",
-                    "bigquerySource": {"inputUri": f"bq://{input_uri}"},
-                },
-                "outputConfig": {
-                    "predictionsFormat": "bigquery",
-                    "bigqueryDestination": {"outputUri": f"bq://{output_uri}"},
-                },
-            },
-            headers={"Authorization": f"Bearer {self._token}"},
-            timeout=60,
-        )
-        return response.ok
+    @property
+    def schema(self) -> list[bigquery.SchemaField]:
+        return [
+            bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+            bigquery.SchemaField("doc_path", "STRING"),
+        ]
 
-    def _write_quires(self, queries: list[BatchSummaryQuery]) -> str:
-        table_id = f"input-summary-{self._uid}"
-        dataset_ref = self._client.dataset(self.DATESET)
-        table_ref = dataset_ref.table(table_id)
-        table = bigquery.Table(table_ref, schema=self.SCHEMA)
-        table = self._client.create_table(table, exists_ok=True)
-        rows_to_inserts = [q.to_request() for q in queries]
-        resource = f"{self._project}.{self.DATESET}.{table_id}"
-        for batch in itertools.batched(rows_to_inserts, 10):
-            self._client.insert_rows_json(resource, batch, timeout=300)
-        return resource
+    @property
+    def job_type(self) -> str:
+        return PREDICTION_JOB_DOC_SUMMARY
 
 
 @dataclasses.dataclass
-class BatchAudioTranscriptQuery(BatchPredictionQuery):
+class AudioTranscriptQuery(PredictionQuery):
     doc_path: str
     audio: bytes  # audio base64 encoded string
 
@@ -560,14 +583,12 @@ class BatchAudioTranscriptQuery(BatchPredictionQuery):
 
 
 @dataclasses.dataclass
-class BatchAudioTranscriptResult:
+class AudioTranscriptResult:
     doc_path: str
     transcript: str
 
 
-class GeminiBatchAudioTranscriptJob(
-    GeminiBatchPredictionJob[BatchAudioTranscriptResult]
-):
+class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResult]):
 
     @property
     def schema(self) -> list[bigquery.SchemaField]:
@@ -580,7 +601,7 @@ class GeminiBatchAudioTranscriptJob(
     def job_type(self) -> str:
         return PREDICTION_JOB_AUDIO_TRANSCRIPT
 
-    def parse_row(self, row: bigquery.Row) -> BatchAudioTranscriptResult | None:
+    def parse_row(self, row: bigquery.Row) -> AudioTranscriptResult | None:
         doc_path = row.get("doc_path", None)
         if doc_path is None:
             raise ValueError(f"Can't find doc_path in row {row}")
@@ -598,6 +619,6 @@ class GeminiBatchAudioTranscriptJob(
             transcript = "\n".join(
                 subtitle.get("text", "") for subtitle in data.get("subtitles", [])
             )
-            return BatchAudioTranscriptResult(doc_path, transcript)
+            return AudioTranscriptResult(doc_path, transcript)
         except json.JSONDecodeError:
             return None

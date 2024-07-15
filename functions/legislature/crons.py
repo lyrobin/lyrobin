@@ -2,20 +2,24 @@
 
 import datetime as dt
 import uuid
+import urllib.parse
+import base64
 
 from ai import gemini
-from firebase_admin import firestore  # type: ignore
+from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
 from firebase_functions.options import Timezone, MemoryOption
-from google.cloud.firestore import DocumentSnapshot, FieldFilter  # type: ignore
+from google.cloud.firestore import DocumentSnapshot, FieldFilter, Or, Client  # type: ignore
 from legislature import models
-from utils import tasks
 
 _TZ = Timezone("Asia/Taipei")
 
+_MAX_PREDICTIONS = 1
+_MAX_BATCH_QUERY_SIZE = 1000
+
 
 @scheduler_fn.on_schedule(
-    schedule="0 22 * * 6",
+    schedule="0 16 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -66,7 +70,7 @@ def _update_meeting_files_embeddings():
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 22 * * 6",
+    schedule="0 20 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -124,8 +128,25 @@ def _update_proceeding_attachment_embedding():
         gemini.GeminiBatchEmbeddingJob.create(uid).submit(queries)
 
 
+def running_predictions(db: Client) -> int:
+    query = Or(
+        filters=[
+            FieldFilter("job_type", "==", "transcript"),
+            FieldFilter("job_type", "==", "summary"),
+        ]
+    )
+    return int(
+        db.collection(gemini.GEMINI_COLLECTION)
+        .where(filter=query)
+        .where(filter=FieldFilter("finished", "==", False))
+        .count()
+        .get()[0][0]
+        .value
+    )
+
+
 @scheduler_fn.on_schedule(
-    schedule="0 19 * * 6",
+    schedule="0 16 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -144,6 +165,12 @@ def update_meeting_files_summaries(_):
 def _update_meeting_files_summaries():
     db = firestore.client()
 
+    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+        logger.warn(
+            f"Exceed max running predictions ({count}), skip update meeting summary."
+        )
+        return
+
     def get_docs_for_update(
         last_doc: DocumentSnapshot | None = None,
     ) -> list[DocumentSnapshot]:
@@ -156,26 +183,29 @@ def _update_meeting_files_summaries():
         )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
-        return list(collections.limit(100).stream())
+        return list(collections.limit(200).stream())
 
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiBatchDocumentSummaryJob(uid)
+    query_size = 0
     last_doc: DocumentSnapshot | None = None
     while docs := get_docs_for_update(last_doc):
         last_doc = docs[-1]
         files = [models.MeetingFile.from_dict(doc.to_dict()) for doc in docs]
         queries = [
-            gemini.BatchSummaryQuery(doc.reference.path, file.full_text)
+            gemini.DocumentSummaryQuery(doc.reference.path, file.full_text)
             for doc, file in zip(docs, files)
             if file.full_text
         ]
-        uid = uuid.uuid4().hex
-        # TODO: create a better job name for debugging
-        ok = gemini.GeminiBatchDocumentSummaryJob(uid).run(queries)
-        if not ok:
-            logger.error("Fail to create batch summary job.")
+        job.write_queries(queries)
+        query_size += len(queries)
+        if query_size >= _MAX_BATCH_QUERY_SIZE:
+            break
+    job.submit()
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 19 * * 6",
+    schedule="0 18 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -194,6 +224,12 @@ def update_attachments_summaries(_):
 def _update_attachments_summaries():
     db = firestore.client()
 
+    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+        logger.warn(
+            f"Exceed max running predictions ({count}), skip update attachment summary."
+        )
+        return
+
     def get_docs_for_update(
         last_doc: DocumentSnapshot | None = None,
     ) -> list[DocumentSnapshot]:
@@ -206,25 +242,29 @@ def _update_attachments_summaries():
         )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
-        return list(collections.limit(100).stream())
+        return list(collections.limit(200).stream())
 
+    query_size = 0
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiBatchDocumentSummaryJob(uid)
     last_doc: DocumentSnapshot | None = None
     while docs := get_docs_for_update(last_doc):
         last_doc = docs[-1]
         files = [models.Attachment.from_dict(doc.to_dict()) for doc in docs]
         queries = [
-            gemini.BatchSummaryQuery(doc.reference.path, file.full_text)
+            gemini.DocumentSummaryQuery(doc.reference.path, file.full_text)
             for doc, file in zip(docs, files)
             if file.full_text
         ]
-        uid = uuid.uuid4().hex
-        ok = gemini.GeminiBatchDocumentSummaryJob(uid).run(queries)
-        if not ok:
-            logger.error("Fail to create batch summary job.")
+        job.write_queries(queries)
+        query_size += len(queries)
+        if query_size >= _MAX_BATCH_QUERY_SIZE:
+            break
+    job.submit()
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 19 * * 6",
+    schedule="0 20 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -243,6 +283,12 @@ def update_speeches_summaries(_):
 def _update_speeches_summaries():
     db = firestore.client()
 
+    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+        logger.warn(
+            f"Exceed max running predictions ({count}), skip update speech summary."
+        )
+        return
+
     def get_docs_for_update(
         last_doc: DocumentSnapshot | None = None,
     ) -> list[DocumentSnapshot]:
@@ -257,15 +303,97 @@ def _update_speeches_summaries():
             collections = collections.start_after(last_doc)
         return list(collections.limit(200).stream())
 
-    tasks_queue = tasks.CloudRunQueue.open(
-        "summarizeVideo", region=gemini.GEMINI_REGION
-    )
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiBatchDocumentSummaryJob(uid)
+    query_size = 0
     last_doc: DocumentSnapshot | None = None
     while docs := get_docs_for_update(last_doc):
         last_doc = docs[-1]
         videos = [models.Video.from_dict(doc.to_dict()) for doc in docs]
-        for doc, video in zip(docs, videos):
-            if len(video.clips) != 1:
-                logger.warn(f"Speech {video.url} has {len(video.clips)} clips, skip.")
+        queries = [
+            gemini.TranscriptSummaryQuery(
+                doc.reference.path, video.transcript, video.member
+            )
+            for doc, video in zip(docs, videos)
+            if video.transcript
+        ]
+        job.write_queries(queries)
+        query_size += len(queries)
+        if query_size >= _MAX_BATCH_QUERY_SIZE:
+            break
+    job.submit()
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 16 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+)
+def update_speech_transcripts(_):
+    try:
+        _update_speech_transcripts()
+    except Exception as e:
+        logger.error(f"Fail to update videos transcripts, {e}")
+        raise RuntimeError("Fail to update videos transcripts.") from e
+
+
+def _update_speech_transcripts():
+    db = firestore.client()
+
+    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+        logger.warn(
+            f"Exceed max running predictions ({count}), skip update speech transcription."
+        )
+        return
+
+    def get_docs_for_update(
+        last_doc: DocumentSnapshot | None = None,
+    ) -> list[DocumentSnapshot]:
+        collections = db.collection_group(models.SPEECH_COLLECT).where(
+            filter=FieldFilter(
+                "transcript_updated_at",
+                "<=",
+                dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+            )
+        )
+        if last_doc is not None:
+            collections = collections.start_after(last_doc)
+        return list(collections.limit(50).stream())
+
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiBatchAudioTranscriptJob(uid)
+    bucket = storage.bucket()
+    query_size = 0
+    last_doc: DocumentSnapshot | None = None
+    while docs := get_docs_for_update(last_doc):
+        last_doc = docs[-1]
+        videos = [models.Video.from_dict(doc.to_dict()) for doc in docs]
+        queries = []
+        for video, doc in zip(videos, docs):
+            if not video.audios:
                 continue
-            tasks_queue.run(path=doc.reference.path)
+            audio = video.audios[0]
+            url = urllib.parse.urlparse(audio)
+            blob = bucket.get_blob(url.path.strip("/"))
+            if not blob.exists():
+                logger.warn(f"{blob.name} doesn't exist")
+                continue
+            if blob.size > 20 * 1024**2:  # 20 MB
+                logger.warn(f"{blob.name} is too large")
+                continue
+            queries.append(
+                gemini.AudioTranscriptQuery(
+                    doc.reference.path, base64.b64encode(blob.download_as_bytes())
+                )
+            )
+        job.write_queries(queries)
+        while queries:
+            del queries[0]
+        query_size += len(queries)
+        if query_size >= _MAX_BATCH_QUERY_SIZE:
+            break
+    job.submit()
