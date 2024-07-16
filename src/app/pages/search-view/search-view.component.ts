@@ -1,15 +1,8 @@
+import { Component, Input, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
-  Component,
-  Input,
-  OnInit,
-  Signal,
-  computed,
-  effect,
-} from '@angular/core';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import {
-  SearchBarComponent,
   FacetChange,
+  SearchBarComponent,
 } from '../../components/search-bar/search-bar.component';
 import { SearchResultsComponent } from '../../components/search-results/search-results.component';
 import { Facet, SearchResult } from '../../providers/search';
@@ -103,7 +96,11 @@ export class SearchViewComponent implements OnInit {
     this.router.navigate(['.'], {
       relativeTo: this.route,
       onSameUrlNavigation: 'reload',
-      queryParams: { query: this.query, page: page },
+      queryParams: {
+        query: this.query,
+        page: page,
+        filter: this.stringifyFilters(this.filters),
+      },
     });
   }
 
