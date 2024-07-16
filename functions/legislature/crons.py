@@ -16,6 +16,7 @@ _TZ = Timezone("Asia/Taipei")
 
 _MAX_PREDICTIONS = 1
 _MAX_BATCH_QUERY_SIZE = 1000
+_MAX_BATCH_TRANSCRIPT_QUERY_SIZE = 150
 
 
 @scheduler_fn.on_schedule(
@@ -165,7 +166,7 @@ def update_meeting_files_summaries(_):
 def _update_meeting_files_summaries():
     db = firestore.client()
 
-    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+    if (count := running_predictions(db)) >= _MAX_PREDICTIONS:
         logger.warn(
             f"Exceed max running predictions ({count}), skip update meeting summary."
         )
@@ -224,7 +225,7 @@ def update_attachments_summaries(_):
 def _update_attachments_summaries():
     db = firestore.client()
 
-    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+    if (count := running_predictions(db)) >= _MAX_PREDICTIONS:
         logger.warn(
             f"Exceed max running predictions ({count}), skip update attachment summary."
         )
@@ -283,7 +284,7 @@ def update_speeches_summaries(_):
 def _update_speeches_summaries():
     db = firestore.client()
 
-    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+    if (count := running_predictions(db)) >= _MAX_PREDICTIONS:
         logger.warn(
             f"Exceed max running predictions ({count}), skip update speech summary."
         )
@@ -344,7 +345,7 @@ def update_speech_transcripts(_):
 def _update_speech_transcripts():
     db = firestore.client()
 
-    if (count := running_predictions(db)) > _MAX_PREDICTIONS:
+    if (count := running_predictions(db)) >= _MAX_PREDICTIONS:
         logger.warn(
             f"Exceed max running predictions ({count}), skip update speech transcription."
         )
@@ -382,7 +383,7 @@ def _update_speech_transcripts():
             if not blob.exists():
                 logger.warn(f"{blob.name} doesn't exist")
                 continue
-            if blob.size > 20 * 1024**2:  # 20 MB
+            if blob.size > 19.5 * 1024**2:  # 19.5 MB
                 logger.warn(f"{blob.name} is too large")
                 continue
             queries.append(
@@ -391,9 +392,9 @@ def _update_speech_transcripts():
                 )
             )
         job.write_queries(queries)
+        query_size += len(queries)
+        if query_size >= _MAX_BATCH_TRANSCRIPT_QUERY_SIZE:
+            break
         while queries:
             del queries[0]
-        query_size += len(queries)
-        if query_size >= _MAX_BATCH_QUERY_SIZE:
-            break
     job.submit()

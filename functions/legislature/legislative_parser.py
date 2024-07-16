@@ -348,7 +348,9 @@ def _find_proceeding_created_date(
         if not meet_doc.exists:
             continue
         meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
-        if meet.meeting_date_start.replace(tzinfo=None) < created_date:
+        if meet.meeting_date_start.replace(tzinfo=None) < created_date.replace(
+            tzinfo=None
+        ):
             created_date = meet.meeting_date_start
     return created_date
 
@@ -559,6 +561,9 @@ def downloadVideo(request: tasks_fn.CallableRequest):
         ivod_no = request.data["ivodNo"]
         video_no = request.data["videoNo"]
         doc_path = _download_video(meet_no, ivod_no, video_no)
+        if not doc_path:
+            logger.warn(f"Fail to download video {request.data}, skip extracting audio")
+            return
         q = tasks.CloudRunQueue.open("extractAudio")
         q.run(path=doc_path)
     except Exception as e:

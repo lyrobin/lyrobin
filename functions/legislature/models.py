@@ -292,6 +292,7 @@ class Video(FireStoreDocument):
     clips: list[str] = dataclasses.field(default_factory=list)
     audios: list[str] = dataclasses.field(default_factory=list)
     transcript: str = ""
+    has_transcript: bool = False
     transcript_updated_at: DateTimeField = DateTimeField()
 
     def __post_init__(self):

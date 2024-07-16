@@ -83,6 +83,7 @@ def on_receive_bigquery_batch_audio_transcripts(event: CloudEvent):
         video = models.Video.from_dict(doc.to_dict())
         video.transcript = cc.convert(row.transcript)
         video.transcript_updated_at = dt.datetime.now(tz=_EAST_TZ)
+        video.has_transcript = row.transcript != ""
         batch.update(ref, video.asdict())
     batch.commit()
     job.mark_as_done()

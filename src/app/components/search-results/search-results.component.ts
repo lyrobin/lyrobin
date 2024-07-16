@@ -78,15 +78,11 @@ export class SearchResultsComponent implements OnChanges {
   @Input() page: number = 1;
   @Input() loading: boolean = false;
   @Output() onPageChange = new EventEmitter<number>();
-  holdInterval?: ReturnType<typeof setInterval>;
-  holdMilliseconds: number = 0;
   holdItem?: number;
   summary?: string;
   showSummary: boolean = false;
   loadingSummary: boolean = false;
   summaryTimeout?: ReturnType<typeof setTimeout>;
-  readonly holdTotalMilliseconds = 2500;
-  readonly holdIntervalStep = 300;
   isHandset: boolean = false;
   showDialog: boolean = false;
 
@@ -124,39 +120,10 @@ export class SearchResultsComponent implements OnChanges {
     );
   }
 
-  get holdProgress(): number {
-    let progress = Math.round(
-      Math.min(this.holdMilliseconds / this.holdTotalMilliseconds, 1) * 100
-    );
-    if (progress > 60) {
-      return 100;
-    }
-    return progress;
-  }
-
   onPage(event: PaginatorState) {
     this.onPageChange.emit(
       Math.floor((event.first ?? 0) / (event.rows ?? 1)) + 1
     );
-  }
-
-  onHoldDescription(event: MouseEvent | TouchEvent, hit: Hit, index: number) {
-    if (this.holdInterval) {
-      clearInterval(this.holdInterval);
-      this.holdItem = undefined;
-    }
-    this.holdMilliseconds = 0;
-    this.holdItem = index;
-    this.holdInterval = setInterval(() => {
-      this.holdMilliseconds += this.holdIntervalStep;
-      if (this.holdMilliseconds >= this.holdTotalMilliseconds) {
-        clearInterval(this.holdInterval);
-        this.holdInterval = undefined;
-        this.holdMilliseconds = 0;
-        this.holdItem = undefined;
-        this.aiSummary(hit);
-      }
-    }, this.holdIntervalStep);
   }
 
   aiSummary(doc: Document) {
@@ -179,15 +146,5 @@ export class SearchResultsComponent implements OnChanges {
         }
       }, 1500);
     });
-  }
-
-  onLeaveDescription(event: MouseEvent | TouchEvent, hit: Hit, index: number) {
-    console.log('leave');
-    if (this.holdInterval) {
-      clearInterval(this.holdInterval);
-      this.holdInterval = undefined;
-    }
-    this.holdItem = undefined;
-    this.holdMilliseconds = 0;
   }
 }

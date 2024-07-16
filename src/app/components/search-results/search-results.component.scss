@@ -1,3 +1,5 @@
+@import 'variables';
+
 :host::ng-deep .p-dataview .p-dataview-content {
     background: transparent;
     color: var(--surface-300);
@@ -20,10 +22,27 @@
             text-overflow: ellipsis;
         }
     }
-    .description-box:hover {
-        cursor: pointer;
+    .search-dataview {
+        max-width: 40%;
     }
 }
+
+.search-container {
+    max-width: 100%;
+}
+
+@media (min-width: $desktop-width) {
+    .search-container {
+        max-width: 60%;
+    }
+}
+
+@media (min-width: $xxl-desktop-width) {
+    .search-container {
+        max-width: 50%;
+    }
+}
+
 
 :host::ng-deep.small-bar {
     height: 0.5rem;

@@ -89,7 +89,7 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 		FacetBy:                 pointer.String("*"),
 		FilterBy:                pointer.String(req.Filter),
 		ExcludeFields:           pointer.String("vector"),
-		HighlightFields:         pointer.String("name,content,summary"),
+		HighlightFields:         pointer.String("name,content,summary,transcript"),
 		SnippetThreshold:        pointer.Int(500),
 		HighlightAffixNumTokens: pointer.Int(200),
 		PerPage:                 pointer.Int(20),
@@ -184,7 +184,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 		return Document{
 			Name:    highlights.getSnippet("name", m.Name),
 			Path:    path,
-			Content: highlights.getSnippet("content", trimString(m.Status, 500)),
+			Content: highlights.getSnippet("content", trimString(m.Status, 200)),
 			URL:     m.URL,
 			DocType: docType,
 		}, nil
@@ -198,10 +198,14 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 		if err != nil {
 			return Document{}, err
 		}
+		content := highlights.getSnippet("transcript", trimString(m.Transcript, 200))
+		if content == "" {
+			content = trimString(m.Summary, 30)
+		}
 		return Document{
 			Name:    meet.Name + " - " + m.Member,
 			Path:    path,
-			Content: trimString(m.Summary, 30),
+			Content: content,
 			URL:     m.URL,
 			DocType: docType,
 		}, nil

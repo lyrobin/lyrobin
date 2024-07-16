@@ -340,6 +340,8 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
                 timeout=600,
             )
             load_job.result(timeout=600)
+        while rows_to_inserts:
+            del rows_to_inserts[0]
 
     def submit(self) -> BatchPredictionJob:
         token = self._app.credential.get_access_token().access_token
@@ -621,4 +623,4 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
             )
             return AudioTranscriptResult(doc_path, transcript)
         except json.JSONDecodeError:
-            return None
+            return AudioTranscriptResult(doc_path, "")
