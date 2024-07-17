@@ -61,7 +61,7 @@ def on_receive_bigquery_batch_document_summary(event: CloudEvent):
             continue
         document = models.FireStoreDocument.from_dict(doc.to_dict())
         document.ai_summarized = True
-        document.ai_summarized = cc.convert(row.text)
+        document.ai_summary = cc.convert(row.text)
         document.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
         batch.update(ref, document.asdict())
     batch.commit()

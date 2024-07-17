@@ -463,7 +463,7 @@ class TranscriptSummaryQuery(PredictionQuery):
                         "role": "user",
                         "parts": [
                             {
-                                "text": f"影片中的立法委員是 {self.member}。\n",
+                                "text": f"逐字稿中的立法委員是 {self.member}。\n",
                             },
                             {"text": "請根據下述的內容，以繁體中文做出總結。"},
                             {"text": self.content},
@@ -483,17 +483,10 @@ class DocumentSummaryResult:
 
 class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResult]):
 
-    MODEL = "publishers/google/models/gemini-1.5-flash-001"
-    DATESET = "gemini"
-    SCHEMA = [
-        bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
-        bigquery.SchemaField("doc_path", "STRING"),
-    ]
-
     def parse_row(self, row: bigquery.Row) -> DocumentSummaryResult | None:
         doc_path = row.get("doc_path", None)
         if doc_path is None:
-            raise ValueError(f"Can't find doc_path in row {row}")
+            return None
         payload = row.get("response")
         if not payload:
             return None
