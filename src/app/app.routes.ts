@@ -3,8 +3,9 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'search',
     pathMatch: 'full',
+    loadComponent: () =>
+      import('./pages/home/home.component').then(c => c.HomeComponent),
   },
   {
     path: 'search',

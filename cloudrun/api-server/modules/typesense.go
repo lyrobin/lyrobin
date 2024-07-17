@@ -90,8 +90,8 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 		FilterBy:                pointer.String(req.Filter),
 		ExcludeFields:           pointer.String("vector"),
 		HighlightFields:         pointer.String("name,content,summary,transcript"),
-		SnippetThreshold:        pointer.Int(500),
-		HighlightAffixNumTokens: pointer.Int(200),
+		SnippetThreshold:        pointer.Int(200),
+		HighlightAffixNumTokens: pointer.Int(60),
 		PerPage:                 pointer.Int(20),
 		Page:                    pointer.Int((req.Page)),
 	}
@@ -219,7 +219,7 @@ type Highlights []api.SearchHighlight
 func (h Highlights) getSnippet(field string, d string) string {
 	for _, f := range h {
 		if *f.Field == field {
-			return *f.Snippet
+			return *f.Snippet + "…"
 		}
 	}
 	return d

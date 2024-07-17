@@ -15,7 +15,7 @@ from legislature import models
 _TZ = Timezone("Asia/Taipei")
 
 _MAX_PREDICTIONS = 1
-_MAX_BATCH_QUERY_SIZE = 1000
+_MAX_BATCH_SUMMARY_QUERY_SIZE = 1000
 _MAX_BATCH_TRANSCRIPT_QUERY_SIZE = 150
 
 
@@ -200,7 +200,7 @@ def _update_meeting_files_summaries():
         ]
         job.write_queries(queries)
         query_size += len(queries)
-        if query_size >= _MAX_BATCH_QUERY_SIZE:
+        if query_size >= _MAX_BATCH_SUMMARY_QUERY_SIZE:
             break
     job.submit()
 
@@ -259,7 +259,7 @@ def _update_attachments_summaries():
         ]
         job.write_queries(queries)
         query_size += len(queries)
-        if query_size >= _MAX_BATCH_QUERY_SIZE:
+        if query_size >= _MAX_BATCH_SUMMARY_QUERY_SIZE:
             break
     job.submit()
 
@@ -293,12 +293,16 @@ def _update_speeches_summaries():
     def get_docs_for_update(
         last_doc: DocumentSnapshot | None = None,
     ) -> list[DocumentSnapshot]:
-        collections = db.collection_group(models.SPEECH_COLLECT).where(
-            filter=FieldFilter(
-                "ai_summarized_at",
-                "<=",
-                dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+        collections = (
+            db.collection_group(models.SPEECH_COLLECT)
+            .where(
+                filter=FieldFilter(
+                    "ai_summarized_at",
+                    "<=",
+                    dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
+                )
             )
+            .where(filter=FieldFilter("has_transcript", "==", True))
         )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
@@ -320,7 +324,7 @@ def _update_speeches_summaries():
         ]
         job.write_queries(queries)
         query_size += len(queries)
-        if query_size >= _MAX_BATCH_QUERY_SIZE:
+        if query_size >= _MAX_BATCH_SUMMARY_QUERY_SIZE:
             break
     job.submit()
 

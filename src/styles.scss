@@ -69,11 +69,6 @@ $firebase-app-hosting-angular-theme: mat.define-light-theme((
   --button: linear-gradient(90deg, #ffca28, #f57c00);
 }
 
-* {
-  margin: 0;
-  font-family: 'Google Sans';
-}
-
 html {
   background: var(--background);
 }
@@ -180,9 +175,10 @@ a:hover {
 
 .heading,
 .large-heading {
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -2%;
   text-align: center;
+  font-family: "LXGW WenKai Mono TC";
 }
 .heading {
   font-size: 48px;

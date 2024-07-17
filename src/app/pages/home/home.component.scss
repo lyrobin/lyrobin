@@ -1,0 +1,45 @@
+@import 'variables';
+
+
+.hints {
+    font-family: 'Google Sans';
+}
+
+.hint-chip {
+    background-color: var(--primary-400) !important;
+    cursor: pointer;
+}
+
+:host::ng-deep .mdc-evolution-chip__action--presentational{
+    cursor: pointer !important;   
+}
+
+:host::ng-deep {
+    .intro-card {
+        background-color: var(--surface);
+        margin-left: 48px;
+        margin-right: 48px;
+        margin-bottom: 48px;
+        max-width: 300px;
+        max-height: 260px;
+    }
+
+    .p-card {
+        color: var(--surface-300);
+    }
+
+    .p-card-subtitle{
+        color: var(--surface-200);
+    }
+
+    @media (min-width: $desktop-width) {
+        .intro-card {
+            width: 300px;
+            margin-bottom: 100px;
+        }
+    }
+
+    img {
+        width: 120px;
+    }
+}
