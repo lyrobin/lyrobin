@@ -1,5 +1,5 @@
 import { HttpClientModule } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, Inject, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Analytics } from '@angular/fire/analytics';
 import {
@@ -13,6 +13,8 @@ import { AngularIconComponent } from './components/icons/angular-icon.component'
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
 import { environment } from '../environments/environment';
+import { config, dom } from '@fortawesome/fontawesome-svg-core';
+import { DOCUMENT } from '@angular/common';
 
 @Component({
   selector: 'app-root',
@@ -40,4 +42,12 @@ export class AppComponent {
   );
 
   isMainPage = toSignal(this.isMainPage$);
+
+  constructor(@Inject(DOCUMENT) private document: Document) {
+    config.autoAddCss = false;
+    let head = this.document.getElementsByTagName('head')[0];
+    let styleNode = this.document.createElement('style');
+    styleNode.innerHTML = dom.css(); // grab FA's CSS
+    head.appendChild(styleNode);
+  }
 }

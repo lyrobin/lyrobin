@@ -10,14 +10,16 @@
     cursor: pointer;
 }
 
-:host::ng-deep .mdc-evolution-chip__action--presentational{
-    cursor: pointer !important;   
+:host::ng-deep .mdc-evolution-chip__action--presentational {
+    cursor: pointer !important;
 }
 
 :host::ng-deep {
 
-    .p-card-content {
-        display: none;
+    .intro-card {
+        .p-card-content {
+            display: none;
+        }
     }
 
     .intro-card {
@@ -33,13 +35,14 @@
         color: var(--surface-300);
     }
 
-    .p-card-subtitle{
+    .p-card-subtitle {
         color: var(--surface-200);
     }
 
-    img {
+    img.intro-icon {
         width: 80px;
     }
+    
 
     @media (min-width: $desktop-width) {
         .intro-card {
@@ -50,8 +53,30 @@
             margin-bottom: 48px;
         }
 
-        img {
+        img.intro-icon {
             width: 120px;
         }
+
+        .page {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .detail-card {
+            max-width: 512px;
+        }
     }
+
+    .detail-card {
+        background-color: var(--surface);
+        color: var(--surface-200);
+    }
+}
+
+.spacer {
+    background:  linear-gradient(180deg, #0b151e 0%, #1e3040 35%, #55718a 100%);
+}
+
+.second-outer {
+    background: #55718a;
 }

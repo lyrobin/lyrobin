@@ -1,49 +1,116 @@
-<div class="flex flex-row w-full align-items-center justify-content-center">
-  <img alt="icon" class="w-1 mx-2" src="/assets/logo.png" />
-  <h1 class="large-heading">立院知更</h1>
+<div class="w-full h-screen relative">
+  <div class="page flex flex-column h-screen px-4 pt-1">
+    <div class="flex flex-row w-full align-items-center justify-content-center">
+      <img alt="icon" class="w-1 mx-2" src="/assets/logo.png" />
+      <h1 class="large-heading">立院知更</h1>
+    </div>
+    <div class="flex align-items-center justify-content-center mt-4">
+      <p-iconField iconPosition="right" class="w-full">
+        <p-inputIcon
+          styleClass="pi pi-search cursor-pointer"
+          (click)="onSearchClick()" />
+        <input
+          type="text"
+          pInputText
+          placeholder="搜尋..."
+          class="w-full"
+          [(ngModel)]="query"
+          (keydown.enter)="onSearchClick()" />
+      </p-iconField>
+    </div>
+    <div
+      class="hints mt-4 mb-3 text-xl flex flex-row flex-wrap align-items-center">
+      <span class="mr-1"><b>試試:</b></span>
+      @for (hint of hints; track hint) {
+        <mat-chip
+          class="hint-chip text-lg cursor-pointe mx-2"
+          (click)="goto(hint)">
+          <b>{{ hint }}</b>
+        </mat-chip>
+      }
+    </div>
+    <div class="flex-grow-1"></div>
+    <div
+      class="flex flex-column lg:flex-row align-items-center justify-content-center">
+      <p-card
+        header="探索立院"
+        subheader="快速搜尋，找出你關注的議題"
+        styleClass="intro-card">
+        <ng-template pTemplate="header">
+          <div class="flex flex-row align-items-center justify-content-center">
+            <img
+              alt="Card"
+              class="intro-icon mt-4"
+              src="assets/telescope_icon.png" />
+          </div>
+        </ng-template>
+      </p-card>
+      <p-card
+        header="知識更新"
+        subheader="重點摘要，幫你釐清事件脈絡"
+        styleClass="intro-card">
+        <ng-template pTemplate="header">
+          <div class="flex flex-row align-items-center justify-content-center">
+            <img alt="Card" class="intro-icon mt-4" src="assets/pen_icon.png" />
+          </div>
+        </ng-template>
+      </p-card>
+    </div>
+    <div class="flex flex-row justify-content-center">
+      <fa-icon
+        [icon]="faAngleDoubleDown"
+        animation="beat"
+        class="mb-1"
+        (click)="onScrollDown()"></fa-icon>
+    </div>
+  </div>
 </div>
-<div class="flex align-items-center justify-content-center mt-4">
-  <p-iconField iconPosition="right" class="w-full">
-    <p-inputIcon
-      styleClass="pi pi-search cursor-pointer"
-      (click)="onSearchClick()" />
-    <input
-      type="text"
-      pInputText
-      placeholder="搜尋..."
-      class="w-full"
-      [(ngModel)]="query"
-      (keydown.enter)="onSearchClick()" />
-  </p-iconField>
+<div class="spacer h-10rem w-full"></div>
+<div class="second-outer w-full">
+  <div #secondPage class="page flex flex-column p-4 align-items-center gap-8">
+    <p-card header="[起源]" class="block m-1" styleClass="detail-card">
+      <p class="font-semibold">
+        2024年初，台灣立法院在立委席次減半後，首次出現了三黨不過半的局面，對於許多重大議題，也因此出現更多需要相互協商及討論的空間。在現行的立院官方系統中，紀錄著立院議事進行的大小事，然而，繁瑣及大量的資料文件及影音檔案並不利於資料彙整及理解時事，論述者的角度也往往難以擺脫個人色彩。
+      </p>
+    </p-card>
+    <img src="assets/web_developer.png" />
+    <p-card header="[發想]" class="block m-1" styleClass="detail-card">
+      <p class="font-semibold">
+        面對爭議的事件，許多對立的形成源自於缺乏對事實的理解，當不同立場的論證產生矛盾時，我們是否有機會用不同的方式去重新審視？若是資料取得的門檻降低，是否能夠讓更多人關心我們的社會議題？
+      </p>
+      <p class="font-semibold">
+        立院知更在這樣的前提之下，期待利用科技的力量，建立更加直覺且便利的立院搜尋引擎，在第一個階段中，提供所有人能夠輕易地使用關鍵字搜尋到立院中各種相關文檔及影音資料，並利用大型語言模型來產生文檔及影音的重點摘要，簡化的流程能夠利於理解事件的脈絡、準確即時找出想要關心的議題、相關人員的發言紀錄，大幅降低資料取得的門檻及時間，讓每一個人都有機會用自己的方式理解並深度參與公眾議題。
+      </p>
+      <p class="font-semibold">
+        同時我們啟用了知更鳥的意象：良知，提醒著我們在開發的過程中秉持客觀態度，希望能夠為弭平社會歧異、提升公民參與帶來不一樣的機會。
+      </p>
+    </p-card>
+    <img src="assets/rocket_launch.png" />
+    <p-card
+      header="[聽見你們的聲音]"
+      class="block m-1"
+      styleClass="detail-card">
+      <p class="font-semibold">
+        如果你也關心社會議題，也想用不一樣的方式了解立院大小事，不論是你的使用心得、工作上實質遇到的困境、關心時事遇到的困擾，都歡迎與我們聯繫，我們需要更多的意見，才能做出大家需要的服務。
+      </p>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-content-center">
+          <p-button
+            label="聯絡我們"
+            severity="secondary"
+            (onClick)="bookMeeting()" />
+        </div>
+      </ng-template>
+    </p-card>
+    <!-- <img src="assets/support_us.png" />
+    <p-card
+      header="[當我們的初期小天使]"
+      class="block m-1"
+      styleClass="detail-card">
+      <p class="font-semibold">
+        立院知更的資料建置與儲存、大型語言模型的使用、網域的使用與流量都是開發上的成本，如果你願意付出小額的費用當我們初期的使用者，我們會將你對網站的期望做更優先的可行性分析，也會讓你優先使用最新最有趣的功能。
+      </p>
+    </p-card> -->
+  </div>
 </div>
-<div class="hints mt-4 mb-3 text-xl flex flex-row flex-wrap align-items-center">
-  <span class="mr-1"><b>試試:</b></span>
-  @for (hint of hints; track hint) {
-    <mat-chip class="hint-chip text-lg cursor-pointe mx-2" (click)="goto(hint)">
-      <b>{{ hint }}</b>
-    </mat-chip>
-  }
-</div>
-<div class="flex-grow-1"></div>
-<div class="flex flex-column lg:flex-row">
-  <p-card
-    header="探索立院"
-    subheader="快速搜尋，找出你關注的議題"
-    styleClass="intro-card">
-    <ng-template pTemplate="header">
-      <div class="flex flex-row align-items-center justify-content-center">
-        <img alt="Card" class="mt-4" src="assets/telescope_icon.png" />
-      </div>
-    </ng-template>
-  </p-card>
-  <p-card
-    header="知識更新"
-    subheader="重點摘要，幫你釐清事件脈絡"
-    styleClass="intro-card">
-    <ng-template pTemplate="header">
-      <div class="flex flex-row align-items-center justify-content-center">
-        <img alt="Card" class="mt-4" src="assets/pen_icon.png" />
-      </div>
-    </ng-template>
-  </p-card>
-</div>
+<div class="page h-5rem w-full"></div>
