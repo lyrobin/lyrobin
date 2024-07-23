@@ -30,7 +30,12 @@
     class="overflow-x-scroll lg:overflow-x-hidden overflow-y-visible second-toolbar-row">
     <span class="spacer md:hidden lg:block"></span>
     <mat-chip-set>
-      <mat-chip *ngFor="let f of filters" class="mx-1">{{ f }}</mat-chip>
+      @for (f of filters; track $index) {
+        <mat-chip [removable]="true" (removed)="removeFilter(f)">
+          {{ f.value }}
+          <mat-icon matChipRemove>cancel</mat-icon>
+        </mat-chip>
+      }
     </mat-chip-set>
     @if (loading) {
       <p-progressSpinner

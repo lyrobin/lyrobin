@@ -77,8 +77,10 @@ export class SearchViewComponent {
     return queries.join('&&');
   }
 
-  get filterArray(): string[] {
-    return Object.entries(this.filters).map(([_, value]) => translate(value));
+  get filterArray(): FacetChange[] {
+    return Object.entries(this.filters).map(([facet, value]) => {
+      return { facet, value: translate(value) };
+    });
   }
 
   get facets(): Facet[] {

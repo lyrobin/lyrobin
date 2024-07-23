@@ -17,6 +17,8 @@ import { ButtonModule } from 'primeng/button';
 import { Router } from '@angular/router';
 import { ScrollPanelModule } from 'primeng/scrollpanel';
 import { EventLoggerService } from '../../providers/event-logger.service';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 export interface FacetChange {
   facet: string;
@@ -42,6 +44,8 @@ export interface FacetChange {
     AvatarModule,
     ButtonModule,
     ScrollPanelModule,
+    MatButtonModule,
+    MatIconModule,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
@@ -49,7 +53,7 @@ export interface FacetChange {
 export class SearchBarComponent {
   @Input({ transform: trimString }) query = '';
   @Input() facets?: Facet[] = [];
-  @Input() filters: string[] = [];
+  @Input() filters: FacetChange[] = [];
   @Input() loading: boolean = false;
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
@@ -79,6 +83,13 @@ export class SearchBarComponent {
 
   goHome() {
     this.router.navigate(['/']);
+  }
+
+  removeFilter(event: FacetChange) {
+    this.onFacetChange.emit({
+      facet: event.facet,
+      value: '',
+    });
   }
 }
 
