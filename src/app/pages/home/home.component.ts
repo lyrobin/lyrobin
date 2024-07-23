@@ -10,6 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ExternalLinkDirective } from '../../directives/external-link.directive';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { faAngleDoubleDown } from '@fortawesome/free-solid-svg-icons';
+import { EventLoggerService } from '../../providers/event-logger.service';
 
 @Component({
   selector: 'app-home',
@@ -41,7 +42,8 @@ export class HomeComponent {
 
   constructor(
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private logger: EventLoggerService
   ) {}
 
   onSearchClick() {
@@ -58,6 +60,7 @@ export class HomeComponent {
   }
 
   bookMeeting() {
+    this.logger.logEvent('book_meeting');
     window.open('https://calendar.app.google/YrNrYZLWvxmT4VvT9', '_blank');
   }
 

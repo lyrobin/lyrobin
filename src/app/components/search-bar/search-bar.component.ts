@@ -16,6 +16,7 @@ import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { Router } from '@angular/router';
 import { ScrollPanelModule } from 'primeng/scrollpanel';
+import { EventLoggerService } from '../../providers/event-logger.service';
 
 export interface FacetChange {
   facet: string;
@@ -54,7 +55,10 @@ export class SearchBarComponent {
   @Output() onSearch = new EventEmitter<string>();
   @Output() onFacetChange = new EventEmitter<FacetChange>();
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private logger: EventLoggerService
+  ) {}
 
   onSearchClick() {
     let query = trimString(this.query);
@@ -66,6 +70,7 @@ export class SearchBarComponent {
   }
 
   onFacetChangeHandler(event: DropdownChangeEvent, facet: string) {
+    this.logger.logFacet(facet, event.value);
     this.onFacetChange.emit({
       facet,
       value: event.value,

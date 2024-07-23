@@ -28,6 +28,7 @@ import {
 } from '@angular/cdk/layout';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
+import { EventLoggerService } from '../../providers/event-logger.service';
 
 interface Hit extends Document {
   focus: boolean;
@@ -88,7 +89,8 @@ export class SearchResultsComponent implements OnChanges {
 
   constructor(
     private aicore: AicoreService,
-    private breakpointObserver: BreakpointObserver
+    private breakpointObserver: BreakpointObserver,
+    private logger: EventLoggerService
   ) {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe(result => {
       this.isHandset = result.matches;
@@ -126,7 +128,12 @@ export class SearchResultsComponent implements OnChanges {
     );
   }
 
+  dbClickDescription(doc: Document) {
+    this.logger.logClickDescription(doc.doctype);
+  }
+
   aiSummary(doc: Document) {
+    this.logger.logAiSummarize(doc.doctype);
     this.showSummary = true;
     if (this.isHandset) {
       this.showDialog = true;

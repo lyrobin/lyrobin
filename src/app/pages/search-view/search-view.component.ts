@@ -1,10 +1,11 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   FacetChange,
   SearchBarComponent,
 } from '../../components/search-bar/search-bar.component';
 import { SearchResultsComponent } from '../../components/search-results/search-results.component';
+import { EventLoggerService } from '../../providers/event-logger.service';
 import { Facet, SearchResult } from '../../providers/search';
 import { SearchService } from '../../providers/search.service';
 import { translate } from '../../utils/facet-value.pipe';
@@ -16,7 +17,7 @@ import { translate } from '../../utils/facet-value.pipe';
   templateUrl: './search-view.component.html',
   styleUrl: './search-view.component.scss',
 })
-export class SearchViewComponent implements OnInit {
+export class SearchViewComponent {
   @Input() query?: string;
   @Input() page?: number;
   @Input() filter?: string;
@@ -26,7 +27,8 @@ export class SearchViewComponent implements OnInit {
   constructor(
     private searchService: SearchService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private logger: EventLoggerService
   ) {
     this.route.queryParams.subscribe(params => {
       this.query = params['query'];
@@ -34,10 +36,6 @@ export class SearchViewComponent implements OnInit {
       this.filter = params['filter'];
       this.reload();
     });
-  }
-
-  ngOnInit(): void {
-    this.reload();
   }
 
   reload() {
@@ -48,6 +46,7 @@ export class SearchViewComponent implements OnInit {
         this.result = result;
       })
       .finally(() => {
+        this.logger.logSearch(this.query ?? '');
         this.loading = false;
       });
   }
