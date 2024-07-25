@@ -103,6 +103,7 @@ class DocType(Enum):
     VIDEO = models.Video.__name__.lower()
     MEETING_FILE = models.MeetingFile.__name__.lower()
     ATTACHMENT = models.Attachment.__name__.lower()
+    MEMBER = models.Legislator.__name__.lower()
 
 
 @dataclasses.dataclass
@@ -251,6 +252,8 @@ class DocumentSearchEngine:
                 target = self._attachment_to_doc(doc)
             case DocType.VIDEO:
                 target = self._video_to_doc(doc)
+            case DocType.MEMBER:
+                target = self._member_to_doc(doc)
             case _:
                 raise TypeError(f"Unsupported doc type {doc_type}.")
         return target
@@ -349,4 +352,14 @@ class DocumentSearchEngine:
             created_date=m.start_time,
             vector=m.embedding_vector,
             metadata={"member": m.member, "transcript": m.transcript},
+        )
+
+    def _member_to_doc(self, doc: DocumentSnapshot) -> Document:
+        ref: DocumentReference = doc.reference
+        m: models.Legislator = models.Legislator.from_dict(doc.to_dict())
+        return Document(
+            path=ref.path,
+            doc_type=models.Legislator.__name__.lower(),
+            name=m.name,
+            metadata={"term": max(m.terms)},
         )

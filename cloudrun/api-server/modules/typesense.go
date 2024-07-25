@@ -83,11 +83,15 @@ func NewTypesenseEngine(cfg config.TypeSense, store models.StoreReader) SearchEn
 }
 
 func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchResult, error) {
+	filter := "doc_type:!legislator"
+	if req.Filter != "" {
+		filter += "&&" + req.Filter
+	}
 	params := &api.SearchCollectionParams{
 		Q:                       req.Query,
 		QueryBy:                 "name,content,summary,*",
 		FacetBy:                 pointer.String("*"),
-		FilterBy:                pointer.String(req.Filter),
+		FilterBy:                pointer.String(filter),
 		ExcludeFields:           pointer.String("vector"),
 		HighlightFields:         pointer.String("name,content,summary,transcript"),
 		SnippetThreshold:        pointer.Int(200),

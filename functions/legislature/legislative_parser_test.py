@@ -264,5 +264,13 @@ def test_on_meeting_file_update_index():
     testings.wait_until(lambda: se.query("document").hit_count == 1)
 
 
+def test_update_legislators():
+    url = utils.get_function_url("update_legislators")
+
+    res = requests.get(url, params={"term": 11}, timeout=30)
+
+    assert res.ok
+
+
 if __name__ == "__main__":
     unittest.main()

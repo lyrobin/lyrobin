@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import logging
 import os
+from typing import Any
 
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
@@ -18,7 +19,12 @@ from firebase_functions.options import (
 )
 from google.cloud.firestore_v1 import document
 import google.cloud.firestore  # type: ignore
-from legislature import LEGISLATURE_MEETING_INFO_API, models, readers
+from legislature import (
+    LEGISLATURE_MEETING_INFO_API,
+    LEGISLATURE_LEGISLATOR_INFO_API,
+    models,
+    readers,
+)
 from params import (
     DEFAULT_TIMEOUT_SEC,
     TYPESENSE_API_KEY,
@@ -794,3 +800,60 @@ def on_speech_update(
 def _index_speech(doc_path: str):
     se = search_client.DocumentSearchEngine.create(api_key=TYPESENSE_API_KEY.value)
     se.index(doc_path, search_client.DocType.VIDEO)
+
+
+@https_fn.on_request(region=_REGION, memory=MemoryOption.MB_512)
+def update_legislators(request: https_fn.Request) -> https_fn.Response:
+    term = request.args.get("term", type=int)
+    res = session.new_legacy_session().get(
+        LEGISLATURE_LEGISLATOR_INFO_API.value,
+        headers=session.REQUEST_HEADER,
+        params={"term": term, "fileType": "json"},
+        timeout=_DEFAULT_TIMEOUT,
+    )
+    if res.status_code != 200:
+        logger.error(f"Error getting meetSings: {res.status_code}")
+        return https_fn.Response(
+            json.dumps(
+                {
+                    "error": "Error getting legislators.",
+                    "term": term,
+                }
+            ),
+            status=res.status_code,
+            content_type="application/json",
+        )
+    db = firestore.client()
+    batch = db.batch()
+    data: dict = json.loads(res.text)
+    member: dict[str, Any]
+    for member in data.get("dataList", []):
+        onboard_date = dt.datetime.strptime(member.get("onboardDate", ""), "%Y/%m/%d")
+        term = member.get("term", None)
+        m = models.Legislator(
+            name=member.get("name", ""),
+            ename=member.get("ename", ""),
+            sex=member.get("sex", ""),
+            party=member.get("party", ""),
+            area=member.get("areaName", ""),
+            onboard_date=onboard_date,
+            degree=member.get("degree", ""),
+            avatar=member.get("picUrl", ""),
+            leave=member.get("leaveFlag", "") == "是",
+            terms=[term] if term is not None else [],
+        )
+        doc_ref = db.collection(models.MEMBER_COLLECT).document(m.document_id)
+        doc = doc_ref.get()
+        if doc.exists:
+            old_m = models.Legislator.from_dict(doc.to_dict())
+            m.terms = sorted(list(set(m.terms + old_m.terms)))
+            batch.update(doc_ref, m.asdict())
+            continue
+        batch.set(doc_ref, m.asdict())
+    batch.commit()
+
+    return https_fn.Response(
+        json.dumps({}),
+        status=200,
+        content_type="application/json",
+    )

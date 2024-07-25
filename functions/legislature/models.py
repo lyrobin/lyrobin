@@ -9,6 +9,7 @@ import datetime as dt
 import uuid
 from typing import TypeVar, Type, Any
 from urllib import parse
+import json
 
 import deepdiff  # type: ignore
 import pytz  # type: ignore
@@ -25,6 +26,7 @@ ATTACH_COLLECT = "attachments"
 # Sub-collection - ivod
 VIDEO_COLLECT = "videos"
 SPEECH_COLLECT = "speeches"
+MEMBER_COLLECT = "members"
 
 T = TypeVar("T", bound="FireStoreDocument")
 _TZ = pytz.timezone("Asia/Taipei")
@@ -337,3 +339,36 @@ class Proceeding(FireStoreDocument):
 
     def __post_init__(self):
         self.document_id = self.bill_no
+
+
+@dataclasses.dataclass
+class SpeechTopicRemark:
+    topic: str
+    details: list[str]
+    video_url: str
+
+    def to_json(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+
+    @classmethod
+    def from_json(cls, data: str) -> "SpeechTopicRemark":
+        return cls(**json.loads(data))
+
+
+@dataclasses.dataclass
+class Legislator(FireStoreDocument):
+    name: str = ""
+    ename: str = ""
+    sex: str = ""
+    party: str = ""
+    area: str = ""
+    onboard_date: DateTimeField = DateTimeField()
+    degree: str = ""
+    avatar: str = ""
+    leave: bool = False
+    terms: list[int] = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+        self.document_id = uuid.uuid3(
+            uuid.NAMESPACE_URL, f"{self.name}.{self.ename}"
+        ).hex
