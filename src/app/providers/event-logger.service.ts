@@ -34,7 +34,8 @@ export class EventLoggerService {
     if (this.analytics) {
       logEvent(this.analytics, eventName, params);
     } else {
-      console.log(eventName, params);
+      // TODO: need fix it, don't show this during build time.
+      // console.log(eventName, params);
     }
   }
 }
