@@ -5,15 +5,22 @@ import {
   SearchBarComponent,
 } from '../../components/search-bar/search-bar.component';
 import { SearchResultsComponent } from '../../components/search-results/search-results.component';
+import { SmartCardComponent } from '../../components/smart-card/smart-card.component';
+import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
 import { EventLoggerService } from '../../providers/event-logger.service';
-import { Facet, SearchResult } from '../../providers/search';
+import { Facet, LegislatorRemark, SearchResult } from '../../providers/search';
 import { SearchService } from '../../providers/search.service';
 import { translate } from '../../utils/facet-value.pipe';
 
 @Component({
   selector: 'app-search-view',
   standalone: true,
-  imports: [SearchBarComponent, SearchResultsComponent],
+  imports: [
+    SearchBarComponent,
+    SearchResultsComponent,
+    SmartCardComponent,
+    SmartSummaryCardDirective,
+  ],
   templateUrl: './search-view.component.html',
   styleUrl: './search-view.component.scss',
 })
@@ -23,6 +30,7 @@ export class SearchViewComponent {
   @Input() filter?: string;
   result?: SearchResult;
   loading: boolean = true;
+  legislatorRemark?: LegislatorRemark;
 
   constructor(
     private searchService: SearchService,
@@ -49,6 +57,34 @@ export class SearchViewComponent {
         this.logger.logSearch(this.query ?? '');
         this.loading = false;
       });
+    this.loadLegislator();
+  }
+
+  private loadLegislator() {
+    this.legislatorRemark = undefined;
+    if (!this.query || this.query.length < 2) {
+      return;
+    } else if ((this.page || 0) > 1) {
+      return;
+    } else if (this.filter) {
+      return;
+    }
+    this.searchService.legislator(this.query).then(result => {
+      console.log(result);
+      if (result) {
+        this.legislatorRemark = result;
+      }
+    });
+  }
+
+  get showSmartCard(): boolean {
+    if (this.loading) {
+      return false;
+    }
+    if (this.legislatorRemark) {
+      return true;
+    }
+    return false;
   }
 
   get currentPage(): number {
@@ -137,7 +173,6 @@ export class SearchViewComponent {
       },
     });
   }
-
   stringifyFilters(filters: { [name: string]: string }): string {
     let results: string[] = [];
     for (let facet in filters) {

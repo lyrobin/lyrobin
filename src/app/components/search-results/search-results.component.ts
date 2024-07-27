@@ -1,11 +1,14 @@
-import { NgFor, NgIf } from '@angular/common';
+import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 import {
   Component,
+  ContentChild,
+  ContentChildren,
   EventEmitter,
   Input,
   OnChanges,
   Output,
   SimpleChanges,
+  TemplateRef,
 } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { DataViewModule } from 'primeng/dataview';
@@ -29,6 +32,8 @@ import {
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { EventLoggerService } from '../../providers/event-logger.service';
+import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
+import { LimitTextPipe } from '../../utils/limit-text.pipe';
 
 interface Hit extends Document {
   focus: boolean;
@@ -54,6 +59,8 @@ interface Hit extends Document {
     LayoutModule,
     DialogModule,
     ButtonModule,
+    NgTemplateOutlet,
+    LimitTextPipe,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
@@ -79,6 +86,8 @@ export class SearchResultsComponent implements OnChanges {
   @Input() page: number = 1;
   @Input() loading: boolean = false;
   @Output() onPageChange = new EventEmitter<number>();
+  @ContentChild(SmartSummaryCardDirective, { read: TemplateRef })
+  smartSummaryCardTemplate?: any;
   holdItem?: number;
   summary?: string;
   showSummary: boolean = false;

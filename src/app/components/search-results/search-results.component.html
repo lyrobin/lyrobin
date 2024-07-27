@@ -7,9 +7,13 @@
         [lazy]="true"
         [totalRecords]="totalRecords"
         [showCurrentPageReport]="true"
-        styleClass="search-dataview block h-full max-w-full p-1 lg:py-6 lg:pl-8 lg:pr-1"
+        styleClass="search-dataview block h-full max-w-full p-1 lg:py-2 lg:pl-8 lg:pr-1"
         [rows]="rows"
         (onPage)="onPage($event)">
+        <ng-template pTemplate="header">
+          <ng-container
+            *ngTemplateOutlet="smartSummaryCardTemplate"></ng-container>
+        </ng-template>
         <ng-template pTemplate="list" let-hits>
           @if (!loading) {
             <div @inTrigger class="flex flex-column gap-6">
@@ -26,7 +30,7 @@
                         class="block overflow-visible lg:hidden mx-1"
                         [fontIcon]="hit | doctypeIcon"></mat-icon>
                       <div
-                        [innerHTML]="hit.name"
+                        [innerHTML]="hit.name | limitText: 50"
                         class="font-semibold text-lg"></div>
                       <p-button
                         icon="pi pi-pen-to-square"
@@ -56,9 +60,6 @@
               @inTrigger
               class="grid grid-nogutter mb-3"
               *ngFor="let _ of [].constructor(3)">
-              <div class="mr-3 hidden lg:block">
-                <p-skeleton shape="circle" size="3rem" styleClass="mr-2" />
-              </div>
               <div class="col-11">
                 <p-skeleton
                   width="10rem"

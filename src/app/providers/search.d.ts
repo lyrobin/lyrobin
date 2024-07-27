@@ -21,3 +21,17 @@ export interface SearchResult {
   hits: Document[];
   found: number;
 }
+
+export interface SpeechRemark {
+  topic: string;
+  details: string[];
+  video_urls: string[];
+}
+
+export interface LegislatorRemark {
+  name: string;
+  party: string;
+  area: string;
+  avatar: string;
+  remarks: SpeechRemark[];
+}

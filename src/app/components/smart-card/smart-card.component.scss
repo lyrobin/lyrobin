@@ -1,0 +1,21 @@
+:host::ng-deep {
+    .p-fieldset {
+        background: none;
+        color: white;
+        border: 1px solid var(--surface-600);
+    }
+
+    .p-fieldset .p-fieldset-legend {
+        background-color: var(--surface);
+        a {
+            color: var(--surface-300);
+        }
+        a:hover {
+            color: var(--primary-500);
+        }
+    }
+}
+
+.legislator-info{
+    color: white;
+}

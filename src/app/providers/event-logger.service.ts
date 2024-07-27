@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Analytics, logEvent } from '@angular/fire/analytics';
 import { environment } from '../../environments/environment';
 
@@ -6,7 +6,9 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class EventLoggerService {
-  constructor(private analytics: Analytics) {}
+  private readonly analytics = environment.production
+    ? inject(Analytics)
+    : null;
 
   logSearch(keyword: string) {
     this.log('search', { keyword });
@@ -29,7 +31,7 @@ export class EventLoggerService {
   }
 
   private log(eventName: string, params?: Record<string, any>) {
-    if (environment.production) {
+    if (this.analytics) {
       logEvent(this.analytics, eventName, params);
     } else {
       console.log(eventName, params);

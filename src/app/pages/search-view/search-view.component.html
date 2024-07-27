@@ -4,11 +4,20 @@
   [filters]="filterArray"
   [loading]="loading"
   (onSearch)="onSearch($event)"
-  (onFacetChange)="onFacetChange($event)"></app-search-bar>
+  (onFacetChange)="onFacetChange($event)">
+</app-search-bar>
 
 <app-search-results
   [page]="currentPage"
   [result]="result"
   [loading]="loading"
   (onPageChange)="onPageChange($event)"
-  class="flex-grow-1"></app-search-results>
+  class="flex-grow-1">
+  <ng-template appSmartSummaryCard>
+    <app-smart-card
+      class="block mb-4 p-2 w-full"
+      [show]="showSmartCard"
+      [legislatorRemark]="legislatorRemark"
+      (onSearch)="onSearch($event)"></app-smart-card>
+  </ng-template>
+</app-search-results>

@@ -4,3 +4,15 @@
     display: flex;
     flex-direction: column;
 }
+
+:host::ng-deep {
+    .p-fieldset-legend {
+        padding: 0.2rem;
+        a {
+            padding: 0;
+        }
+    }
+    .p-fieldset-content {
+        padding: 0.5rem;
+    }
+}
