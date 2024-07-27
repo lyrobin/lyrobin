@@ -22,6 +22,23 @@ func HandleSearch(se modules.SearchEngine) gin.HandlerFunc {
 	}
 }
 
+func HandleSearchLegislator(se modules.SearchEngine) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		name, ok := ctx.GetQuery("name")
+		if !ok {
+			ctx.String(400, "name not found")
+			return
+		}
+		result, err := se.SearchLegislator(ctx.Request.Context(), name)
+		if err != nil {
+			ctx.String(204, err.Error())
+			return
+		}
+		ctx.JSON(200, result)
+
+	}
+}
+
 func getSearchRequest(ctx *gin.Context) (modules.SearchRequest, error) {
 	q, ok := ctx.GetQuery("q")
 	if ok {

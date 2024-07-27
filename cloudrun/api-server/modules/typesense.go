@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,6 +26,7 @@ const (
 	Attachment  DocType = "attachment"
 	Proceeding  DocType = "proceeding"
 	Video       DocType = "video"
+	Member      DocType = "legislator"
 )
 
 type SearchRequest struct {
@@ -57,8 +59,23 @@ type Document struct {
 	DocType string `json:"doctype,omitempty"`
 }
 
+type SpeechRemark struct {
+	Topic   string   `json:"topic,omitempty"`
+	Details []string `json:"details,omitempty"`
+	Video   []string `json:"video_urls,omitempty"`
+}
+
+type Legislator struct {
+	Name    string         `json:"name,omitempty"`
+	Party   string         `json:"party,omitempty"`
+	Area    string         `json:"area,omitempty"`
+	Avatar  string         `json:"avatar,omitempty"`
+	Remarks []SpeechRemark `json:"remarks,omitempty"`
+}
+
 type SearchEngine interface {
 	Search(ctx context.Context, req SearchRequest) (SearchResult, error)
+	SearchLegislator(ctx context.Context, name string) (Legislator, error)
 }
 
 var _ SearchEngine = typesenseEngine{}
@@ -129,6 +146,45 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 		Facet: facets,
 		Found: *result.Found,
 		Hits:  hits,
+	}, nil
+}
+
+func (e typesenseEngine) SearchLegislator(ctx context.Context, name string) (Legislator, error) {
+	params := &api.SearchCollectionParams{
+		Q:             name,
+		QueryBy:       "name",
+		FilterBy:      pointer.String("doc_type:=legislator"),
+		ExcludeFields: pointer.String("vector"),
+		PerPage:       pointer.Int(1),
+		Page:          pointer.Int(1),
+	}
+	result, err := e.client.Collection(collection).Documents().Search(ctx, params)
+	if err != nil {
+		return Legislator{}, err
+	}
+	if len(*result.Hits) <= 0 {
+		return Legislator{}, errors.New("not found")
+	}
+	h := (*result.Hits)[0]
+	doc := *h.Document
+	path, ok := doc["path"].(string)
+	if !ok {
+		return Legislator{}, errors.New("can't find `path` in hit")
+	}
+	legislator, err := e.store.GetLegislator(ctx, path)
+	if err != nil {
+		return Legislator{}, err
+	}
+	var remarks []SpeechRemark
+	if err := json.Unmarshal([]byte(legislator.Remarks), &remarks); err != nil {
+		return Legislator{}, err
+	}
+	return Legislator{
+		Name:    legislator.Name,
+		Party:   legislator.Party,
+		Area:    legislator.Area,
+		Avatar:  legislator.Avatar,
+		Remarks: remarks,
 	}, nil
 }
 

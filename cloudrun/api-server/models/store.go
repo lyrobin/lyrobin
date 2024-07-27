@@ -18,6 +18,7 @@ type StoreReader interface {
 	GetAttachment(ctx context.Context, path string) (Attachment, error)
 	GetProceeding(ctx context.Context, path string) (Proceeding, error)
 	GetVideo(ctx context.Context, path string) (Video, error)
+	GetLegislator(ctx context.Context, path string) (Legislator, error)
 }
 
 type Document struct {
@@ -60,6 +61,14 @@ type Video struct {
 	Summary    string `firestore:"ai_summary,omitempty"`
 	Transcript string `firestore:"transcript,omitempty"`
 	Member     string `firestore:"member,omitempty"`
+}
+
+type Legislator struct {
+	Name    string `firestore:"name,omitempty"`
+	Party   string `firestore:"party,omitempty"`
+	Area    string `firestore:"area,omitempty"`
+	Avatar  string `firestore:"avatar,omitempty"`
+	Remarks string `firestore:"ai_summary,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}
@@ -145,6 +154,23 @@ func (s *FireStore) GetVideo(ctx context.Context, path string) (Video, error) {
 		return Video{}, err
 	}
 	return video, nil
+}
+
+func (s *FireStore) GetLegislator(ctx context.Context, path string) (Legislator, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return Legislator{}, err
+	}
+	defer client.Close()
+	doc, err := client.Doc(path).Get(ctx)
+	if err != nil || !doc.Exists() {
+		return Legislator{}, errors.New(path + " not found")
+	}
+	var legislator Legislator
+	if err := doc.DataTo(&legislator); err != nil {
+		return Legislator{}, err
+	}
+	return legislator, nil
 }
 
 func (m Meeting) GetURL() string {
