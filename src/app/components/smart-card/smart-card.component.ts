@@ -1,5 +1,12 @@
 import { DecimalPipe, NgIf } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+} from '@angular/core';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { AvatarModule } from 'primeng/avatar';
 import { BadgeModule } from 'primeng/badge';
@@ -31,13 +38,16 @@ import {
   templateUrl: './smart-card.component.html',
   styleUrl: './smart-card.component.scss',
 })
-export class SmartCardComponent {
+export class SmartCardComponent implements OnChanges {
   @Input() show: boolean = false;
   @Input() legislatorRemark?: LegislatorRemark;
   @Output() onSearch = new EventEmitter<string>();
 
   expanded: boolean = false;
 
+  ngOnChanges(changes: SimpleChanges): void {
+    this.expanded = false;
+  }
   get maxRemarks(): number {
     return this.expanded ? 20 : 3;
   }

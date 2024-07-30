@@ -50,7 +50,9 @@
                   <div
                     class="col-12 lg:col-9 my-3 description-box"
                     (dblclick)="dbClickDescription(hit)">
-                    <div class="p-2" [innerHTML]="hit.content"></div>
+                    <div
+                      class="p-2 overflow-x-hidden"
+                      [innerHTML]="hit.content"></div>
                   </div>
                 </div>
               }
