@@ -168,6 +168,16 @@ class TestLegislativeMeetingReader(unittest.TestCase):
 
         self.assertEqual(date_desc, "113/04/25 09:00-17:30")
 
+    @testings.skip_when_no_network
+    def test_empty_proceedings(self):
+        r = readers.LegislativeMeetingReader.open(
+            "https://ppg.ly.gov.tw/ppg/sittings/2024061341/details",
+            {"meetingDate": "113/06/18"},
+        )
+        proceedings = r.get_files(allow_download=True)
+
+        self.assertEqual(len(proceedings), 3)
+
 
 # Proceedings
 # 1. https://ppg.ly.gov.tw/ppg/bills/202110027130000/details -> more links to proceedings

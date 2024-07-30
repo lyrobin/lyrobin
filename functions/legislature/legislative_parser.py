@@ -8,7 +8,9 @@ import json
 import logging
 import os
 from typing import Any
+from urllib import parse
 
+import google.cloud.firestore  # type: ignore
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import (
@@ -18,20 +20,16 @@ from firebase_functions.options import (
     SupportedRegion,
 )
 from google.cloud.firestore_v1 import document
-import google.cloud.firestore  # type: ignore
 from legislature import (
-    LEGISLATURE_MEETING_INFO_API,
     LEGISLATURE_LEGISLATOR_INFO_API,
+    LEGISLATURE_MEETING_INFO_API,
+    LEGISLATURE_PPG_API,
     models,
     readers,
 )
-from params import (
-    DEFAULT_TIMEOUT_SEC,
-    TYPESENSE_API_KEY,
-)
-from utils import session, tasks
+from params import DEFAULT_TIMEOUT_SEC, TYPESENSE_API_KEY
 from search import client as search_client
-
+from utils import session, tasks
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
 _REGION = SupportedRegion.ASIA_EAST1
@@ -857,3 +855,59 @@ def update_legislators(request: https_fn.Request) -> https_fn.Response:
         status=200,
         content_type="application/json",
     )
+
+
+@https_fn.on_request(region=_REGION, memory=MemoryOption.MB_512)
+def update_meetings_by_date(request: https_fn.Request):
+    try:
+        meet_date = request.args.get("date", "")
+        term = int(request.args.get("term", 0))
+        period = int(request.args.get("period", 0))
+        if not meet_date:
+            return https_fn.Response("date is required.", status=400)
+        meetings = _update_meeting_by_date(meet_date, term=term, period=period)
+        return https_fn.Response(json.dumps({"meetings": meetings}), status=200)
+    except Exception as e:
+        logger.error(f"Fail to update meeting by date: {e}")
+        raise RuntimeError(f"Fail to update meeting by date: {e}") from e
+
+
+def _update_meeting_by_date(
+    meet_date: str, term: int = 0, period: int = 0
+) -> list[str]:
+    res = session.new_legacy_session().get(
+        LEGISLATURE_PPG_API.value + "/v1/all-sittings",
+        params={"size": -1, "page": 1, "meetingDate": meet_date},
+        headers=session.REQUEST_HEADER,
+        timeout=_DEFAULT_TIMEOUT,
+    )
+    if not res.ok:
+        raise RuntimeError(f"Fail to get meeting by {meet_date}: {res.text}")
+
+    db = firestore.client()
+    batch = db.batch()
+    items = res.json().get("items", [])
+    item: dict[str, Any]
+    new_meetings = []
+    for item in items:
+        meeting_no = item.get("id", "")
+        meeting_date = item.get("meetingDate", "")
+        meeting_time = item.get("meetingTime", "")
+        if not meeting_no or not meeting_date or not meeting_time:
+            continue
+        m = models.Meeting(
+            meeting_no=meeting_no,
+            meeting_name=item.get("meetingName", ""),
+            meeting_content=item.get("title", ""),
+            meeting_date_desc=f"{meet_date} {meeting_time}",
+            meeting_unit=item.get("meetingUnit", ""),
+            term=term,
+            session_period=period,
+        )
+        ref = db.collection(models.MEETING_COLLECT).document(m.document_id)
+        if ref.get().exists:
+            continue
+        new_meetings.append(m.meeting_no)
+        batch.set(ref, m.asdict())
+    batch.commit()
+    return new_meetings

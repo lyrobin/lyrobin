@@ -345,7 +345,7 @@ class Proceeding(FireStoreDocument):
 class SpeechTopicRemark:
     topic: str
     details: list[str]
-    video_url: str
+    video_urls: list[str]
 
     def to_json(self) -> str:
         return json.dumps(dataclasses.asdict(self))

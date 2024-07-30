@@ -5,6 +5,7 @@ import functools
 import os
 import re
 from typing import TypeVar, Generic, Callable
+import time
 
 import firebase_admin  # type: ignore
 import google.auth  # type: ignore
@@ -15,6 +16,18 @@ from google.auth.transport.requests import AuthorizedSession
 from utils import testings
 
 T = TypeVar("T")
+
+
+def simple_retry(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        for _ in range(5):
+            try:
+                return func(*args, **kwargs)
+            except Exception:
+                time.sleep(1)
+
+    return wrapper
 
 
 def snake_to_camel(snake_str):
@@ -39,6 +52,7 @@ def camel_to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
+@simple_retry
 def get_function_url(name: str, location: str = SupportedRegion.ASIA_EAST1) -> str:
     """Get the URL of a given v2 cloud function.
 

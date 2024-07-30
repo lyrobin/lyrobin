@@ -1,6 +1,8 @@
 """Module for subscribers that handle cloud event outside of firebase functions."""
 
+import dataclasses
 import datetime as dt
+import json
 
 import functions_framework
 import opencc  # type: ignore
@@ -85,5 +87,26 @@ def on_receive_bigquery_batch_audio_transcripts(event: CloudEvent):
         video.transcript_updated_at = dt.datetime.now(tz=_EAST_TZ)
         video.has_transcript = row.transcript != ""
         batch.update(ref, video.asdict())
+    batch.commit()
+    job.mark_as_done()
+
+
+@functions_framework.cloud_event
+def on_receive_bigquery_batch_speeches_summary(event: CloudEvent):
+    db = firestore.client()
+    job = gemini.GeminiBatchSpeechesSummaryJob.from_bq_event(event)
+    batch = db.batch()
+    for row in job.list_results():
+        ref = db.document(row.doc_path)
+        doc = ref.get()
+        if not doc.exists:
+            logger.warn(f"No document found for {row.doc_path}")
+            continue
+        member = models.Legislator.from_dict(doc.to_dict())
+        remarks = [dataclasses.asdict(r) for r in row.remarks]
+        member.ai_summary = json.dumps(remarks)
+        member.ai_summarized = True
+        member.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
+        batch.update(ref, member.asdict())
     batch.commit()
     job.mark_as_done()

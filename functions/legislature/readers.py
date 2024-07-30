@@ -220,7 +220,9 @@ class LegislativeMeetingReader:
         if res.status_code != 200:
             raise IOError(f"Failed to fetch proceedings: {res.text}")
         data: dict[str, str] = res.json()
-        pairs = [pair.split(";") for val in data.values() for pair in val.split(",")]
+        pairs = [
+            pair.split(";") for val in data.values() for pair in val.split(",") if pair
+        ]
         return [
             AttachmentEntry(name=name, url=self._prepend_domain_name(url))
             for url, name in pairs

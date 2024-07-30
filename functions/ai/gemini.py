@@ -4,33 +4,32 @@
 import abc
 import dataclasses
 import datetime as dt
+import io
 import itertools
 import json
 import pathlib
 import urllib.parse
 import uuid
 from collections.abc import Iterable
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, NamedTuple, Optional, TypeVar
 
 import firebase_admin  # type: ignore
 import pytz  # type: ignore
 import requests  # type: ignore
 import utils
 import vertexai  # type: ignore
+from cloudevents.http.event import CloudEvent
 from firebase_admin import firestore, storage
 from firebase_functions.options import SupportedRegion
 from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
-from google.cloud.storage import Blob  # type: ignore
-from params import EMBEDDING_MODEL
-from vertexai.generative_models import (  # type: ignore
-    GenerativeModel,
-    Part,
-    SafetySetting,
-)
-from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
-from cloudevents.http.event import CloudEvent
 from google.cloud.firestore import FieldFilter  # type: ignore
+from google.cloud.storage import Blob  # type: ignore
+from legislature import models
+from params import EMBEDDING_MODEL
+from vertexai.generative_models import Part  # type: ignore
+from vertexai.generative_models import GenerativeModel, SafetySetting
+from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -42,6 +41,11 @@ GEMINI_REGION = _REGION
 GEMINI_BUCKET = _BUCKET
 
 T = TypeVar("T")
+
+
+class MeetSpeech(NamedTuple):
+    meet: models.Meeting
+    speech: models.Video
 
 
 @dataclasses.dataclass
@@ -64,6 +68,7 @@ class BatchEmbeddingJob:
 
 PREDICTION_JOB_AUDIO_TRANSCRIPT = "transcript"
 PREDICTION_JOB_DOC_SUMMARY = "summary"
+PREDICTION_JOB_SPEECHES_SUMMARY = "speeches"
 
 
 @dataclasses.dataclass
@@ -617,3 +622,164 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
             return AudioTranscriptResult(doc_path, transcript)
         except json.JSONDecodeError:
             return AudioTranscriptResult(doc_path, "")
+
+
+@dataclasses.dataclass
+class SpeechesSummaryQuery(PredictionQuery):
+    speeches: list[MeetSpeech]
+    doc_path: str
+
+    def _speeches_markdown(self) -> str:
+        buff = io.StringIO()
+        for item in self.speeches:
+            if not item.speech.transcript:
+                continue
+            buff.write(f"# {item.meet.meeting_name}\n\n")
+            buff.write(f"- 時間: {item.meet.meeting_date_desc}\n")
+            buff.write(f"- 委員會: {item.meet.meeting_unit}\n")
+            buff.write(f"- 質詢委員: {item.speech.member}\n")
+            buff.write(f"- 影片:{item.speech.url}\n")
+            buff.write("- 逐字稿\n\n")
+            buff.write(
+                "\n".join([f"\t{line}" for line in item.speech.transcript.splitlines()])
+            )
+            buff.write("\n\n")
+        return buff.getvalue()
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    "將相似的內容主題分組並以中文(zh-TW)進行摘要，確保每個摘要涵蓋獨特的主題，避免重複。在摘要中加入註釋，詳細解釋各主題的細節、重點或相關資訊。注意:\n"
+                                    "1. 避免重複的主題。 每個 topicName 應該是獨一無二的。\n"
+                                    "2. 用委員會的主題來分類，減少同一個委員會的重複主題。\n"
+                                    "3. 詳細說明細節。 在 details 數組中提供豐富的資訊和見解\n"
+                                    "4. 在 referenceVideos 數組中提供參考的影片，內容接近就好，不需要完全一致。\n"
+                                    "5. 著重在事件描述，不要帶入人名。\n"
+                                    "6. 請確保主題數量不超過 10 個\n\n"
+                                )
+                            },
+                            {"text": self._speeches_markdown()},
+                        ],
+                    }
+                ],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "responseSchema": {
+                        "type": "object",
+                        "properties": {
+                            "topics": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "topicName": {
+                                            "type": "string",
+                                            "description": "The name or title of the topic.",
+                                        },
+                                        "details": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "description": "Details or remarks related to the topic.",
+                                            },
+                                        },
+                                        "referenceVideos": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "format": "uri",
+                                            },
+                                            "description": "List of reference videos related to the topic.",
+                                        },
+                                    },
+                                    "required": [
+                                        "topicName",
+                                        "details",
+                                        "referenceVideos",
+                                    ],
+                                },
+                            }
+                        },
+                    },
+                    "temperature": 0.5,
+                    "maxOutputTokens": 8192,
+                },
+                "safetySettings": [
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                    {
+                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    },
+                ],
+            },
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class SpeechesSummary:
+    doc_path: str
+    remarks: list[models.SpeechTopicRemark] = dataclasses.field(default_factory=list)
+
+
+class GeminiBatchSpeechesSummaryJob(GeminiBatchPredictionJob[SpeechesSummary]):
+
+    @property
+    def schema(self) -> list[bigquery.SchemaField]:
+        return [
+            bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+            bigquery.SchemaField("doc_path", "STRING"),
+        ]
+
+    @property
+    def job_type(self) -> str:
+        return PREDICTION_JOB_SPEECHES_SUMMARY
+
+    def parse_row(self, row: bigquery.Row) -> SpeechesSummary | None:
+        doc_path = row.get("doc_path", None)
+        if doc_path is None:
+            return None
+        response = row.get("response", "[]")
+        if not response:
+            return None
+        candidates = json.loads(response)
+        if not candidates:
+            return None
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            return None
+        try:
+            data = json.loads(parts[0].get("text", "{}"))
+            summary = data.get("topics", [])
+            remarks = [
+                models.SpeechTopicRemark(
+                    topic=remark.get("topicName", ""),
+                    details=remark.get("details", []),
+                    video_urls=remark.get("referenceVideos", []),
+                )
+                for remark in summary
+            ]
+            return SpeechesSummary(doc_path, remarks)
+        except json.JSONDecodeError:
+            return None
+
+
+# TODO: improve transcript's readability
+# PROMPT: 加入標點符號並修改冗言贅字，適當分段來增加可讀性。

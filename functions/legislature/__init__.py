@@ -26,3 +26,9 @@ LEGISLATURE_PROCEEDING_URL = StringParam(
     default="https://ppg.ly.gov.tw/ppg/bills",
     description="Proceeding info url",
 )
+
+LEGISLATURE_PPG_API = StringParam(
+    name="LEGISLATURE_PPG_API",
+    default="https://ppg.ly.gov.tw/ppg/api",
+    description="PPG api",
+)

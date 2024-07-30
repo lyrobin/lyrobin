@@ -272,5 +272,14 @@ def test_update_legislators():
     assert res.ok
 
 
+@testings.skip_when_no_network
+@testings.require_firestore_emulator
+@testings.disable_background_triggers
+def test_update_meetings_by_date():
+    url = utils.get_function_url("update_meetings_by_date")
+    res = requests.get(url, params={"date": "113/04/24"}, timeout=30)
+    assert res.ok
+
+
 if __name__ == "__main__":
     unittest.main()
