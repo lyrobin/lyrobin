@@ -1,0 +1,147 @@
+basePath: /v1
+definitions:
+  modules.Document:
+    properties:
+      content:
+        type: string
+      doctype:
+        type: string
+      name:
+        type: string
+      path:
+        type: string
+      url:
+        type: string
+    type: object
+  modules.Facet:
+    properties:
+      counts:
+        items:
+          $ref: '#/definitions/modules.FacetCount'
+        type: array
+      field:
+        type: string
+    type: object
+  modules.FacetCount:
+    properties:
+      count:
+        type: integer
+      value:
+        type: string
+    type: object
+  modules.SearchResult:
+    properties:
+      facet:
+        items:
+          $ref: '#/definitions/modules.Facet'
+        type: array
+      found:
+        type: integer
+      hits:
+        items:
+          $ref: '#/definitions/modules.Document'
+        type: array
+    type: object
+info:
+  contact: {}
+  description: LY Robin's API to search legislative documents
+  license:
+    name: GPL-3.0
+    url: https://www.gnu.org/licenses/gpl-3.0.html.en
+  title: lyrobin-legislative-search Legislative Search API
+  version: "1.0"
+paths:
+  /search:
+    get:
+      description: search any kind of documents, including videos.
+      operationId: search-get
+      parameters:
+      - description: search query
+        in: query
+        name: q
+        type: string
+      - description: query filter
+        in: query
+        name: filter
+        type: string
+      - description: page to return
+        in: query
+        name: page
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modules.SearchResult'
+        "500":
+          description: error
+          schema:
+            type: string
+      security:
+      - ApiKeyHeader: []
+      - ApiKeyQuery: []
+      summary: Search documents
+      tags:
+      - Search
+      x-google-quota:
+        metricCosts:
+          read-requests: 1
+  /swagger:
+    get:
+      description: swagger document
+      operationId: api-doc
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Doc endpoint
+      tags:
+      - Swagger
+  /swagger/{file}:
+    get:
+      description: swagger document files
+      operationId: swagger-get
+      parameters:
+      - description: doc file
+        in: path
+        name: file
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Doc endpoint
+      tags:
+      - Swagger
+produces:
+- application/json
+schemes:
+- https
+securityDefinitions:
+  ApiKeyHeader:
+    in: header
+    name: x-api-key
+    type: apiKey
+  ApiKeyQuery:
+    in: query
+    name: key
+    type: apiKey
+swagger: "2.0"
+x-google-backend:
+  address: https://api-server-dwuutdyikq-de.a.run.app
+x-google-management:
+  metrics:
+  - displayName: Read Requests
+    metricKind: DELTA
+    name: read-requests
+    valueType: INT64
+  quota:
+    limits:
+    - metric: read-requests
+      name: read-requests-limit
+      unit: 1/min/{project}
+      values:
+        STANDARD: "1000"

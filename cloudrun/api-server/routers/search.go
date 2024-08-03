@@ -7,6 +7,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleSearch request
+//
+//	@ID				search-get
+//	@Summary		Search documents
+//	@Description	search any kind of documents, including videos.
+//	@Tags			Search
+//	@Param			q		query	string	false	"search query"
+//	@Param			filter	query	string	false	"query filter"
+//	@Param			page	query	int		false	"page to return"
+//	@Security		ApiKeyHeader
+//	@Security		ApiKeyQuery
+//	@Success		200	{object}	modules.SearchResult
+//	@Failure		500	{string}	string	"error"
+//	@x-google-quota	{"metricCosts": {"read-requests": 1}}
+//	@Router			/search [get]
 func HandleSearch(se modules.SearchEngine) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		query, err := getSearchRequest(ctx)

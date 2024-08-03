@@ -1,0 +1,228 @@
+{
+    "produces": [
+        "application/json"
+    ],
+    "schemes": [
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "LY Robin's API to search legislative documents",
+        "title": "lyrobin-legislative-search Legislative Search API",
+        "contact": {},
+        "license": {
+            "name": "GPL-3.0",
+            "url": "https://www.gnu.org/licenses/gpl-3.0.html.en"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/v1",
+    "paths": {
+        "/search": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyHeader": []
+                    },
+                    {
+                        "ApiKeyQuery": []
+                    }
+                ],
+                "description": "search any kind of documents, including videos.",
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Search documents",
+                "operationId": "search-get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "search query",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "query filter",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page to return",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modules.SearchResult"
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "x-google-quota": {
+                    "metricCosts": {
+                        "read-requests": 1
+                    }
+                }
+            }
+        },
+        "/swagger": {
+            "get": {
+                "description": "swagger document",
+                "tags": [
+                    "Swagger"
+                ],
+                "summary": "Doc endpoint",
+                "operationId": "api-doc",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/swagger/{file}": {
+            "get": {
+                "description": "swagger document files",
+                "tags": [
+                    "Swagger"
+                ],
+                "summary": "Doc endpoint",
+                "operationId": "swagger-get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "doc file",
+                        "name": "file",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "modules.Document": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "doctype": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "modules.Facet": {
+            "type": "object",
+            "properties": {
+                "counts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modules.FacetCount"
+                    }
+                },
+                "field": {
+                    "type": "string"
+                }
+            }
+        },
+        "modules.FacetCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "modules.SearchResult": {
+            "type": "object",
+            "properties": {
+                "facet": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modules.Facet"
+                    }
+                },
+                "found": {
+                    "type": "integer"
+                },
+                "hits": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modules.Document"
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyHeader": {
+            "type": "apiKey",
+            "name": "x-api-key",
+            "in": "header"
+        },
+        "ApiKeyQuery": {
+            "type": "apiKey",
+            "name": "key",
+            "in": "query"
+        }
+    },
+    "x-google-backend": {
+        "address": "https://api-server-dwuutdyikq-de.a.run.app"
+    },
+    "x-google-management": {
+        "metrics": [
+            {
+                "displayName": "Read Requests",
+                "metricKind": "DELTA",
+                "name": "read-requests",
+                "valueType": "INT64"
+            }
+        ],
+        "quota": {
+            "limits": [
+                {
+                    "metric": "read-requests",
+                    "name": "read-requests-limit",
+                    "unit": "1/min/{project}",
+                    "values": {
+                        "STANDARD": "1000"
+                    }
+                }
+            ]
+        }
+    }
+}
