@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
-import { environment } from './../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { catchError, EMPTY, lastValueFrom, of } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { lastValueFrom } from 'rxjs';
+import { environment } from './../../environments/environment';
 import { LegislatorRemark, SearchResult } from './search';
 
 @Injectable({

@@ -69,7 +69,6 @@ export class SmartCardComponent implements OnChanges {
   }
 
   search(q: string) {
-    console.log(q);
     this.onSearch.emit(q);
   }
 }

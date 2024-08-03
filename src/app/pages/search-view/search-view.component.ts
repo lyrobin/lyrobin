@@ -70,7 +70,6 @@ export class SearchViewComponent {
       return;
     }
     this.searchService.legislator(this.query).then(result => {
-      console.log(result);
       if (result) {
         this.legislatorRemark = result;
       }

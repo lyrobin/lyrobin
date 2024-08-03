@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { Component, Inject, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -8,13 +9,12 @@ import {
   RouterLink,
   RouterOutlet,
 } from '@angular/router';
+import { config, dom } from '@fortawesome/fontawesome-svg-core';
 import { filter, map, startWith } from 'rxjs';
+import { environment } from '../environments/environment';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
-import { environment } from '../environments/environment';
-import { config, dom } from '@fortawesome/fontawesome-svg-core';
-import { DOCUMENT } from '@angular/common';
 
 @Component({
   selector: 'app-root',

@@ -1,35 +1,35 @@
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig } from '@angular/core';
 import {
   provideRouter,
   withComponentInputBinding,
   withInMemoryScrolling,
 } from '@angular/router';
 
-import { routes } from './app.routes';
-import { provideClientHydration } from '@angular/platform-browser';
-import { WINDOW, windowProvider } from './providers/window';
 import { DOCUMENT } from '@angular/common';
-import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
-import { getAuth, provideAuth } from '@angular/fire/auth';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   getAnalytics,
   provideAnalytics,
   ScreenTrackingService,
   UserTrackingService,
 } from '@angular/fire/analytics';
+import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
+import { getAuth, provideAuth } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
 import { getStorage, provideStorage } from '@angular/fire/storage';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideClientHydration } from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { provideHttpClient } from '@angular/common/http';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import {
-  provideMarkdown,
   MARKED_OPTIONS,
   MarkedOptions,
   MarkedRenderer,
+  provideMarkdown,
 } from 'ngx-markdown';
+import { routes } from './app.routes';
+import { WINDOW, windowProvider } from './providers/window';
 
 export function markedOptionsFactory(): MarkedOptions {
   const renderer = new MarkedRenderer();
@@ -86,7 +86,7 @@ export const appConfig: ApplicationConfig = {
     provideStorage(() => getStorage()),
     provideAnimationsAsync(),
     provideAnimations(),
-    provideHttpClient(),
+    provideHttpClient(withFetch()),
     provideMarkdown({
       markedOptions: {
         provide: MARKED_OPTIONS,

@@ -1,0 +1,3 @@
+env:
+  - variable: LYROBIN_API_KEY
+    secret: LYROBIN_API_KEY

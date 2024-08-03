@@ -2,14 +2,14 @@ import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatChipsModule } from '@angular/material/chips';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
+import { faAngleDoubleDown } from '@fortawesome/free-solid-svg-icons';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ExternalLinkDirective } from '../../directives/external-link.directive';
-import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { faAngleDoubleDown } from '@fortawesome/free-solid-svg-icons';
 import { EventLoggerService } from '../../providers/event-logger.service';
 
 @Component({
