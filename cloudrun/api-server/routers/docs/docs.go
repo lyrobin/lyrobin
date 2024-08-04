@@ -22,6 +22,104 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/ai/legislator": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyHeader": []
+                    },
+                    {
+                        "ApiKeyQuery": []
+                    }
+                ],
+                "description": "search legislator's recent speeches and summary.",
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Search legislator",
+                "operationId": "search-legislator-get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "legislator's name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modules.Legislator"
+                        }
+                    },
+                    "400": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "x-google-quota": {
+                    "metricCosts": {
+                        "read-requests": 1
+                    }
+                }
+            }
+        },
+        "/ai/summary": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyHeader": []
+                    },
+                    {
+                        "ApiKeyQuery": []
+                    }
+                ],
+                "description": "summarize document with AI.",
+                "tags": [
+                    "AI"
+                ],
+                "summary": "AI Summary",
+                "operationId": "ai-summary-get",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "document's path",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "x-google-quota": {
+                    "metricCosts": {
+                        "read-requests": 1
+                    }
+                }
+            }
+        },
         "/search": {
             "get": {
                 "security": [
@@ -171,6 +269,29 @@ const docTemplate = `{
                 }
             }
         },
+        "modules.Legislator": {
+            "type": "object",
+            "properties": {
+                "area": {
+                    "type": "string"
+                },
+                "avatar": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "party": {
+                    "type": "string"
+                },
+                "remarks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modules.SpeechRemark"
+                    }
+                }
+            }
+        },
         "modules.SearchResult": {
             "type": "object",
             "properties": {
@@ -187,6 +308,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/modules.Document"
+                    }
+                }
+            }
+        },
+        "modules.SpeechRemark": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "video_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }

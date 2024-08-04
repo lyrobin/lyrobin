@@ -29,6 +29,21 @@ definitions:
       value:
         type: string
     type: object
+  modules.Legislator:
+    properties:
+      area:
+        type: string
+      avatar:
+        type: string
+      name:
+        type: string
+      party:
+        type: string
+      remarks:
+        items:
+          $ref: '#/definitions/modules.SpeechRemark'
+        type: array
+    type: object
   modules.SearchResult:
     properties:
       facet:
@@ -42,6 +57,19 @@ definitions:
           $ref: '#/definitions/modules.Document'
         type: array
     type: object
+  modules.SpeechRemark:
+    properties:
+      details:
+        items:
+          type: string
+        type: array
+      topic:
+        type: string
+      video_urls:
+        items:
+          type: string
+        type: array
+    type: object
 info:
   contact: {}
   description: LY Robin's API to search legislative documents
@@ -51,6 +79,66 @@ info:
   title: lyrobin-legislative-search Legislative Search API
   version: "1.0"
 paths:
+  /ai/legislator:
+    get:
+      description: search legislator's recent speeches and summary.
+      operationId: search-legislator-get
+      parameters:
+      - description: legislator's name
+        in: query
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modules.Legislator'
+        "400":
+          description: not found
+          schema:
+            type: string
+      security:
+      - ApiKeyHeader: []
+      - ApiKeyQuery: []
+      summary: Search legislator
+      tags:
+      - AI
+      x-google-quota:
+        metricCosts:
+          read-requests: 1
+  /ai/summary:
+    get:
+      description: summarize document with AI.
+      operationId: ai-summary-get
+      parameters:
+      - description: document's path
+        in: query
+        name: path
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: error
+          schema:
+            type: string
+      security:
+      - ApiKeyHeader: []
+      - ApiKeyQuery: []
+      summary: AI Summary
+      tags:
+      - AI
+      x-google-quota:
+        metricCosts:
+          read-requests: 1
   /search:
     get:
       description: search any kind of documents, including videos.

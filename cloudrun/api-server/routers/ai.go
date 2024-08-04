@@ -7,6 +7,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleAISummary requests
+//
+//	@ID				ai-summary-get
+//	@Summary		AI Summary
+//	@Description	summarize document with AI.
+//	@Tags			AI
+//	@Param			path	query	string	true	"document's path"
+//	@Security		ApiKeyHeader
+//	@Security		ApiKeyQuery
+//	@Success		200	{string}	string
+//	@Failure		400	{string}	string	"not found"
+//	@Failure		500	{string}	string	"error"
+//	@x-google-quota	{"metricCosts": {"read-requests": 1}}
+//	@Router			/ai/summary [get]
 func HandleAISummary(store models.StoreReader) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		p, ok := ctx.GetQuery("path")

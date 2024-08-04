@@ -37,6 +37,19 @@ func HandleSearch(se modules.SearchEngine) gin.HandlerFunc {
 	}
 }
 
+// HandleSearchLegislator requests
+//
+//	@ID				search-legislator-get
+//	@Summary		Search legislator
+//	@Description	search legislator's recent speeches and summary.
+//	@Tags			AI
+//	@Param			name	query	string	true	"legislator's name"
+//	@Security		ApiKeyHeader
+//	@Security		ApiKeyQuery
+//	@Success		200	{object}	modules.Legislator
+//	@Failure		400	{string}	string	"not found"
+//	@x-google-quota	{"metricCosts": {"read-requests": 1}}
+//	@Router			/ai/legislator [get]
 func HandleSearchLegislator(se modules.SearchEngine) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		name, ok := ctx.GetQuery("name")

@@ -44,8 +44,14 @@ func (r Router) Register(e *gin.Engine) {
 		g.GET("/summary", HandleAISummary(r.StoreReader))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
 	}
+	// V1 APIs
 	v1 := e.Group("/v1")
 	v1.GET("/search", HandleSearch(r.SearchEngine))
+	{
+		g := v1.Group("/ai")
+		g.GET("/summary", HandleAISummary(r.StoreReader))
+		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
+	}
 
 	docs.SwaggerInfo.BasePath = "/v1"
 	v1.GET("/swagger", HandleSwaggerDoc)
