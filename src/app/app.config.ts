@@ -1,4 +1,4 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, isDevMode } from '@angular/core';
 import {
   provideRouter,
   withComponentInputBinding,
@@ -30,6 +30,9 @@ import {
 } from 'ngx-markdown';
 import { routes } from './app.routes';
 import { WINDOW, windowProvider } from './providers/window';
+import { provideStore } from '@ngrx/store';
+import { appStateReducer } from './state/reducers';
+import { provideStoreDevtools } from '@ngrx/store-devtools';
 
 export function markedOptionsFactory(): MarkedOptions {
   const renderer = new MarkedRenderer();
@@ -93,5 +96,7 @@ export const appConfig: ApplicationConfig = {
         useFactory: markedOptionsFactory,
       },
     }),
+    provideStore({ appState: appStateReducer }),
+    provideStoreDevtools({ maxAge: 25, logOnly: !isDevMode() }),
   ],
 };

@@ -1,8 +1,13 @@
+import { animate, style, transition, trigger } from '@angular/animations';
+import {
+  BreakpointObserver,
+  Breakpoints,
+  LayoutModule,
+} from '@angular/cdk/layout';
 import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   ContentChild,
-  ContentChildren,
   EventEmitter,
   Input,
   OnChanges,
@@ -10,30 +15,24 @@ import {
   SimpleChanges,
   TemplateRef,
 } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
+import { MarkdownModule } from 'ngx-markdown';
+import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DataViewModule } from 'primeng/dataview';
-import { PaginatorModule, PaginatorState } from 'primeng/paginator';
-import { ScrollPanelModule } from 'primeng/scrollpanel';
-import { Document, SearchResult } from '../../providers/search';
-import { SkeletonModule } from 'primeng/skeleton';
-import { MatIconModule } from '@angular/material/icon';
-import { DoctypeIconPipe } from '../../utils/doctype-icon.pipe';
-import { TooltipModule } from 'primeng/tooltip';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { AicoreService } from '../../providers/aicore.service';
-import { animate, style, transition, trigger } from '@angular/animations';
-import { MarkdownModule } from 'ngx-markdown';
-import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
-import {
-  LayoutModule,
-  BreakpointObserver,
-  Breakpoints,
-} from '@angular/cdk/layout';
 import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
-import { EventLoggerService } from '../../providers/event-logger.service';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { ScrollPanelModule } from 'primeng/scrollpanel';
+import { SkeletonModule } from 'primeng/skeleton';
+import { TooltipModule } from 'primeng/tooltip';
 import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
+import { AicoreService } from '../../providers/aicore.service';
+import { EventLoggerService } from '../../providers/event-logger.service';
+import { Document, SearchResult } from '../../providers/search';
+import { DoctypeIconPipe } from '../../utils/doctype-icon.pipe';
 import { LimitTextPipe } from '../../utils/limit-text.pipe';
+import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
 
 interface Hit extends Document {
   focus: boolean;

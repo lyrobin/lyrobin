@@ -1,6 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Analytics } from '@angular/fire/analytics';
 import {
@@ -15,6 +14,10 @@ import { environment } from '../environments/environment';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
+import { Store } from '@ngrx/store';
+import { selectUser } from './state/selectors';
+import { AppStateActions } from './state/actions';
+import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 
 @Component({
   selector: 'app-root',
@@ -25,16 +28,17 @@ import { FirebaseIconComponent } from './components/icons/firebase-icon.componen
     FirebaseIconComponent,
     ArrowBackIconComponent,
     RouterLink,
-    HttpClientModule,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly analytics = environment.production
     ? inject(Analytics)
     : null;
+  private readonly store = inject(Store);
+  private readonly auth = inject(Auth);
   private readonly isMainPage$ = this.router.events.pipe(
     filter((event): event is NavigationEnd => event instanceof NavigationEnd),
     map((event: NavigationEnd) => event.url === '/'),
@@ -49,5 +53,14 @@ export class AppComponent {
     let styleNode = this.document.createElement('style');
     styleNode.innerHTML = dom.css(); // grab FA's CSS
     head.appendChild(styleNode);
+  }
+  ngOnInit(): void {
+    onAuthStateChanged(this.auth, user => {
+      if (user) {
+        this.store.dispatch(AppStateActions.loginUser({ user }));
+      } else {
+        this.store.dispatch(AppStateActions.logoutUser({}));
+      }
+    });
   }
 }

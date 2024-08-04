@@ -17,7 +17,7 @@
         <ng-template pTemplate="list" let-hits>
           @if (!loading) {
             <div @inTrigger class="flex flex-column gap-6">
-              @for (hit of hits; track hit.focus; let idx = $index) {
+              @for (hit of hits; track $index; let idx = $index) {
                 <div class="grid grid-nogutter">
                   <div class="mr-3 hidden lg:block">
                     <mat-icon
