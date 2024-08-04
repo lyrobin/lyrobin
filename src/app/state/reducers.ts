@@ -4,7 +4,10 @@ import { AppStateActions } from './actions';
 
 export const appStateReducer = createReducer(
   initAppState,
-  on(AppStateActions.loginUser, (state, { user }) => ({ ...state, user })),
+  on(AppStateActions.loginUser, (state, { user }) => ({
+    ...state,
+    user,
+  })),
   on(AppStateActions.logoutUser, (state, {}) => ({
     ...state,
     user: undefined,

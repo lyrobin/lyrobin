@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { Component, Inject, inject, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Analytics } from '@angular/fire/analytics';
+import { Auth, connectAuthEmulator, signOut } from '@angular/fire/auth';
 import {
   NavigationEnd,
   Router,
@@ -9,15 +10,14 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { config, dom } from '@fortawesome/fontawesome-svg-core';
+import { Store } from '@ngrx/store';
 import { filter, map, startWith } from 'rxjs';
 import { environment } from '../environments/environment';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
-import { Store } from '@ngrx/store';
-import { selectUser } from './state/selectors';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AppStateActions } from './state/actions';
-import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 
 @Component({
   selector: 'app-root',
@@ -55,9 +55,20 @@ export class AppComponent implements OnInit {
     head.appendChild(styleNode);
   }
   ngOnInit(): void {
+    if (!environment.production) {
+      connectAuthEmulator(this.auth, 'http://127.0.0.1:9099');
+    }
     onAuthStateChanged(this.auth, user => {
       if (user) {
-        this.store.dispatch(AppStateActions.loginUser({ user }));
+        this.store.dispatch(
+          AppStateActions.loginUser({
+            user: {
+              uid: user.uid,
+              displayName: user.displayName || undefined,
+              photoURL: user.photoURL || undefined,
+            },
+          })
+        );
       } else {
         this.store.dispatch(AppStateActions.logoutUser({}));
       }

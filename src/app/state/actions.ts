@@ -1,5 +1,5 @@
 import { createActionGroup, props } from '@ngrx/store';
-import { User } from 'firebase/auth';
+import { User } from '.';
 
 export const AppStateActions = createActionGroup({
   source: 'AppState',

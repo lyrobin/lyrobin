@@ -11,6 +11,8 @@ import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ExternalLinkDirective } from '../../directives/external-link.directive';
 import { EventLoggerService } from '../../providers/event-logger.service';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { UserButtonComponent } from '../../components/user-button/user-button.component';
 
 @Component({
   selector: 'app-home',
@@ -26,6 +28,8 @@ import { EventLoggerService } from '../../providers/event-logger.service';
     InputIconModule,
     CardModule,
     FontAwesomeModule,
+    MatToolbarModule,
+    UserButtonComponent,
   ],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',

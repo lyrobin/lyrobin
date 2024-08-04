@@ -1,0 +1,11 @@
+@if (isUserLoggedIn()) {
+  <p-avatar
+    styleClass="cursor-pointer"
+    [label]="photo() ? '' : userLabel"
+    [image]="photo()"
+    shape="circle"
+    (click)="openMenu($event)"></p-avatar>
+} @else {
+  <p-button label="登入" size="small" (onClick)="login()" />
+}
+<p-menu #menu [model]="menuItems" [popup]="true" />

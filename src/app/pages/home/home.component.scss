@@ -10,9 +10,14 @@
     cursor: pointer;
 }
 
+.spacer {
+    flex: 1 1 auto;
+}
+
 :host::ng-deep .mdc-evolution-chip__action--presentational {
     cursor: pointer !important;
 }
+
 
 :host::ng-deep {
 
@@ -41,6 +46,14 @@
 
     img.intro-icon {
         width: 80px;
+    }
+
+    .mat-toolbar{
+        background-color: #0b151e;
+    }
+
+    .head-page  {
+        height: calc(100% - 64px);
     }
     
 

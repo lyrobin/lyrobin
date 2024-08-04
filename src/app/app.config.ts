@@ -14,7 +14,7 @@ import {
   UserTrackingService,
 } from '@angular/fire/analytics';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
-import { getAuth, provideAuth } from '@angular/fire/auth';
+import { getAuth, GoogleAuthProvider, provideAuth } from '@angular/fire/auth';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
@@ -80,6 +80,10 @@ export const appConfig: ApplicationConfig = {
       })
     ),
     provideAuth(() => getAuth()),
+    {
+      provide: GoogleAuthProvider,
+      useFactory: () => new GoogleAuthProvider(),
+    },
     provideAnalytics(() => getAnalytics()),
     ScreenTrackingService,
     UserTrackingService,

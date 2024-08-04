@@ -19,6 +19,7 @@ import { ScrollPanelModule } from 'primeng/scrollpanel';
 import { EventLoggerService } from '../../providers/event-logger.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { UserButtonComponent } from '../user-button/user-button.component';
 
 export interface FacetChange {
   facet: string;
@@ -46,6 +47,7 @@ export interface FacetChange {
     ScrollPanelModule,
     MatButtonModule,
     MatIconModule,
+    UserButtonComponent,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
