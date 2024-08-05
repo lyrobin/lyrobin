@@ -165,6 +165,7 @@ def test_create_proceeding_e2e():
 
 
 @testings.skip_when_no_network
+@testings.require_firestore_emulator
 @testings.disable_background_triggers
 def test_download_video():
     db = firestore.client()
@@ -192,6 +193,40 @@ def test_download_video():
     assert len(video.clips) == 1
     bucket = storage.bucket()
     assert bucket.blob(video.clips[0]).exists
+
+
+@testings.skip_when_no_network
+@testings.require_firestore_emulator
+@testings.disable_background_triggers
+def test_download_hd_video():
+    db = firestore.client()
+    meet_ref = db.collection(models.MEETING_COLLECT).document()
+    meet_ref.set({})
+    ivod_ref = meet_ref.collection(models.IVOD_COLLECT).document()
+    ivod_ref.set({})
+    video = models.Video(
+        url="https://ivod.ly.gov.tw/Play/Clip/300K/152612",
+        hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152612",
+    )
+    video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
+    video_ref.set(video.asdict())
+    url = utils.get_function_url("downloadHdVideo")
+    requests.post(
+        url,
+        json={
+            "data": {
+                "meetNo": meet_ref.id,
+                "ivodNo": ivod_ref.id,
+                "videoNo": video_ref.id,
+            }
+        },
+        headers={"content-type": "application/json"},
+        timeout=360,
+    )
+    video = models.Video.from_dict(video_ref.get().to_dict())
+    assert len(video.hd_clips) == 1
+    bucket = storage.bucket()
+    assert bucket.blob(video.hd_clips[0]).exists
 
 
 @testings.skip_when_no_network

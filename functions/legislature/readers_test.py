@@ -431,52 +431,64 @@ read_ivod_testcases: list[IvodReaderTestCase] = [
         videos=[
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Full/300K/15925",
+                hd_url="https://ivod.ly.gov.tw/Play/Full/1M/15925",
                 member="",
             ),
         ],
         speeches=[
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152673",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152673",
                 member="李坤城",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152672",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152672",
                 member="蘇巧慧",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152671",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152671",
                 member="蔡易餘",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152670",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152670",
                 member="吳思瑤",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152669",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152669",
                 member="沈發惠",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152668",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152668",
                 member="吳思瑤",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152667",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152667",
                 member="范雲",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152666",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152666",
                 member="吳思瑤",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152665",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152665",
                 member="吳思瑤",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152664",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152664",
                 member="吳思瑤",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Clip/300K/152663",
+                hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152663",
                 member="鍾佳濱",
             ),
         ],
@@ -487,10 +499,12 @@ read_ivod_testcases: list[IvodReaderTestCase] = [
         videos=[
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Full/300K/15928",
+                hd_url="https://ivod.ly.gov.tw/Play/Full/1M/15928",
                 member="",
             ),
             readers.VideoEntry(
                 url="https://ivod.ly.gov.tw/Play/Full/300K/15927",
+                hd_url="https://ivod.ly.gov.tw/Play/Full/1M/15927",
                 member="",
             ),
         ],

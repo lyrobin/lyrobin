@@ -19,7 +19,7 @@ from firebase_functions.options import (
     RetryConfig,
     SupportedRegion,
 )
-from google.cloud.firestore_v1 import document
+from google.cloud.firestore_v1 import document, Client
 from legislature import (
     LEGISLATURE_LEGISLATOR_INFO_API,
     LEGISLATURE_MEETING_INFO_API,
@@ -506,9 +506,10 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
     ivod: models.IVOD = models.IVOD.from_dict(doc.to_dict())
     r = readers.IvodReader.open(ivod.url)
 
-    videos = [models.Video(url=v.url) for v in r.get_videos()]
+    videos = [models.Video(url=v.url, hd_url=v.hd_url) for v in r.get_videos()]
     speeches = [
-        models.Video(url=v.url, member=v.member) for v in r.get_member_speeches()
+        models.Video(url=v.url, hd_url=v.hd_url, member=v.member)
+        for v in r.get_member_speeches()
     ]
 
     batch = db.batch()
@@ -564,7 +565,16 @@ def downloadVideo(request: tasks_fn.CallableRequest):
         meet_no = request.data["meetNo"]
         ivod_no = request.data["ivodNo"]
         video_no = request.data["videoNo"]
-        doc_path = _download_video(meet_no, ivod_no, video_no)
+
+        db = firestore.client()
+        ivod_ref = db.document(
+            f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
+        )
+        if not ivod_ref.get().exists:
+            logger.warn(f"IVOD {ivod_ref.path} doesn't exist.")
+            return
+
+        doc_path = _download_video(ivod_ref, video_no)
         if not doc_path:
             logger.warn(f"Fail to download video {request.data}, skip extracting audio")
             return
@@ -575,18 +585,45 @@ def downloadVideo(request: tasks_fn.CallableRequest):
         raise RuntimeError(f"Error downloading video: {request.data}") from e
 
 
-def _download_video(meet_no: str, ivod_no: str, video_no: str) -> str | None:
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=20),
+    cpu=4,
+    memory=MemoryOption.GB_8,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=30,
+    concurrency=2,
+)
+def downloadHdVideo(request: tasks_fn.CallableRequest):
+    try:
+        meet_no = request.data["meetNo"]
+        ivod_no = request.data["ivodNo"]
+        video_no = request.data["videoNo"]
+
+        db = firestore.client()
+        ivod_ref = db.document(
+            f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
+        )
+        if not ivod_ref.get().exists:
+            logger.warn(f"IVOD {ivod_ref.path} doesn't exist.")
+            return
+
+        doc_path = _download_video(ivod_ref, video_no, download_hd=True)
+        if not doc_path:
+            logger.warn(f"Fail to download HD video {request.data}")
+            return
+    except Exception as e:
+        logger.error(f"fail to download HD video: {e}")
+        raise RuntimeError(f"Error downloading HD video: {request.data}") from e
+
+
+def _download_video(
+    ivod_ref: document.DocumentReference, video_no: str, download_hd: bool = False
+) -> str | None:
     """
     Return: firestore path to the updated video.
     """
-    db = firestore.client()
-
-    ivod_ref = db.document(
-        f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
-    )
-    ivod_doc = ivod_ref.get()
-    if not ivod_doc.exists:
-        return None
     video_ref, collect = _find_video_in_ivod(ivod_ref, video_no)
     if not video_ref:
         return None
@@ -596,25 +633,30 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str) -> str | None:
         return None
 
     video: models.Video = models.Video.from_dict(video_ref.get().to_dict())
-    logger.debug(f"Open video: {video.url}")
-    r = readers.VideoReader.open(video.url)
+
+    url = video.hd_url if download_hd else video.url
+
+    if not url:
+        raise RuntimeError("Can't find video URL.")
+
+    logger.debug(f"Open video: {url}")
+    r = readers.VideoReader.open(url)
 
     if r.meta.duration > dt.timedelta(hours=3):
-        logger.warn("Video %s is too long. (> 3 hours)", video.url)
+        logger.warn("Video %s is too long. (> 3 hours)", url)
         return None
     elif r.meta.duration <= dt.timedelta.min:
-        logger.warn("Video %s doesn't have duration info, skip it.", video.url)
+        logger.warn("Video %s doesn't have duration info, skip it.", url)
         return None
-    logger.debug(f"Prepare to download video: {video.url}")
-    video.playlist = r.playlist_url or ""
-    video.start_time = r.meta.start_time
+    logger.debug(f"Prepare to download video: {url}")
 
     clips = []
     temp_mp4 = []
     bucket = storage.bucket()
+    folder = "hd_clips" if download_hd else "clips"
 
     def _upload_clip(i: int) -> str:
-        blob = bucket.blob(f"videos/{video.document_id}/clips/{i}.mp4")
+        blob = bucket.blob(f"videos/{video.document_id}/{folder}/{i}.mp4")
         gs_path = f"gs://{bucket.name}/{blob.name}"
         if blob.exists():
             logger.warn(
@@ -635,9 +677,21 @@ def _download_video(meet_no: str, ivod_no: str, video_no: str) -> str | None:
     for i in range(min(r.clips_count, 10)):
         # Safe guarded, prevent downloading too many chunks.
         clips.append(_upload_clip(i))
-    if clips:
-        video.clips = clips
-    video_ref.update(video.asdict())
+
+    update_keys: list[str]
+    if download_hd:
+        video.hd_playlist = r.playlist_url or ""
+        if clips:
+            video.hd_clips = clips
+        update_keys = ["hd_playlist", "hd_clips"]
+    else:
+        video.playlist = r.playlist_url or ""
+        video.start_time = r.meta.start_time
+        if clips:
+            video.clips = clips
+        update_keys = ["playlist", "clips", "start_time"]
+
+    video_ref.update({k: v for k, v in video.asdict().items() if k in update_keys})
     for mp4 in temp_mp4:
         os.remove(mp4)
     return video_ref.path

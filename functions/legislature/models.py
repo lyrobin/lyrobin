@@ -288,10 +288,13 @@ class Video(FireStoreDocument):
 
     name: str = ""
     url: str = ""
+    hd_url: str = ""
     member: str | None = None
     playlist: str = ""
+    hd_playlist: str = ""
     start_time: DateTimeField = DateTimeField()
     clips: list[str] = dataclasses.field(default_factory=list)
+    hd_clips: list[str] = dataclasses.field(default_factory=list)
     audios: list[str] = dataclasses.field(default_factory=list)
     transcript: str = ""
     has_transcript: bool = False

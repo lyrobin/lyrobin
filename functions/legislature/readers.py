@@ -79,6 +79,7 @@ class VideoEntry:
     """A class to represent a video"""
 
     url: str = ""
+    hd_url: str = ""
     member: str | None = None
 
 
@@ -484,7 +485,13 @@ class IvodReader:
         )
         if not link_tag:
             return None
+        hd_link_tag = tag.find(
+            lambda t: t.name == "a"
+            and t.attrs.get("href", "").startswith("/Play")
+            and "寬頻" in t.attrs.get("title", "")
+        )
         link = link_tag["href"]
+        hd_link = hd_link_tag["href"] if hd_link_tag else ""
         text = tag.find("div", class_="clip-list-text")
         member_tag = (
             text.find(
@@ -494,7 +501,11 @@ class IvodReader:
             else None
         )
         member = member_tag.string[3:] if member_tag else ""
-        return VideoEntry(url=self._prepend_domain_name(link), member=member)
+        return VideoEntry(
+            url=self._prepend_domain_name(link),
+            hd_url=self._prepend_domain_name(hd_link),
+            member=member,
+        )
 
     def _prepend_domain_name(self, url: str) -> str:
         if url.startswith("http"):
