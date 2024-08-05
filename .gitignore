@@ -63,3 +63,5 @@ NOTES.md
 taiwan-legislative-search-*.json
 
 *storybook.log
+
+.venv/
