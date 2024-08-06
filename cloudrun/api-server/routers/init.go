@@ -1,6 +1,8 @@
+// Package routers define routes.
 package routers
 
 import (
+	firebase "firebase.google.com/go/v4"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/models"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/modules"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/routers/docs"
@@ -15,6 +17,7 @@ import (
 type Router struct {
 	modules.SearchEngine
 	models.StoreReader
+	App *firebase.App
 }
 
 //	@title					lyrobin-legislative-search Legislative Search API
@@ -37,13 +40,29 @@ type Router struct {
 
 // Register routes
 func (r Router) Register(e *gin.Engine) {
-	e.Use(cors.Default())
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowAllOrigins = true
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Forwarded-Authorization"}
+	e.Use(cors.New(corsConfig))
 	e.GET("/search", HandleSearch(r.SearchEngine))
 	{
 		g := e.Group("/ai")
 		g.GET("/summary", HandleAISummary(r.StoreReader))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
 	}
+	{
+		g := e.Group("/meetings/:meetID")
+		g.Use(FirebaseAuth(r.App))
+		{
+			g := g.Group("/ivods/:ivodID")
+			{
+				g := g.Group("/speeches/:speechID")
+				g.GET(("/video"), HandleGetSpeechVideo(r.StoreReader))
+			}
+		}
+	}
+
 	// V1 APIs
 	v1 := e.Group("/v1")
 	v1.GET("/search", HandleSearch(r.SearchEngine))

@@ -26,4 +26,5 @@ services:
       - PORT=8081
       - TYPESENSE_HOST=typesense
       - FIRESTORE_EMULATOR_HOST=host.docker.internal:8080
+      - FIREBASE_AUTH_EMULATOR_HOST=host.docker.internal:9099
       - GCLOUD_PROJECT=taiwan-legislative-search

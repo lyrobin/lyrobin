@@ -30,6 +30,7 @@ func main() {
 	router := routers.Router{
 		SearchEngine: se,
 		StoreReader:  store,
+		App:          app,
 	}
 	r := gin.Default()
 	router.Register(r)

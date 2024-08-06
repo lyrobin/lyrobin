@@ -57,10 +57,11 @@ type Proceeding struct {
 }
 
 type Video struct {
-	URL        string `firestore:"url,omitempty"`
-	Summary    string `firestore:"ai_summary,omitempty"`
-	Transcript string `firestore:"transcript,omitempty"`
-	Member     string `firestore:"member,omitempty"`
+	URL        string   `firestore:"url,omitempty"`
+	Summary    string   `firestore:"ai_summary,omitempty"`
+	Transcript string   `firestore:"transcript,omitempty"`
+	Member     string   `firestore:"member,omitempty"`
+	Clips      []string `firestore:"clips,omitempty"`
 }
 
 type Legislator struct {
