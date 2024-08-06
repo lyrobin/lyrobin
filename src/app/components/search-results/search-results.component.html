@@ -54,6 +54,17 @@
                       class="p-2 overflow-x-hidden"
                       [innerHTML]="hit.content"></div>
                   </div>
+                  <div class="col-12 lg:col-9">
+                    @if (hit.doctype == 'video') {
+                      <p-button
+                        icon="pi pi-download"
+                        size="small"
+                        label="下載"
+                        styleClass="p-1 mx-1"
+                        [outlined]="true"
+                        (onClick)="downloadVideo(hit)"></p-button>
+                    }
+                  </div>
                 </div>
               }
             </div>
@@ -135,3 +146,7 @@
     <p @inTrigger class="m-0">目前沒有內容，試試其它資料。</p>
   }
 </p-dialog>
+
+<app-login-dialog
+  #loginDialog
+  [message]="loginDialogMessage"></app-login-dialog>

@@ -50,18 +50,7 @@ export class UserButtonComponent implements OnInit {
   }
 
   login() {
-    signInWithPopup(this.auth, this.googleAuth)
-      .then(result => {
-        const cred = GoogleAuthProvider.credentialFromResult(result);
-        console.log(cred);
-      })
-      .catch(error => {
-        console.log(error);
-      })
-      .finally(() => {
-        console.log(this.isUserLoggedIn());
-        console.log(this.user());
-      });
+    signInWithPopup(this.auth, this.googleAuth);
   }
 
   logout() {

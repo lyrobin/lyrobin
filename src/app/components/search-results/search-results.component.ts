@@ -14,8 +14,11 @@ import {
   Output,
   SimpleChanges,
   TemplateRef,
+  ViewChild,
 } from '@angular/core';
+import { Storage, getBlob, ref } from '@angular/fire/storage';
 import { MatIconModule } from '@angular/material/icon';
+import { Store } from '@ngrx/store';
 import { MarkdownModule } from 'ngx-markdown';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -28,11 +31,14 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { TooltipModule } from 'primeng/tooltip';
 import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
 import { AicoreService } from '../../providers/aicore.service';
+import { DocumentService } from '../../providers/document.service';
 import { EventLoggerService } from '../../providers/event-logger.service';
 import { Document, SearchResult } from '../../providers/search';
+import { isUserLoggedIn } from '../../state/selectors';
 import { DoctypeIconPipe } from '../../utils/doctype-icon.pipe';
 import { LimitTextPipe } from '../../utils/limit-text.pipe';
 import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
+import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
 
 interface Hit extends Document {
   focus: boolean;
@@ -60,6 +66,7 @@ interface Hit extends Document {
     ButtonModule,
     NgTemplateOutlet,
     LimitTextPipe,
+    LoginDialogComponent,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
@@ -87,6 +94,7 @@ export class SearchResultsComponent implements OnChanges {
   @Output() onPageChange = new EventEmitter<number>();
   @ContentChild(SmartSummaryCardDirective, { read: TemplateRef })
   smartSummaryCardTemplate?: any;
+  @ViewChild('loginDialog') loginDialog!: LoginDialogComponent;
   holdItem?: number;
   summary?: string;
   showSummary: boolean = false;
@@ -94,11 +102,16 @@ export class SearchResultsComponent implements OnChanges {
   summaryTimeout?: ReturnType<typeof setTimeout>;
   isHandset: boolean = false;
   showDialog: boolean = false;
+  isUserLoggedIn$ = this.store.selectSignal(isUserLoggedIn);
+  loginDialogMessage: string = '';
 
   constructor(
     private aicore: AicoreService,
     private breakpointObserver: BreakpointObserver,
-    private logger: EventLoggerService
+    private logger: EventLoggerService,
+    private store: Store,
+    private storage: Storage,
+    private documents: DocumentService
   ) {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe(result => {
       this.isHandset = result.matches;
@@ -161,5 +174,30 @@ export class SearchResultsComponent implements OnChanges {
         }
       }, 1500);
     });
+  }
+
+  downloadVideo(d: Document) {
+    if (!this.isUserLoggedIn$()) {
+      this.loginDialogMessage = '只需登入即可下載，您的參與是我們最大的動力！';
+      this.loginDialog.toggle();
+      return;
+    }
+    this.documents
+      .getSpeechVideo(d.path)
+      .then(url => getBlob(ref(this.storage, url)))
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        console.log(url);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'video.mp4';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      })
+      .catch(err => {
+        console.error(err);
+      });
   }
 }

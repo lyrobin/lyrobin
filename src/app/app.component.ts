@@ -18,6 +18,8 @@ import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.compo
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
 import { onAuthStateChanged } from 'firebase/auth';
 import { AppStateActions } from './state/actions';
+import { connectStorageEmulator, Storage } from '@angular/fire/storage';
+import { connectFirestoreEmulator, Firestore } from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-root',
@@ -39,6 +41,8 @@ export class AppComponent implements OnInit {
     : null;
   private readonly store = inject(Store);
   private readonly auth = inject(Auth);
+  private readonly storage = inject(Storage);
+  private readonly db = inject(Firestore);
   private readonly isMainPage$ = this.router.events.pipe(
     filter((event): event is NavigationEnd => event instanceof NavigationEnd),
     map((event: NavigationEnd) => event.url === '/'),
@@ -56,7 +60,11 @@ export class AppComponent implements OnInit {
   }
   ngOnInit(): void {
     if (!environment.production) {
-      connectAuthEmulator(this.auth, 'http://127.0.0.1:9099');
+      connectAuthEmulator(this.auth, 'http://127.0.0.1:9099', {
+        disableWarnings: true,
+      });
+      connectStorageEmulator(this.storage, '127.0.0.1', 9199);
+      connectFirestoreEmulator(this.db, '127.0.0.1', 8080);
     }
     onAuthStateChanged(this.auth, user => {
       if (user) {

@@ -1,0 +1,14 @@
+<p-dialog
+  header="解鎖更多功能"
+  [modal]="true"
+  [(visible)]="visible"
+  [style]="{ width: '25rem' }">
+  <span class="p-text-secondary block mb-5">{{ message }}</span>
+  <div class="w-full flex justify-content-center">
+    <img src="/assets/rocket_launch.png" />
+  </div>
+  <p-divider />
+  <div class="w-full flex justify-content-end">
+    <p-button class="p-2" size="small" (onClick)="login()">登入</p-button>
+  </div>
+</p-dialog>
