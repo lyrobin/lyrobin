@@ -5,6 +5,14 @@ rules_version = '2';
 //    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    match /videos/{videoId} {
+      match /clips/{clipId} {
+        allow read: if request.auth != null;
+      }
+      match /hd_clips/{clipId} {
+        allow read: if request.auth != null;
+      }
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -402,3 +402,65 @@ def _update_speech_transcripts():
         while queries:
             del queries[0]
     job.submit()
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 23 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_4,
+    timeout_sec=1800,
+)
+def update_legislator_speeches_summary(_):
+    try:
+        _update_legislator_speeches_summary()
+    except Exception as e:
+        logger.error(f"Fail to update legislator speech summary, {e}")
+        raise RuntimeError("Fail to update legislator speech summary.") from e
+
+
+def _update_legislator_speeches_summary():
+    # TODO: update search engine index when we update the legislator's info
+    today = dt.datetime.now(tz=_TZ)
+    db = firestore.client()
+    queries = []
+    for row in db.collection(models.MEMBER_COLLECT).stream():
+        m = models.Legislator.from_dict(row.to_dict())
+        if today - m.ai_summarized_at < dt.timedelta(days=7):
+            logger.warn(f"{m.name} just updated, skip it")
+            continue
+        speeches = _get_legislator_speeches(db, m.name)
+        if not speeches:
+            logger.warn(f"{m.name} has no speeches")
+            continue
+        queries.append(gemini.SpeechesSummaryQuery(speeches, row.reference.path))
+
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiBatchSpeechesSummaryJob(uid)
+    job.write_queries(queries)
+    job.submit()
+
+
+def _get_legislator_speeches(db: Client, name: str) -> list[gemini.MeetSpeech]:
+    docs = (
+        db.collection_group(models.SPEECH_COLLECT)
+        .where(filter=FieldFilter("member", "==", name))
+        .order_by("start_time", "DESCENDING")
+        .limit(100)
+        .stream()
+    )
+    speeches = []
+    for doc in docs:
+        p: str = doc.reference.path
+        if not p.startswith(models.MEETING_COLLECT):
+            continue
+        meet_path = "/".join(p.split("/")[0:2])
+        meet_doc = db.document(meet_path).get()
+        if not meet_doc.exists:
+            continue
+        meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
+        video = models.Video.from_dict(doc.to_dict())
+        speeches.append(gemini.MeetSpeech(meet, video))
+    return speeches

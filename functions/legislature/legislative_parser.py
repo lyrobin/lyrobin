@@ -8,7 +8,6 @@ import json
 import logging
 import os
 from typing import Any
-from urllib import parse
 
 import google.cloud.firestore  # type: ignore
 from firebase_admin import firestore, storage  # type: ignore
@@ -19,7 +18,7 @@ from firebase_functions.options import (
     RetryConfig,
     SupportedRegion,
 )
-from google.cloud.firestore_v1 import document, Client
+from google.cloud.firestore_v1 import document
 from legislature import (
     LEGISLATURE_LEGISLATOR_INFO_API,
     LEGISLATURE_MEETING_INFO_API,
@@ -449,6 +448,7 @@ def _upsert_attachment_content(ref: document.DocumentReference):
         return
 
     attach.full_text = r.content
+    attach.last_update_time = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     ref.update(attach.asdict())
 
 
@@ -513,18 +513,19 @@ def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
     ]
 
     batch = db.batch()
+    update_keys = ["url", "hd_url", "member"]
 
     for v in videos:
         batch.set(
             ref.collection(models.VIDEO_COLLECT).document(v.document_id),
-            v.asdict(),
+            {k: v for k, v in v.asdict().items() if k in update_keys},
             merge=True,
         )
 
     for v in speeches:
         batch.set(
             ref.collection(models.SPEECH_COLLECT).document(v.document_id),
-            v.asdict(),
+            {k: v for k, v in v.asdict().items() if k in update_keys},
             merge=True,
         )
     batch.commit()
@@ -580,6 +581,9 @@ def downloadVideo(request: tasks_fn.CallableRequest):
             return
         q = tasks.CloudRunQueue.open("extractAudio")
         q.run(path=doc_path)
+        # TODO: enable download HD video after we get budget.
+        # hdq = tasks.CloudRunQueue.open("downloadHdVideo")
+        # hdq.run(meet_no=meet_no, ivod_no=ivod_no, video_no=video_no)
     except Exception as e:
         logger.error(f"fail to download video: {e}")
         raise RuntimeError(f"Error downloading video: {request.data}") from e
@@ -630,6 +634,9 @@ def _download_video(
 
     speech_count = video_ref.collection(models.SPEECH_COLLECT).count().get()[0][0].value
     if collect == models.VIDEO_COLLECT and speech_count > 0:
+        return None
+    elif download_hd and collect != models.SPEECH_COLLECT:
+        logger.warn("Downloading HD video only supports speech collection.")
         return None
 
     video: models.Video = models.Video.from_dict(video_ref.get().to_dict())

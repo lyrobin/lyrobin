@@ -20,7 +20,7 @@ ebcdic==1.1.1
 extract-msg==0.28.7
 ffmpeg-python==0.2.0
 firebase-admin==6.5.0
-firebase-functions==0.4.1
+firebase-functions==0.4.2
 Flask==3.0.3
 Flask-Cors==4.0.1
 functions-framework==3.7.0
