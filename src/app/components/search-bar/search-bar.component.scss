@@ -48,6 +48,13 @@
         height: 36px;
         width: 36px;
     }
+
+    mat-chip-set {
+        .mdc-evolution-chip-set__chips {
+            display: flex;
+            flex-wrap: nowrap;
+        }
+    }
 }
 
 .second-toolbar-row {

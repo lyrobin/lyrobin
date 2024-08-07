@@ -54,8 +54,8 @@
         fill="var(--surface-ground)"
         animationDuration="1s" />
     } @else {
-      <div class="facet-container">
-        <div *ngFor="let facet of facets">
+      <div class="flex facet-container align-items-center">
+        @for (facet of facets; track $index) {
           <p-dropdown
             [options]="facet.counts | facetCount | facetValue"
             [placeholder]="facet.field | facetFieldName"
@@ -66,7 +66,25 @@
             styleClass="line-height-1"
             class="mx-1"
             [showClear]="true" />
-        </div>
+        }
+        <p-button
+          label="日期"
+          size="small"
+          severity="secondary"
+          [rounded]="true"
+          styleClass="mx-1 p-1 w-4rem"
+          (onClick)="calendar.toggle($event)">
+          <p-overlayPanel #calendar>
+            <p-calendar
+              class="max-w-full"
+              [(ngModel)]="dateRange"
+              selectionMode="range"
+              [inline]="true"
+              [minDate]="minDate"
+              [showWeek]="true"
+              (ngModelChange)="onDateRangeSelected()" />
+          </p-overlayPanel>
+        </p-button>
       </div>
     }
     <span class="spacer md:hidden lg:block"></span>

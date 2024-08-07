@@ -187,7 +187,6 @@ export class SearchResultsComponent implements OnChanges {
       .then(url => getBlob(ref(this.storage, url)))
       .then(blob => {
         const url = URL.createObjectURL(blob);
-        console.log(url);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'video.mp4';

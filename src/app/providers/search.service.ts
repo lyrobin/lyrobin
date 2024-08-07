@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { parse } from 'date-fns';
 import { lastValueFrom } from 'rxjs';
 import { environment } from './../../environments/environment';
 import { Facet, LegislatorRemark, SearchResult } from './search';
@@ -35,7 +36,6 @@ export class SearchService {
       })
     ).then(result => {
       result.facet = this.groupFacets(result.facet);
-      console.log(result);
       return result;
     });
   }
@@ -48,6 +48,13 @@ export class SearchService {
           .map(f => `${f}: \`${filters[facet]}*\``)
           .join('||');
         queries.push(`(${q})`);
+      } else if (facet === 'created_date' && filters[facet]) {
+        let [start, end] = filters[facet].split('-');
+        start = start.trim();
+        end = end.trim();
+        const s = parse(start, 'yyyy年MM月dd日', new Date()).getTime() / 1000;
+        const e = parse(end, 'yyyy年MM月dd日', new Date()).getTime() / 1000;
+        queries.push(`created_date:[${s}..${e}]`);
       } else if (filters[facet]) {
         queries.push(`${facet}:=\`${filters[facet]}\``);
       }

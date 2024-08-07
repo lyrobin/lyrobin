@@ -102,16 +102,6 @@ export class SearchViewComponent {
     return results;
   }
 
-  get filterQuery(): string {
-    let queries: string[] = [];
-    for (let facet in this.filters) {
-      if (this.filters[facet]) {
-        queries.push(`${facet}:=${this.filters[facet]}`);
-      }
-    }
-    return queries.join('&&');
-  }
-
   get filterArray(): FacetChange[] {
     return Object.entries(this.filters).map(([facet, value]) => {
       return { facet, value: translate(value) };
@@ -172,6 +162,7 @@ export class SearchViewComponent {
       },
     });
   }
+
   stringifyFilters(filters: { [name: string]: string }): string {
     let results: string[] = [];
     for (let facet in filters) {

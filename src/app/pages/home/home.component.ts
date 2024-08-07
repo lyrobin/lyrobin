@@ -51,12 +51,10 @@ export class HomeComponent {
   ) {}
 
   onSearchClick() {
-    console.log(`click ${this.query}`);
     this.goto(this.query);
   }
 
   onScrollDown() {
-    console.log('scroll down');
     this.secondPage.nativeElement.scrollIntoView({
       behavior: 'smooth',
       block: 'start',

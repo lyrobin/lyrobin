@@ -38,6 +38,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.4.2",
     "@ngrx/store": "^18.0.2",
     "@ngrx/store-devtools": "^18.0.2",
+    "date-fns": "^3.6.0",
     "express": "^4.18.2",
     "firebase": "^10.12.2",
     "firebase-functions": "^5.0.1",
