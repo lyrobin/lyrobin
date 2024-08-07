@@ -82,7 +82,13 @@ export const appConfig: ApplicationConfig = {
     provideAuth(() => getAuth()),
     {
       provide: GoogleAuthProvider,
-      useFactory: () => new GoogleAuthProvider(),
+      useFactory: () => {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+          prompt: 'select_account',
+        });
+        return provider;
+      },
     },
     provideAnalytics(() => getAnalytics()),
     ScreenTrackingService,

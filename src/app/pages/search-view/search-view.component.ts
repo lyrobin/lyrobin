@@ -49,7 +49,7 @@ export class SearchViewComponent {
   reload() {
     this.loading = true;
     this.searchService
-      .search(this.query ?? '', this.filterQuery, this.currentPage)
+      .search(this.query ?? '', this.filters, this.currentPage)
       .then(result => {
         this.result = result;
       })

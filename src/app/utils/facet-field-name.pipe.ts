@@ -28,6 +28,9 @@ export class FacetFieldNamePipe implements PipeTransform {
       case 'member': {
         return '發言人';
       }
+      case 'legislator': {
+        return '委員/黨團';
+      }
       default: {
         return '';
       }

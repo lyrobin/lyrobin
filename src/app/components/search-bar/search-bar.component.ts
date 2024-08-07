@@ -1,24 +1,24 @@
 import { NgFor } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { Router } from '@angular/router';
+import { AvatarModule } from 'primeng/avatar';
+import { ButtonModule } from 'primeng/button';
 import { DropdownChangeEvent, DropdownModule } from 'primeng/dropdown';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { ScrollPanelModule } from 'primeng/scrollpanel';
+import { EventLoggerService } from '../../providers/event-logger.service';
 import { Facet } from '../../providers/search';
 import { FacetCountPipe } from '../../utils/facet-count.pipe';
 import { FacetFieldNamePipe } from '../../utils/facet-field-name.pipe';
 import { FacetValuePipe } from '../../utils/facet-value.pipe';
-import { AvatarModule } from 'primeng/avatar';
-import { ButtonModule } from 'primeng/button';
-import { Router } from '@angular/router';
-import { ScrollPanelModule } from 'primeng/scrollpanel';
-import { EventLoggerService } from '../../providers/event-logger.service';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { UserButtonComponent } from '../user-button/user-button.component';
 
 export interface FacetChange {
