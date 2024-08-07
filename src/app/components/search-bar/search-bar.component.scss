@@ -31,6 +31,13 @@
 
 :host::ng-deep {
     $dropdown-font-size: 0.875rem;
+
+    p-iconfield {
+        .p-icon-field.p-icon-field-right {
+            display: block;
+        }
+    }
+
     .p-dropdown {
         border-radius: 20px;
         height: 2rem;
