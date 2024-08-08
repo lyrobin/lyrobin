@@ -52,11 +52,12 @@ type SearchResult struct {
 }
 
 type Document struct {
-	Path    string `json:"path,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Content string `json:"content,omitempty"`
-	URL     string `json:"url,omitempty"`
-	DocType string `json:"doctype,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Content     string `json:"content,omitempty"`
+	URL         string `json:"url,omitempty"`
+	DocType     string `json:"doctype,omitempty"`
+	CreatedDate int64  `json:"created_date,omitempty"`
 }
 
 type SpeechRemark struct {
@@ -198,6 +199,11 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 	if !ok {
 		return Document{}, errors.New("can't find `path` in hit")
 	}
+	createdDateFloat, ok := doc["created_date"].(float64)
+	if !ok {
+		return Document{}, errors.New("can't find `created_date` in hit")
+	}
+	createdDate := int64(createdDateFloat)
 	highlights := Highlights(*h.Highlights)
 	switch DocType(docType) {
 	case Meeting:
@@ -206,11 +212,12 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			return Document{}, err
 		}
 		return Document{
-			Name:    highlights.getSnippet("name", m.Name),
-			Path:    path,
-			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
-			URL:     m.GetURL(),
-			DocType: docType,
+			Name:        highlights.getSnippet("name", m.Name),
+			Path:        path,
+			Content:     highlights.getSnippet("content", trimString(m.Content, 500)),
+			URL:         m.GetURL(),
+			DocType:     docType,
+			CreatedDate: createdDate,
 		}, nil
 	case MeetingFile:
 		m, err := e.store.GetMeetingFile(ctx, path)
@@ -218,11 +225,12 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			return Document{}, err
 		}
 		return Document{
-			Name:    highlights.getSnippet("name", m.Name),
-			Path:    path,
-			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
-			URL:     m.URL,
-			DocType: docType,
+			Name:        highlights.getSnippet("name", m.Name),
+			Path:        path,
+			Content:     highlights.getSnippet("content", trimString(m.Content, 500)),
+			URL:         m.URL,
+			DocType:     docType,
+			CreatedDate: createdDate,
 		}, nil
 	case Attachment:
 		m, err := e.store.GetAttachment(ctx, path)
@@ -230,11 +238,12 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			return Document{}, err
 		}
 		return Document{
-			Name:    highlights.getSnippet("name", m.Name),
-			Path:    path,
-			Content: highlights.getSnippet("content", trimString(m.Content, 500)),
-			URL:     m.URL,
-			DocType: docType,
+			Name:        highlights.getSnippet("name", m.Name),
+			Path:        path,
+			Content:     highlights.getSnippet("content", trimString(m.Content, 500)),
+			URL:         m.URL,
+			DocType:     docType,
+			CreatedDate: createdDate,
 		}, nil
 	case Proceeding:
 		m, err := e.store.GetProceeding(ctx, path)
@@ -242,11 +251,12 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			return Document{}, err
 		}
 		return Document{
-			Name:    highlights.getSnippet("name", m.Name),
-			Path:    path,
-			Content: highlights.getSnippet("content", trimString(m.Status, 200)),
-			URL:     m.URL,
-			DocType: docType,
+			Name:        highlights.getSnippet("name", m.Name),
+			Path:        path,
+			Content:     highlights.getSnippet("content", trimString(m.Status, 200)),
+			URL:         m.URL,
+			DocType:     docType,
+			CreatedDate: createdDate,
 		}, nil
 	case Video:
 		meetPath := strings.Join(strings.Split(path, "/")[0:2], "/")
@@ -263,11 +273,12 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			content = trimString(m.Summary, 30)
 		}
 		return Document{
-			Name:    meet.Name + " - " + m.Member,
-			Path:    path,
-			Content: content,
-			URL:     m.URL,
-			DocType: docType,
+			Name:        meet.Name + " - " + m.Member,
+			Path:        path,
+			Content:     content,
+			URL:         m.URL,
+			DocType:     docType,
+			CreatedDate: createdDate,
 		}, nil
 	default:
 		return Document{}, errors.New("invalid document type " + docType)

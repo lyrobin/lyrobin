@@ -26,6 +26,7 @@ func HandleSearch(se modules.SearchEngine) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		query, err := getSearchRequest(ctx)
 		if err != nil {
+			ctx.String(400, err.Error())
 			return
 		}
 		result, err := se.Search(ctx.Request.Context(), query)

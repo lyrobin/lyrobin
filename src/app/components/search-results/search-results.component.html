@@ -50,9 +50,14 @@
                   <div
                     class="col-12 lg:col-9 my-3 description-box"
                     (dblclick)="dbClickDescription(hit)">
-                    <div
-                      class="p-2 overflow-x-hidden"
-                      [innerHTML]="hit.content"></div>
+                    <div class="p-2">
+                      <span class="text-blue-300 font-medium">
+                        {{ hit.created_date * 1000 | date: 'yyyy年MM月dd日' }} —
+                      </span>
+                      <span
+                        class="overflow-x-hidden mx-2"
+                        [innerHTML]="hit.content"></span>
+                    </div>
                   </div>
                   <div class="col-12 lg:col-9">
                     @if (hit.doctype == 'video') {

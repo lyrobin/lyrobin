@@ -14,6 +14,7 @@ export interface Document {
   content: string;
   url: string;
   doctype: 'meeting' | 'proceeding' | 'video' | 'meetingfile' | 'attachment';
+  created_date: number;
 }
 
 export interface SearchResult {

@@ -4,7 +4,7 @@ import {
   Breakpoints,
   LayoutModule,
 } from '@angular/cdk/layout';
-import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   ContentChild,
@@ -67,6 +67,7 @@ interface Hit extends Document {
     NgTemplateOutlet,
     LimitTextPipe,
     LoginDialogComponent,
+    DatePipe,
   ],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
