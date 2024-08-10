@@ -2,7 +2,9 @@ import { DOCUMENT } from '@angular/common';
 import { Component, Inject, inject, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Analytics } from '@angular/fire/analytics';
-import { Auth, connectAuthEmulator, signOut } from '@angular/fire/auth';
+import { Auth, connectAuthEmulator } from '@angular/fire/auth';
+import { connectFirestoreEmulator, Firestore } from '@angular/fire/firestore';
+import { connectStorageEmulator, Storage } from '@angular/fire/storage';
 import {
   NavigationEnd,
   Router,
@@ -11,15 +13,13 @@ import {
 } from '@angular/router';
 import { config, dom } from '@fortawesome/fontawesome-svg-core';
 import { Store } from '@ngrx/store';
+import { onAuthStateChanged } from 'firebase/auth';
 import { filter, map, startWith } from 'rxjs';
 import { environment } from '../environments/environment';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
-import { onAuthStateChanged } from 'firebase/auth';
 import { AppStateActions } from './state/actions';
-import { connectStorageEmulator, Storage } from '@angular/fire/storage';
-import { connectFirestoreEmulator, Firestore } from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-root',
