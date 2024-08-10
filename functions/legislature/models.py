@@ -135,12 +135,21 @@ class FireStoreDocument:
     _SPECIAL_FIELDS = ["document_id", "embedding_vector"]
 
     document_id: str = ""
-    ai_summarized: bool = False
-    ai_summarized_at: DateTimeField = DateTimeField()
-    ai_summary: str = ""
     embedding_vector: list[float] = dataclasses.field(default_factory=list)
     embedding_updated_at: DateTimeField = DateTimeField()
     last_update_time: DateTimeField = DateTimeField()
+
+    # AI Summary Job
+    ai_summarized: bool = False
+    ai_summarized_at: DateTimeField = DateTimeField()
+    ai_summary_attempts: int = 0
+    ai_summary: str = ""
+
+    # Hash Tag Job
+    hash_tags: list[str] = dataclasses.field(default_factory=list)
+    has_hash_tags: bool = False
+    hash_tags_summarized_at: DateTimeField = DateTimeField()
+    has_tags_summary_attempts: int = 0
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
@@ -296,9 +305,12 @@ class Video(FireStoreDocument):
     clips: list[str] = dataclasses.field(default_factory=list)
     hd_clips: list[str] = dataclasses.field(default_factory=list)
     audios: list[str] = dataclasses.field(default_factory=list)
+
+    # Transcript Job
     transcript: str = ""
     has_transcript: bool = False
     transcript_updated_at: DateTimeField = DateTimeField()
+    transcript_attempts: int = 0
 
     def __post_init__(self):
         self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex

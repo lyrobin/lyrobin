@@ -3,6 +3,7 @@
 import dataclasses
 import datetime as dt
 import json
+import itertools
 
 import functions_framework
 import opencc  # type: ignore
@@ -52,21 +53,22 @@ def _process_batch_embedding_job(job: gemini.GeminiBatchEmbeddingJob):
 @functions_framework.cloud_event
 def on_receive_bigquery_batch_document_summary(event: CloudEvent):
     db = firestore.client()
-    batch = db.batch()
     cc = opencc.OpenCC("s2tw")
     job = gemini.GeminiBatchDocumentSummaryJob.from_bq_event(event)
-    for row in job.list_results():
-        ref = db.document(row.doc_path)
-        doc = ref.get()
-        if not doc.exists:
-            logger.warn(f"No document found for {row.doc_path}")
-            continue
-        document = models.FireStoreDocument.from_dict(doc.to_dict())
-        document.ai_summarized = True
-        document.ai_summary = cc.convert(row.text)
-        document.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
-        batch.update(ref, document.asdict())
-    batch.commit()
+    for rows in itertools.batched(job.list_results(), 50):
+        batch = db.batch()
+        for row in rows:
+            ref = db.document(row.doc_path)
+            doc = ref.get()
+            if not doc.exists:
+                logger.warn(f"No document found for {row.doc_path}")
+                continue
+            document = models.FireStoreDocument.from_dict(doc.to_dict())
+            document.ai_summarized = True
+            document.ai_summary = cc.convert(row.text)
+            document.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
+            batch.update(ref, document.asdict())
+        batch.commit()
     job.mark_as_done()
 
 
@@ -109,4 +111,25 @@ def on_receive_bigquery_batch_speeches_summary(event: CloudEvent):
         member.ai_summarized_at = dt.datetime.now(tz=_EAST_TZ)
         batch.update(ref, member.asdict())
     batch.commit()
+    job.mark_as_done()
+
+
+@functions_framework.cloud_event
+def on_receive_bigquery_batch_hashtags_summary(event: CloudEvent):
+    db = firestore.client()
+    job = gemini.GeminiHashTagsSummaryJob.from_bq_event(event)
+    for rows in itertools.batched(job.list_results(), 50):
+        batch = db.batch()
+        for row in rows:
+            ref = db.document(row.doc_path)
+            doc = ref.get()
+            if not doc.exists:
+                logger.warn(f"No document found for {row.doc_path}")
+                continue
+            m = models.FireStoreDocument.from_dict(doc.to_dict())
+            m.has_hash_tags = bool(row.tags)
+            m.hash_tags = row.tags
+            m.hash_tags_summarized_at = dt.datetime.now(tz=_EAST_TZ)
+            batch.update(ref, m.asdict())
+        batch.commit()
     job.mark_as_done()

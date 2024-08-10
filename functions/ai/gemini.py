@@ -11,7 +11,7 @@ import pathlib
 import urllib.parse
 import uuid
 from collections.abc import Iterable
-from typing import Any, Generic, NamedTuple, Optional, TypeVar
+from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self
 
 import firebase_admin  # type: ignore
 import pytz  # type: ignore
@@ -23,7 +23,7 @@ from firebase_admin import firestore, storage
 from firebase_functions.options import SupportedRegion
 from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
-from google.cloud.firestore import FieldFilter  # type: ignore
+from google.cloud.firestore import FieldFilter, DocumentSnapshot  # type: ignore
 from google.cloud.storage import Blob  # type: ignore
 from legislature import models
 from params import EMBEDDING_MODEL
@@ -66,22 +66,48 @@ class BatchEmbeddingJob:
     job_id: str  # Vertex AI batch job ID
 
 
-PREDICTION_JOB_AUDIO_TRANSCRIPT = "transcript"
-PREDICTION_JOB_DOC_SUMMARY = "summary"
-PREDICTION_JOB_SPEECHES_SUMMARY = "speeches"
+class PredictionJob:
+    AUDIO_TRANSCRIPT = "transcript"
+    DOC_SUMMARY = "summary"
+    SPEECHES_SUMMARY = "speeches"
+    HASH_TAGS_SUMMARY = "hashtags"
+
+
+BATCH_JOB_STATUS_NEW = "NEW"
+BATCH_JOB_STATUS_RUNNING = "RUNNING"
+BATCH_JOB_STATUS_DONE = "DONE"
+BATCH_JOB_STATUS_FAILED = "FAILED"
+
+QUOTA_BATCH_PREDICTION = "batch_prediction"
 
 
 @dataclasses.dataclass
 class BatchPredictionJob:
-    name: str
     uid: str
     job_type: str
     source: str  # bigquery source table
     destination: str  # bigquery destination table
+    quota: str = QUOTA_BATCH_PREDICTION
+    name: str = ""
+    caller: str = "default"
     finished: bool = False
+    status: str = BATCH_JOB_STATUS_NEW
     submit_time: dt.datetime = dataclasses.field(
         default_factory=lambda: dt.datetime.now(tz=_TZ)
     )
+
+    def to_gemini_job(self) -> "GeminiBatchPredictionJob":
+        match self.job_type:
+            case PredictionJob.AUDIO_TRANSCRIPT:
+                return GeminiBatchAudioTranscriptJob.from_batch_job(self)
+            case PredictionJob.DOC_SUMMARY:
+                return GeminiBatchDocumentSummaryJob.from_batch_job(self)
+            case PredictionJob.SPEECHES_SUMMARY:
+                return GeminiBatchSpeechesSummaryJob.from_batch_job(self)
+            case PredictionJob.HASH_TAGS_SUMMARY:
+                return GeminiHashTagsSummaryJob.from_batch_job(self)
+            case _:
+                raise ValueError(f"Unknown job type {self.job_type}")
 
 
 class PredictionQuery(abc.ABC):
@@ -295,7 +321,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         )
 
-    def __init__(self, uid: str):
+    def __init__(self, uid: str, caller="default"):
         app: firebase_admin.App = firebase_admin.get_app()
         vertexai.init(project=app.project_id, location=_REGION.value)
         self._client = bigquery.Client(project=app.project_id)
@@ -304,6 +330,8 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         self._project_id = app.project_id
         self._db = firestore.client()
         self._bucket = storage.bucket(_BUCKET)
+        self._caller = caller
+        self._queries = 0
 
     @classmethod
     def from_bq_event(cls, event: CloudEvent):
@@ -325,10 +353,22 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         results = query.get()
         if not results:
             raise ValueError(f"Can't find job write to {uri}")
-        job = BatchPredictionJob(**results[0].to_dict())
-        return cls(job.uid)
+        return cls.from_doc(results[0])
+
+    @classmethod
+    def from_doc(cls, doc: DocumentSnapshot):
+        return cls.from_batch_job(BatchPredictionJob(**doc.to_dict()))
+
+    @classmethod
+    def from_batch_job(cls, job: BatchPredictionJob):
+        return cls(job.uid, job.caller)
+
+    def set_caller(self, v) -> Self:
+        self._caller = v
+        return self
 
     def write_queries(self, queries: list[PredictionQuery]):
+        self._queries += len(queries)
         rows_to_inserts = [q.to_request() for q in queries]
         for batch in itertools.batched(rows_to_inserts, 50):
             jsonl = "\n".join(json.dumps(r) for r in batch)
@@ -348,7 +388,29 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         while rows_to_inserts:
             del rows_to_inserts[0]
 
-    def submit(self) -> BatchPredictionJob:
+    def submit(self, check=True) -> BatchPredictionJob:
+        """Submit batch job
+        Args:
+            check: If True, check if the job has any queries to run.
+
+        Returns:
+            The BatchPredictionJob object.
+        """
+        if check and not self._queries:
+            raise RuntimeError("No queries to run.")
+        job = BatchPredictionJob(
+            uid=self._uid,
+            job_type=self.job_type,
+            status=BATCH_JOB_STATUS_NEW,
+            source=self.source_table_url,
+            destination=self.destination_table_url,
+            caller=self._caller,
+        )
+        doc_ref = self._db.collection(GEMINI_COLLECTION).document(self._uid)
+        doc_ref.set(dataclasses.asdict(job), merge=True)
+        return job
+
+    def run(self) -> BatchPredictionJob:
         token = self._app.credential.get_access_token().access_token
         response = requests.post(
             f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.project}/locations/us-central1/batchPredictionJobs",
@@ -377,21 +439,24 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
             name=name,
             uid=self._uid,
             job_type=self.job_type,
+            status=BATCH_JOB_STATUS_RUNNING,
             source=self.source_table_url,
             destination=self.destination_table_url,
+            caller=self._caller,
         )
         doc_ref = self._db.collection(GEMINI_COLLECTION).document(self._uid)
-        doc_ref.set(dataclasses.asdict(job))
+        doc_ref.set(dataclasses.asdict(job), merge=True)
         return job
 
-    def mark_as_done(self):
+    def mark_as_done(self, success=True):
         doc_ref = self._db.collection(GEMINI_COLLECTION).document(self._uid)
         doc = doc_ref.get()
         if not doc.exists:
             raise RuntimeError(f"Job {self._uid} doesn't exist.")
         job = BatchPredictionJob(**doc.to_dict())
+        job.status = BATCH_JOB_STATUS_DONE if success else BATCH_JOB_STATUS_FAILED
         job.finished = True
-        doc_ref.set(dataclasses.asdict(job))
+        doc_ref.set(dataclasses.asdict(job), merge=True)
 
     def list_results(self, skip_invalid_row: bool = True) -> Iterable[T | None]:
         page_token = ""
@@ -414,6 +479,18 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
                 elif v is not None:
                     yield self.parse_row(row)
             page_token = row_iter.next_page_token
+
+    def _get_only_candidate(self, row: bigquery.Row) -> str | None:
+        response = row.get("response", "[]")
+        if not response:
+            return None
+        candidates = json.loads(response)
+        if not candidates:
+            return None
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            return None
+        return parts[0].get("text", None)
 
     @abc.abstractmethod
     def parse_row(self, row: bigquery.Row) -> T | None:
@@ -488,6 +565,10 @@ class DocumentSummaryResult:
 
 class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResult]):
 
+    @property
+    def model(self) -> str:
+        return "publishers/google/models/gemini-1.5-flash-001"
+
     def parse_row(self, row: bigquery.Row) -> DocumentSummaryResult | None:
         doc_path = row.get("doc_path", None)
         if doc_path is None:
@@ -515,7 +596,7 @@ class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResu
 
     @property
     def job_type(self) -> str:
-        return PREDICTION_JOB_DOC_SUMMARY
+        return PredictionJob.DOC_SUMMARY
 
 
 @dataclasses.dataclass
@@ -599,7 +680,7 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
 
     @property
     def job_type(self) -> str:
-        return PREDICTION_JOB_AUDIO_TRANSCRIPT
+        return PredictionJob.AUDIO_TRANSCRIPT
 
     def parse_row(self, row: bigquery.Row) -> AudioTranscriptResult | None:
         doc_path = row.get("doc_path", None)
@@ -750,7 +831,7 @@ class GeminiBatchSpeechesSummaryJob(GeminiBatchPredictionJob[SpeechesSummary]):
 
     @property
     def job_type(self) -> str:
-        return PREDICTION_JOB_SPEECHES_SUMMARY
+        return PredictionJob.SPEECHES_SUMMARY
 
     def parse_row(self, row: bigquery.Row) -> SpeechesSummary | None:
         doc_path = row.get("doc_path", None)
@@ -783,3 +864,81 @@ class GeminiBatchSpeechesSummaryJob(GeminiBatchPredictionJob[SpeechesSummary]):
 
 # TODO: improve transcript's readability
 # PROMPT: 加入標點符號並修改冗言贅字，適當分段來增加可讀性。
+
+
+@dataclasses.dataclass
+class HashTagsSummaryQuery(PredictionQuery):
+    doc_path: str
+    content: str
+
+    def to_request(self) -> dict[str, Any]:
+        return {
+            "request": {
+                "contents": [{"role": "user", "parts": [{"text": self.content}]}],
+                "systemInstruction": {
+                    "parts": [
+                        {
+                            "text": (
+                                "Please generate a short list of hashtags "
+                                "that capture the essence of the following document. "
+                                "PLease notice:\n"
+                                "1. The list should be as short as possible\n"
+                                "2. Do not create more than 10 tags.\n"
+                                "3. Create tags in zh-TW."
+                            )
+                        }
+                    ]
+                },
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                },
+            },
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class HashTagsSummary:
+    doc_path: str
+    tags: list[str]
+
+
+class GeminiHashTagsSummaryJob(GeminiBatchPredictionJob[HashTagsSummary]):
+
+    @property
+    def model(self) -> str:
+        return "publishers/google/models/gemini-1.5-flash-001"
+
+    @property
+    def schema(self) -> list[bigquery.SchemaField]:
+        return [
+            bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+            bigquery.SchemaField("doc_path", "STRING"),
+        ]
+
+    @property
+    def job_type(self) -> str:
+        return PredictionJob.HASH_TAGS_SUMMARY
+
+    def parse_row(self, row: bigquery.Row) -> HashTagsSummary | None:
+        doc_path = row.get("doc_path", None)
+        if doc_path is None:
+            return None
+        response = self._get_only_candidate(row)
+        if not response:
+            return None
+        try:
+            data = json.loads(response)
+            tags: list[str]
+            if isinstance(data, dict):
+                vals = list(data.values())
+                if not vals:
+                    return None
+                tags = [v.strip("#") for v in vals[0]]
+            elif isinstance(data, list):
+                tags = [v.strip("#") for v in data]
+            else:
+                return None
+            return HashTagsSummary(doc_path, tags)
+        except json.JSONDecodeError:
+            return None

@@ -90,6 +90,18 @@ DOCUMENT_SCHEMA_V3 = {
     ],
 }
 
+DOCUMENT_SCHEMA_V4 = {
+    "name": "documents",
+    "fields": [
+        {
+            "name": "hashtags",
+            "type": "string[]",
+            "optional": True,
+            "locale": "zh",
+        },
+    ],
+}
+
 SUMMARY_MAX_LENGTH = 1000
 CONTENT_MAX_LENGTH = 10000
 QUERY_LIMIT = 100
@@ -119,6 +131,7 @@ class Document:
     created_date: dt.datetime = dataclasses.field(default=dt.datetime.min)
     vector: list[float] = dataclasses.field(default_factory=list)
     metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
+    hashtags: list[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         self.id = uuid.uuid5(uuid.NAMESPACE_URL, self.path).hex
@@ -315,6 +328,7 @@ class DocumentSearchEngine:
             summary=m.ai_summary[0:SUMMARY_MAX_LENGTH],
             content=m.full_text if len(m.full_text) < CONTENT_MAX_LENGTH else "",
             created_date=get_create_date(),
+            hashtags=m.hash_tags,
             vector=m.embedding_vector,
         )
 
@@ -338,6 +352,7 @@ class DocumentSearchEngine:
             summary=m.ai_summary,
             content=m.full_text if len(m.full_text) < CONTENT_MAX_LENGTH else "",
             created_date=get_create_date(),
+            hashtags=m.hash_tags,
             vector=m.embedding_vector,
         )
 
@@ -351,6 +366,7 @@ class DocumentSearchEngine:
             summary=m.ai_summary,
             created_date=m.start_time,
             vector=m.embedding_vector,
+            hashtags=m.hash_tags,
             metadata={"member": m.member, "transcript": m.transcript},
         )
 
