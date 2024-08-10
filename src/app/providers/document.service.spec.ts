@@ -1,12 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 
 import { DocumentService } from './document.service';
+import { providersForTest } from '../testing';
 
 describe('DocumentService', () => {
   let service: DocumentService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [...providersForTest],
+    });
     service = TestBed.inject(DocumentService);
   });
 
