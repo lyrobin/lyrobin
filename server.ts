@@ -17,6 +17,12 @@ export function app(): express.Express {
   server.set('view engine', 'html');
   server.set('views', browserDistFolder);
 
+  server.use((_, res, next) => {
+    res.append('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.append('Cross-Origin-Embedder-Policy', 'require-corp');
+    next();
+  });
+
   // Example Express Rest API endpoints
   // server.get('/api/**', (req, res) => { });
   // Serve static files from /browser
@@ -52,11 +58,6 @@ function run(): void {
 
   // Start up the Node server
   const server = app();
-  server.use((_, res, next) => {
-    res.append('Cross-Origin-Opener-Policy', 'same-origin');
-    res.append('Cross-Origin-Embedder-Policy', 'require-corp');
-    next();
-  });
   server.listen(port, () => {
     console.log(`Node Express server listening on http://localhost:${port}`);
   });
