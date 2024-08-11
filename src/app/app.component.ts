@@ -1,5 +1,5 @@
-import { DOCUMENT } from '@angular/common';
-import { Component, Inject, inject, OnInit } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { Component, Inject, inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Analytics } from '@angular/fire/analytics';
 import { Auth, connectAuthEmulator } from '@angular/fire/auth';
@@ -13,7 +13,7 @@ import {
 } from '@angular/router';
 import { config, dom } from '@fortawesome/fontawesome-svg-core';
 import { Store } from '@ngrx/store';
-import { onAuthStateChanged } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
 import { filter, map, startWith } from 'rxjs';
 import { environment } from '../environments/environment';
 import { AngularIconComponent } from './components/icons/angular-icon.component';
@@ -48,15 +48,20 @@ export class AppComponent implements OnInit {
     map((event: NavigationEnd) => event.url === '/'),
     startWith(true)
   );
+  private isBrowser: boolean;
 
   isMainPage = toSignal(this.isMainPage$);
 
-  constructor(@Inject(DOCUMENT) private document: Document) {
+  constructor(
+    @Inject(DOCUMENT) private document: Document,
+    @Inject(PLATFORM_ID) platformId: any
+  ) {
     config.autoAddCss = false;
     let head = this.document.getElementsByTagName('head')[0];
     let styleNode = this.document.createElement('style');
     styleNode.innerHTML = dom.css(); // grab FA's CSS
     head.appendChild(styleNode);
+    this.isBrowser = isPlatformBrowser(platformId);
   }
   ngOnInit(): void {
     if (!environment.production) {
@@ -66,6 +71,14 @@ export class AppComponent implements OnInit {
       connectStorageEmulator(this.storage, '127.0.0.1', 9199);
       connectFirestoreEmulator(this.db, '127.0.0.1', 8080);
     }
+    if (this.isBrowser) {
+      console.log('check redirect');
+      getRedirectResult(this.auth)
+        .then(result => console.log(result))
+        .catch(err => console.log(err))
+        .finally(() => console.log('redirect done'));
+    }
+
     onAuthStateChanged(this.auth, user => {
       if (user) {
         this.store.dispatch(

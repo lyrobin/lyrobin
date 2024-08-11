@@ -13,6 +13,7 @@ import { OverlayPanel, OverlayPanelModule } from 'primeng/overlaypanel';
 import { isUserLoggedIn, selectUser } from '../../state/selectors';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
+import { signInWithRedirect } from 'firebase/auth';
 
 @Component({
   selector: 'app-user-button',
@@ -50,7 +51,8 @@ export class UserButtonComponent implements OnInit {
   }
 
   login() {
-    signInWithPopup(this.auth, this.googleAuth);
+    // signInWithPopup(this.auth, this.googleAuth);
+    signInWithRedirect(this.auth, this.googleAuth);
   }
 
   logout() {

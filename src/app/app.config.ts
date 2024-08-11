@@ -22,6 +22,8 @@ import { getStorage, provideStorage } from '@angular/fire/storage';
 import { provideClientHydration } from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideStore } from '@ngrx/store';
+import { provideStoreDevtools } from '@ngrx/store-devtools';
 import {
   MARKED_OPTIONS,
   MarkedOptions,
@@ -30,9 +32,7 @@ import {
 } from 'ngx-markdown';
 import { routes } from './app.routes';
 import { WINDOW, windowProvider } from './providers/window';
-import { provideStore } from '@ngrx/store';
 import { appStateReducer } from './state/reducers';
-import { provideStoreDevtools } from '@ngrx/store-devtools';
 
 export function markedOptionsFactory(): MarkedOptions {
   const renderer = new MarkedRenderer();
@@ -74,7 +74,7 @@ export const appConfig: ApplicationConfig = {
         appId: '1:661598081211:web:febbd559cbf3295bdb999e',
         storageBucket: 'taiwan-legislative-search.appspot.com',
         apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',
-        authDomain: 'app.lyrobin.com',
+        authDomain: 'lyrobin.com',
         messagingSenderId: '661598081211',
         measurementId: 'G-Y7KWHXBGXY',
       })
