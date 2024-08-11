@@ -62,6 +62,8 @@ type Video struct {
 	Transcript string   `firestore:"transcript,omitempty"`
 	Member     string   `firestore:"member,omitempty"`
 	Clips      []string `firestore:"clips,omitempty"`
+	Playlist   string   `firestore:"playlist,omitempty"`
+	HdPlaylist string   `firestore:"hd_playlist,omitempty"`
 }
 
 type Legislator struct {
