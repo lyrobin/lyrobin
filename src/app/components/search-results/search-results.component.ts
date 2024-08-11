@@ -39,9 +39,12 @@ import { DoctypeIconPipe } from '../../utils/doctype-icon.pipe';
 import { LimitTextPipe } from '../../utils/limit-text.pipe';
 import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
 import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
+import { VideoDownloaderService } from '../../providers/video-downloader.service';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 
 interface Hit extends Document {
-  focus: boolean;
+  index: number;
 }
 
 @Component({
@@ -68,7 +71,9 @@ interface Hit extends Document {
     LimitTextPipe,
     LoginDialogComponent,
     DatePipe,
+    ToastModule,
   ],
+  providers: [MessageService],
   templateUrl: './search-results.component.html',
   styleUrl: './search-results.component.scss',
   animations: [
@@ -96,7 +101,6 @@ export class SearchResultsComponent implements OnChanges {
   @ContentChild(SmartSummaryCardDirective, { read: TemplateRef })
   smartSummaryCardTemplate?: any;
   @ViewChild('loginDialog') loginDialog!: LoginDialogComponent;
-  holdItem?: number;
   summary?: string;
   showSummary: boolean = false;
   loadingSummary: boolean = false;
@@ -105,6 +109,7 @@ export class SearchResultsComponent implements OnChanges {
   showDialog: boolean = false;
   isUserLoggedIn$ = this.store.selectSignal(isUserLoggedIn);
   loginDialogMessage: string = '';
+  downloadingItem?: number;
 
   constructor(
     private aicore: AicoreService,
@@ -112,7 +117,9 @@ export class SearchResultsComponent implements OnChanges {
     private logger: EventLoggerService,
     private store: Store,
     private storage: Storage,
-    private documents: DocumentService
+    private documents: DocumentService,
+    private videoDownloader: VideoDownloaderService,
+    private messageService: MessageService
   ) {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe(result => {
       this.isHandset = result.matches;
@@ -139,7 +146,7 @@ export class SearchResultsComponent implements OnChanges {
     return (
       this.result?.hits?.map((d, i) => ({
         ...d,
-        focus: i === this.holdItem,
+        index: i,
       })) || []
     );
   }
@@ -177,27 +184,31 @@ export class SearchResultsComponent implements OnChanges {
     });
   }
 
-  downloadVideo(d: Document) {
+  downloadVideo(h: Hit) {
     if (!this.isUserLoggedIn$()) {
       this.loginDialogMessage = '只需登入即可下載，您的參與是我們最大的動力！';
       this.loginDialog.toggle();
       return;
     }
-    this.documents
-      .getSpeechVideo(d.path)
-      .then(url => getBlob(ref(this.storage, url)))
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'video.mp4';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      })
-      .catch(err => {
-        console.error(err);
+    if (this.downloadingItem !== undefined) {
+      this.messageService.add({
+        severity: 'error',
+        summary: '下載通知',
+        detail: '目前有其它影片中正下載，請稍候。',
       });
+      return;
+    }
+    this.messageService.add({
+      severity: 'info',
+      summary: '下載通知',
+      detail: '影片正在背景下載中，請不要離開頁面。',
+    });
+    this.downloadingItem = h.index;
+    this.documents
+      .getVideoPlaylist(h.path)
+      .then(url => {
+        return this.videoDownloader.downloadFromPlaylist(url);
+      })
+      .finally(() => (this.downloadingItem = undefined));
   }
 }

@@ -14,6 +14,7 @@ import { isUserLoggedIn, selectUser } from '../../state/selectors';
 import { Menu, MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { signInWithRedirect } from 'firebase/auth';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-user-button',
@@ -51,8 +52,11 @@ export class UserButtonComponent implements OnInit {
   }
 
   login() {
-    // signInWithPopup(this.auth, this.googleAuth);
-    signInWithRedirect(this.auth, this.googleAuth);
+    if (environment.production) {
+      signInWithRedirect(this.auth, this.googleAuth);
+    } else {
+      signInWithPopup(this.auth, this.googleAuth);
+    }
   }
 
   logout() {

@@ -68,6 +68,7 @@
                         size="small"
                         label="下載"
                         styleClass="p-1 mx-1"
+                        [loading]="hit.index == downloadingItem"
                         [outlined]="true"
                         (onClick)="downloadVideo(hit)"></p-button>
                     }
@@ -157,3 +158,5 @@
 <app-login-dialog
   #loginDialog
   [message]="loginDialogMessage"></app-login-dialog>
+
+<p-toast position="bottom-center" />

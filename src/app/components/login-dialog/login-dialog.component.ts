@@ -1,8 +1,14 @@
 import { Component, Input } from '@angular/core';
-import { Auth, GoogleAuthProvider, signInWithPopup } from '@angular/fire/auth';
+import {
+  Auth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+} from '@angular/fire/auth';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-login-dialog',
@@ -25,8 +31,14 @@ export class LoginDialogComponent {
   }
 
   login() {
-    signInWithPopup(this.auth, this.googleAuth).finally(() => {
-      this.visible = false;
-    });
+    if (environment.production) {
+      signInWithRedirect(this.auth, this.googleAuth).finally(() => {
+        this.visible = false;
+      });
+    } else {
+      signInWithPopup(this.auth, this.googleAuth).finally(() => {
+        this.visible = false;
+      });
+    }
   }
 }

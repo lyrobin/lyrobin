@@ -82,12 +82,6 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
-          "options": {
-            "headers": {
-              "Cross-Origin-Opener-Policy":"same-origin",
-              "Cross-Origin-Embedder-Policy":"require-corp"
-            }
-          },
           "configurations": {
             "production": {
               "buildTarget": "firebase-app-hosting-angular:build:production"

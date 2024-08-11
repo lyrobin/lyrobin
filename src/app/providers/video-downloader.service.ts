@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { FileData } from '@ffmpeg/ffmpeg/dist/esm/types';
+import { FFMessageLoadConfig, FileData } from '@ffmpeg/ffmpeg/dist/esm/types';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Parser } from 'm3u8-parser';
-import { blob } from 'stream/consumers';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable({
@@ -13,19 +12,33 @@ export class VideoDownloaderService {
   private ffmpegLoaded = false;
   private downloading = false;
   private ffmpeg?: FFmpeg;
-  private readonly ffmpegBaseURL =
+  private readonly ffmpegMultithreadBaseURL =
     'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+  private readonly ffmpegBaseURL =
+    'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
   private readonly batchSize = 20;
 
   constructor() {}
 
-  async loadFfmpeg(): Promise<FFmpeg> {
-    if (!this.ffmpegLoaded) {
-      this.ffmpeg = new FFmpeg();
-      this.ffmpeg.on('log', ({ message }) => {
-        console.log(message);
-      });
-      this.ffmpegLoaded = await this.ffmpeg.load({
+  async loadFFmpegConfig(): Promise<FFMessageLoadConfig> {
+    if (crossOriginIsolated) {
+      return {
+        coreURL: await toBlobURL(
+          `${this.ffmpegMultithreadBaseURL}/ffmpeg-core.js`,
+          'text/javascript'
+        ),
+        wasmURL: await toBlobURL(
+          `${this.ffmpegMultithreadBaseURL}/ffmpeg-core.wasm`,
+          'application/wasm'
+        ),
+        workerURL: await toBlobURL(
+          `${this.ffmpegMultithreadBaseURL}/ffmpeg-core.worker.js`,
+          'text/javascript'
+        ),
+        classWorkerURL: '/assets/ffmpeg/worker.js',
+      };
+    } else {
+      return {
         coreURL: await toBlobURL(
           `${this.ffmpegBaseURL}/ffmpeg-core.js`,
           'text/javascript'
@@ -34,12 +47,19 @@ export class VideoDownloaderService {
           `${this.ffmpegBaseURL}/ffmpeg-core.wasm`,
           'application/wasm'
         ),
-        workerURL: await toBlobURL(
-          `${this.ffmpegBaseURL}/ffmpeg-core.worker.js`,
-          'text/javascript'
-        ),
         classWorkerURL: '/assets/ffmpeg/worker.js',
+      };
+    }
+  }
+
+  async loadFFmpeg(): Promise<FFmpeg> {
+    if (!this.ffmpegLoaded) {
+      this.ffmpeg = new FFmpeg();
+      this.ffmpeg.on('log', ({ message }) => {
+        console.log(message);
       });
+      const config = await this.loadFFmpegConfig();
+      this.ffmpegLoaded = await this.ffmpeg.load(config);
     }
     return this.ffmpeg!;
   }
@@ -150,7 +170,7 @@ export class VideoDownloaderService {
       throw new Error('Already have a downloading task.');
     }
     this.downloading = true;
-    return this.loadFfmpeg()
+    return this.loadFFmpeg()
       .then(ffmpeg => this.downloadMP4FromPlaylist(ffmpeg, url))
       .finally(() => {
         this.downloading = false;

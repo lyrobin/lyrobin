@@ -28,4 +28,23 @@ export class DocumentService {
       Promise.reject('User not logged in.')
     );
   }
+
+  getVideoPlaylist(docPath: string): Promise<string> {
+    docPath = docPath.replace(/^\/+/, '').replace(/\/+$/, '');
+    return (
+      this.auth.currentUser
+        ?.getIdToken()
+        .then(token =>
+          fetch(`${this.apiUrl}/${docPath}/playlist`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            mode: 'cors',
+          })
+        )
+        .then(res => res.text())
+        .then(url => (url !== '' ? url : Promise.reject('File not found.'))) ||
+      Promise.reject('User not logged in.')
+    );
+  }
 }
