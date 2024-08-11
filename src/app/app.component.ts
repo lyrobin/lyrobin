@@ -71,12 +71,6 @@ export class AppComponent implements OnInit {
       connectStorageEmulator(this.storage, '127.0.0.1', 9199);
       connectFirestoreEmulator(this.db, '127.0.0.1', 8080);
     }
-    // if (this.isBrowser) {
-    //   console.log('check redirect');
-    //   getRedirectResult(this.auth)
-    //     .catch(err => console.log(err))
-    //     .finally(() => console.log('redirect done'));
-    // }
 
     onAuthStateChanged(this.auth, user => {
       if (user) {
