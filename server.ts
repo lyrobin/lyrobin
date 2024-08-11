@@ -17,11 +17,11 @@ export function app(): express.Express {
   server.set('view engine', 'html');
   server.set('views', browserDistFolder);
 
-  server.use((_, res, next) => {
-    res.append('Cross-Origin-Opener-Policy', 'same-origin');
-    res.append('Cross-Origin-Embedder-Policy', 'require-corp');
-    next();
-  });
+  // server.use((_, res, next) => {
+  //   res.append('Cross-Origin-Opener-Policy', 'same-origin');
+  //   res.append('Cross-Origin-Embedder-Policy', 'require-corp');
+  //   next();
+  // });
 
   // Example Express Rest API endpoints
   // server.get('/api/**', (req, res) => { });
