@@ -18,7 +18,7 @@ export function app(): express.Express {
   server.set('views', browserDistFolder);
 
   server.use((_, res, next) => {
-    res.append('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.append('Cross-Origin-Opener-Policy', 'same-origin');
     res.append('Cross-Origin-Embedder-Policy', 'require-corp');
     next();
   });
