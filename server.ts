@@ -4,6 +4,7 @@ import express from 'express';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bootstrap from './src/main.server';
+import proxy from 'express-http-proxy';
 
 // The Express app is exported so that it can be used by serverless Functions.
 export function app(): express.Express {
@@ -22,6 +23,16 @@ export function app(): express.Express {
   //   res.append('Cross-Origin-Embedder-Policy', 'require-corp');
   //   next();
   // });
+
+  server.use(
+    '/__/auth',
+    proxy('taiwan-legislative-search.firebaseapp.com', {
+      https: true,
+      proxyReqPathResolver: function (req) {
+        return '/__/auth' + req.url;
+      },
+    })
+  );
 
   // Example Express Rest API endpoints
   // server.get('/api/**', (req, res) => { });
