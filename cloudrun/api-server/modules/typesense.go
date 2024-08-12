@@ -199,10 +199,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 	if !ok {
 		return Document{}, errors.New("can't find `path` in hit")
 	}
-	createdDateFloat, ok := doc["created_date"].(float64)
-	if !ok {
-		return Document{}, errors.New("can't find `created_date` in hit")
-	}
+	createdDateFloat, _ := doc["created_date"].(float64)
 	createdDate := int64(createdDateFloat)
 	highlights := Highlights(*h.Highlights)
 	switch DocType(docType) {

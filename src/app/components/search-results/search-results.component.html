@@ -31,7 +31,7 @@
                         [fontIcon]="hit | doctypeIcon"></mat-icon>
                       <div
                         [innerHTML]="hit.name | limitText: 50"
-                        class="font-semibold text-lg"></div>
+                        class="font-semibold text-lg overflow-x-hidden pr-1"></div>
                       @if (!['meeting', 'proceeding'].includes(hit.doctype)) {
                         <p-button
                           icon="pi pi-pen-to-square"
