@@ -107,6 +107,6 @@ export const appConfig: ApplicationConfig = {
       },
     }),
     provideStore({ appState: appStateReducer }),
-    provideStoreDevtools({ maxAge: 25, logOnly: !isDevMode() }),
+    provideStoreDevtools({ maxAge: 25, logOnly: !isDevMode(), trace: true }),
   ],
 };

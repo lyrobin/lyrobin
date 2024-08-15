@@ -7,3 +7,7 @@ export const isUserLoggedIn = createSelector(
   selectAppState,
   state => state.user !== undefined
 );
+export const isLoadingAuth = createSelector(
+  selectAppState,
+  state => state.loadingAuth
+);

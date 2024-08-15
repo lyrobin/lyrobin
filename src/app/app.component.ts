@@ -72,6 +72,17 @@ export class AppComponent implements OnInit {
       connectFirestoreEmulator(this.db, '127.0.0.1', 8080);
     }
 
+    if (this.isBrowser) {
+      this.store.dispatch(
+        AppStateActions.toggleLoadingAuth({ loadingAuth: true })
+      );
+      getRedirectResult(this.auth).finally(() =>
+        this.store.dispatch(
+          AppStateActions.toggleLoadingAuth({ loadingAuth: false })
+        )
+      );
+    }
+
     onAuthStateChanged(this.auth, user => {
       if (user) {
         this.store.dispatch(

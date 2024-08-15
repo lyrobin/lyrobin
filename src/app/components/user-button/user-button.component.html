@@ -1,4 +1,9 @@
-@if (isUserLoggedIn()) {
+@if (isLoading()) {
+  <p-progressSpinner
+    ariaLabel="loading"
+    styleClass="w-2rem h-2rem"
+    strokeWidth="8" />
+} @else if (isUserLoggedIn()) {
   <p-avatar
     styleClass="cursor-pointer"
     [label]="photo() ? '' : userLabel"

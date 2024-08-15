@@ -59,9 +59,10 @@ Thumbs.db
 # Secret
 .credential/
 NOTES.md
-.env.jupyter
 taiwan-legislative-search-*.json
-
 *storybook.log
 
+# Venv
+.env.jupyter
+.beam/
 .venv/

@@ -7,19 +7,31 @@ import {
   signOut,
 } from '@angular/fire/auth';
 import { Store } from '@ngrx/store';
+import { signInWithRedirect } from 'firebase/auth';
+import { MenuItem } from 'primeng/api';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
-import { OverlayPanel, OverlayPanelModule } from 'primeng/overlaypanel';
-import { isUserLoggedIn, selectUser } from '../../state/selectors';
 import { Menu, MenuModule } from 'primeng/menu';
-import { MenuItem } from 'primeng/api';
-import { signInWithRedirect } from 'firebase/auth';
+import { OverlayPanelModule } from 'primeng/overlaypanel';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { environment } from '../../../environments/environment';
+import {
+  isLoadingAuth,
+  isUserLoggedIn,
+  selectUser,
+} from '../../state/selectors';
 
 @Component({
   selector: 'app-user-button',
   standalone: true,
-  imports: [NgIf, ButtonModule, AvatarModule, OverlayPanelModule, MenuModule],
+  imports: [
+    NgIf,
+    ButtonModule,
+    AvatarModule,
+    OverlayPanelModule,
+    MenuModule,
+    ProgressSpinnerModule,
+  ],
   templateUrl: './user-button.component.html',
   styleUrl: './user-button.component.scss',
 })
@@ -27,6 +39,7 @@ export class UserButtonComponent implements OnInit {
   readonly isUserLoggedIn = this.store.selectSignal(isUserLoggedIn);
   readonly user = this.store.selectSignal(selectUser);
   readonly photo = computed(() => this.user()?.photoURL);
+  readonly isLoading = this.store.selectSignal(isLoadingAuth);
   menuItems?: MenuItem[];
 
   @ViewChild('menu') menu!: Menu;

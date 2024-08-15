@@ -11,5 +11,9 @@ export const appStateReducer = createReducer(
   on(AppStateActions.logoutUser, (state, {}) => ({
     ...state,
     user: undefined,
+  })),
+  on(AppStateActions.toggleLoadingAuth, (state, { loadingAuth }) => ({
+    ...state,
+    loadingAuth,
   }))
 );

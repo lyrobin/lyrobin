@@ -6,5 +6,6 @@ export const AppStateActions = createActionGroup({
   events: {
     'Login User': props<{ user: User }>(),
     'Logout User': props<{ user?: User }>(),
+    'Toggle Loading Auth': props<{ loadingAuth: boolean }>(),
   },
 });
