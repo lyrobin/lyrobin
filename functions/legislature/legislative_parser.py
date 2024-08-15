@@ -582,8 +582,8 @@ def downloadVideo(request: tasks_fn.CallableRequest):
         q = tasks.CloudRunQueue.open("extractAudio")
         q.run(path=doc_path)
         # TODO: enable download HD video after we get budget.
-        # hdq = tasks.CloudRunQueue.open("downloadHdVideo")
-        # hdq.run(meet_no=meet_no, ivod_no=ivod_no, video_no=video_no)
+        hdq = tasks.CloudRunQueue.open("downloadHdVideo")
+        hdq.run(meet_no=meet_no, ivod_no=ivod_no, video_no=video_no)
     except Exception as e:
         logger.error(f"fail to download video: {e}")
         raise RuntimeError(f"Error downloading video: {request.data}") from e
@@ -592,8 +592,8 @@ def downloadVideo(request: tasks_fn.CallableRequest):
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
-    cpu=4,
-    memory=MemoryOption.GB_8,
+    cpu=2,
+    memory=MemoryOption.MB_512,
     region=_REGION,
     timeout_sec=1800,
     max_instances=30,
@@ -681,9 +681,12 @@ def _download_video(
             logger.error(e)
         return gs_path
 
-    for i in range(min(r.clips_count, 10)):
-        # Safe guarded, prevent downloading too many chunks.
-        clips.append(_upload_clip(i))
+    if not download_hd:
+        for i in range(min(r.clips_count, 10)):
+            # Safe guarded, prevent downloading too many chunks.
+            clips.append(_upload_clip(i))
+    else:
+        logger.warn("Skip download HD videos.")
 
     update_keys: list[str]
     if download_hd:

@@ -5,13 +5,19 @@ import dataclasses
 from admin import models
 from firebase_admin import firestore  # type: ignore
 from firebase_functions import https_fn, identity_fn
-from firebase_functions.options import SupportedRegion
+from firebase_functions.options import SupportedRegion, MemoryOption
 from utils import testings
 
 AUTH_PROVIDER_GOOGLE = "google.com"
 
 
-@identity_fn.before_user_created(region=SupportedRegion.ASIA_EAST1)
+@identity_fn.before_user_created(
+    region=SupportedRegion.ASIA_EAST1,
+    id_token=True,
+    access_token=True,
+    refresh_token=True,
+    memory=MemoryOption.MB_512,
+)
 def handle_user_sign_up(
     event: identity_fn.AuthBlockingEvent,
 ) -> identity_fn.BeforeCreateResponse | None:
