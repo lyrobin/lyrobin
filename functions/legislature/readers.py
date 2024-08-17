@@ -22,7 +22,7 @@ import m3u8.model  # type: ignore
 import params  # type: ignore
 import pytz  # type: ignore
 import requests  # type: ignore
-import textract  # type: ignore
+import pdfminer.high_level as pdfminer  # type: ignore
 from utils import session
 from firebase_functions import logger
 
@@ -753,7 +753,7 @@ class DocumentReader:
             with fp.open("wb") as f:
                 for chunk in res.iter_content(chunk_size=8192):
                     f.write(chunk)
-            return textract.process(fp, method="pdfminer").decode("utf-8")
+            return pdfminer.extract_text(fp)
 
     @staticmethod
     def _doc2txt(url: str) -> str:

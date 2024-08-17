@@ -12,6 +12,7 @@ from legislature.crons import *
 from legislature.legislative_parser import *
 from legislature.subscribers import *
 from legislature.tasks import *
+from wiki.functions import *
 
 cred = credentials.ApplicationDefault()
 firebase_admin.initialize_app(cred, {"storageBucket": params.STORAGE_BUCKET.value})

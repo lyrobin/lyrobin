@@ -41,6 +41,6 @@ TYPESENSE_API_KEY = SecretParam(
 
 EMBEDDING_MODEL = StringParam(
     name="EMBEDDING_MODEL",
-    default="text-embedding-004",
+    default="text-multilingual-embedding-002",
     description="Embedding Model",
 )
