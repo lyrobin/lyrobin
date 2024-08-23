@@ -10,7 +10,7 @@ import os
 from typing import Any
 
 import google.cloud.firestore  # type: ignore
-from ai import embeddings
+from ai import embeddings, gemini
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import (
@@ -1056,21 +1056,68 @@ def updateDocumentEmbeddings(request: tasks_fn.CallableRequest):
         logger.warn(f"Document {doc_path} doesn't exist.")
         return
 
-    text: str
+    text = _get_document_full_text(doc, group)
+    if not text:
+        return
+
+    text_embeddings = embeddings.get_embeddings_from_text(text)
+    models.update_embeddings(ref, text_embeddings)
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=300),
+    memory=MemoryOption.MB_512,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=30,
+    concurrency=10,
+)
+def updateDocumentHashtags(request: tasks_fn.CallableRequest):
+    doc_path = request.data["docPath"]
+    group = request.data["group"]
+
+    db = firestore.client()
+    ref = db.document(doc_path)
+    doc = ref.get()
+    if not doc.exists:
+        logger.warn(f"Document {doc_path} doesn't exist.")
+        return
+
+    text = _get_document_full_text(doc, group)
+    if not text:
+        return
+    summary = gemini.HashTagsSummaryQuery(doc_path=doc_path, content=text).run(
+        gemini.HashTagsSummary
+    )
+    if not summary:
+        return
+    m = models.FireStoreDocument.from_dict(doc.to_dict())
+    m.has_hash_tags = bool(summary.tags)
+    m.hash_tags_summarized_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+    m.hash_tags = summary.tags
+    ref.update(m.asdict())
+
+
+def _get_document_full_text(doc: document.DocumentSnapshot, group) -> str | None:
+    """Get the full text of the document.
+
+    The full text is usually the content with most information of the document.
+    For example, the transcript of a video, the full text of an attachment.
+    """
+    doc_path = doc.reference.path
     match group:
         case models.SPEECH_COLLECT:
             video = models.Video.from_dict(doc.to_dict())
             if not video.transcript or not video.has_transcript:
                 logger.warn(f"Video {doc_path} doesn't have transcript.")
-                return
-            text = video.transcript
+                return None
+            return video.transcript
         case models.ATTACH_COLLECT | models.FILE_COLLECT:
             attach = models.Attachment.from_dict(doc.to_dict())
             if not attach.full_text:
                 logger.warn(f"Attach {doc_path} doesn't have full text.")
-                return
-            text = attach.full_text
+                return None
+            return attach.full_text
         case _:
             raise TypeError(f"Unknown group: {group}")
-    text_embeddings = embeddings.get_embeddings_from_text(text)
-    models.update_embeddings(ref, text_embeddings)

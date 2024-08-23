@@ -2,20 +2,16 @@
 
 import base64
 import datetime as dt
+import io
 import urllib.parse
 import uuid
 
-from ai import gemini
+from ai import context, gemini
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
 from firebase_functions.options import MemoryOption, Timezone
-from google.cloud.firestore import (  # type: ignore
-    Client,
-    DocumentSnapshot,
-    FieldFilter,
-    Increment,
-    Query,
-)
+from google.cloud.firestore import DocumentSnapshot  # type: ignore
+from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models
 
 _TZ = Timezone("Asia/Taipei")
@@ -210,6 +206,7 @@ def _update_meeting_files_summaries():
             for doc, file in zip(docs, files)
             if file.full_text
         ]
+        _attach_legislator_context_to_summary_queries(queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
@@ -272,6 +269,7 @@ def _update_attachments_summaries():
             for doc, file in zip(docs, files)
             if file.full_text
         ]
+        _attach_legislator_context_to_summary_queries(queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
@@ -337,6 +335,7 @@ def _update_speeches_summaries():
             for doc, video in zip(docs, videos)
             if video.transcript
         ]
+        _attach_legislator_context_to_summary_queries(queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
@@ -544,12 +543,13 @@ def _update_document_hash_tags(
     query_size = 0
     last_doc: DocumentSnapshot | None = None
     while docs := get_docs_for_update(last_doc):
+        last_doc = docs[-1]
         queries = _build_hashtag_queries(docs, collection=collection)
         query_size += len(queries)
-        increment_attempts(
-            db, [q.doc_path for q in queries], "has_tags_summary_attempts"
-        )
         job.write_queries(queries)  # type: ignore
+        increment_attempts(
+            db, [doc.reference.path for doc in docs], "has_tags_summary_attempts"
+        )
         if query_size >= max_batch_queries:
             break
     job.submit()
@@ -578,3 +578,12 @@ def _build_hashtag_queries(
         ]
     else:
         raise TypeError("Unsupported collection: " + collection)
+
+
+def _attach_legislator_context_to_summary_queries(
+    queries: list[gemini.DocumentSummaryQuery | gemini.TranscriptSummaryQuery],
+):
+    for q in queries:
+        ctx = io.StringIO(q.context)
+        context.attach_legislators_background(ctx, [11])
+        q.context = ctx.getvalue()
