@@ -173,7 +173,7 @@ def on_meeting_file_create(
     document="meetings/{meetNo}/files/{fileNo}",
     region=_REGION,
     secrets=[TYPESENSE_API_KEY],
-    memory=MemoryOption.MB_512,
+    memory=MemoryOption.GB_1,
 )
 def on_meeting_file_update(
     event: firestore_fn.Event[

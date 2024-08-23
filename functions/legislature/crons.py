@@ -489,12 +489,12 @@ def _get_legislator_speeches(db: Client, name: str) -> list[gemini.MeetSpeech]:
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 23 * * 6",
+    schedule="*/30 * * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
     concurrency=2,
-    memory=MemoryOption.GB_4,
+    memory=MemoryOption.GB_2,
     timeout_sec=1800,
 )
 def update_document_hash_tags(_):
@@ -552,7 +552,10 @@ def _update_document_hash_tags(
         )
         if query_size >= max_batch_queries:
             break
-    job.submit()
+    try:
+        job.submit()
+    except RuntimeError as e:
+        logger.error(f"Fail to submit {collection} job: {e}")
 
 
 def _build_hashtag_queries(
