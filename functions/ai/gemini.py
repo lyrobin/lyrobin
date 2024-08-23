@@ -923,6 +923,7 @@ class HashTagsSummaryQuery(PredictionQuery):
             "generationConfig": {
                 "responseMimeType": "application/json",
             },
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
         }
 
     def to_batch_request(self) -> dict[str, Any]:
