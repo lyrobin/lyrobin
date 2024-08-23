@@ -11,7 +11,7 @@ import pathlib
 import urllib.parse
 import uuid
 from collections.abc import Iterable
-from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self
+from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self, Literal
 
 import firebase_admin  # type: ignore
 import pytz  # type: ignore
@@ -26,10 +26,11 @@ from google.cloud import aiplatform, bigquery
 from google.cloud.firestore import FieldFilter, DocumentSnapshot  # type: ignore
 from google.cloud.storage import Blob  # type: ignore
 from legislature import models
-from params import EMBEDDING_MODEL
+from params import EMBEDDING_MODEL, EMBEDDING_SIZE
 from vertexai.generative_models import Part  # type: ignore
-from vertexai.generative_models import GenerativeModel, SafetySetting
+from vertexai.generative_models import GenerativeModel
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
+from ai import GenerateContentRequest, GenerateContentResponse, DEFAULT_SAFE_SETTINGS
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -41,6 +42,8 @@ GEMINI_REGION = _REGION
 GEMINI_BUCKET = _BUCKET
 
 T = TypeVar("T")
+R = TypeVar("R", bound="PredictionResult")
+SupportedModels = Literal["gemini-1.5-flash-001", "gemini-1.5-pro-001"]
 
 
 class MeetSpeech(NamedTuple):
@@ -113,7 +116,49 @@ class BatchPredictionJob:
 class PredictionQuery(abc.ABC):
 
     @abc.abstractmethod
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def to_batch_request(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def run(
+        self,
+        result_type: type[R],
+        app: firebase_admin.App | None = None,
+        region: str = SupportedRegion.US_CENTRAL1,
+        model: SupportedModels = "gemini-1.5-flash-001",
+    ) -> R | None:
+        _app = app or firebase_admin.get_app()
+        project = _app.project_id
+        cred = _app.credential.get_access_token().access_token
+        url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/publishers/google/models/{model}:generateContent"
+        res = requests.post(
+            url,
+            json=self.to_request(),
+            headers={"Authorization": f"Bearer {cred}"},
+            timeout=300,
+        )
+        res.raise_for_status()
+        return result_type.from_response(res.json())
+
+
+def _get_only_candidate(response: GenerateContentResponse) -> str | None:
+    candidates = response.get("candidates", [])
+    if not candidates:
+        return None
+    parts = candidates[0].get("content", {}).get("parts", [])
+    if not parts:
+        return None
+    return parts[0].get("text", None)
+
+
+class PredictionResult(abc.ABC):
+
+    @classmethod
+    @abc.abstractmethod
+    def from_response(cls: type[T], response: GenerateContentResponse) -> T | None:
         raise NotImplementedError
 
 
@@ -199,7 +244,7 @@ class GeminiBatchEmbeddingJob:
             gcs_source=gcs_source,
             gcs_destination_prefix=gcs_destination_prefix,
             sync=False,
-            model_parameters={"output_dimensionality": 768},
+            model_parameters={"output_dimensionality": EMBEDDING_SIZE.value},
         )
         batch_job.wait_for_resource_creation()
         job_model = BatchEmbeddingJob(
@@ -369,7 +414,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 
     def write_queries(self, queries: list[PredictionQuery]):
         self._queries += len(queries)
-        rows_to_inserts = [q.to_request() for q in queries]
+        rows_to_inserts = [q.to_batch_request() for q in queries]
         for batch in itertools.batched(rows_to_inserts, 50):
             jsonl = "\n".join(json.dumps(r) for r in batch)
             uid = uuid.uuid4().hex
@@ -461,8 +506,8 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
     def list_results(self, skip_invalid_row: bool = True) -> Iterable[T | None]:
         page_token = ""
         fields = [s for s in self.schema if s.name != "request"] + [
-            bigquery.SchemaField("response", "STRING"),
             bigquery.SchemaField("status", "STRING"),
+            bigquery.SchemaField("response", "JSON"),
         ]
         while page_token is not None:
             row_iter = self._client.list_rows(
@@ -479,18 +524,6 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
                 elif v is not None:
                     yield self.parse_row(row)
             page_token = row_iter.next_page_token
-
-    def _get_only_candidate(self, row: bigquery.Row) -> str | None:
-        response = row.get("response", "[]")
-        if not response:
-            return None
-        candidates = json.loads(response)
-        if not candidates:
-            return None
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            return None
-        return parts[0].get("text", None)
 
     @abc.abstractmethod
     def parse_row(self, row: bigquery.Row) -> T | None:
@@ -511,22 +544,28 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 class DocumentSummaryQuery(PredictionQuery):
     doc_path: str
     content: str
+    context: str = ""
 
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
         return {
-            "request": {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": "請根據下述的內容，以繁體中文做出詳盡的人物及事件介紹。"
-                            },
-                            {"text": self.content},
-                        ],
-                    }
-                ]
-            },
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": "請根據下述的內容，以繁體中文做出詳盡的人物及事件介紹。"
+                        },
+                        {"text": self.content},
+                    ],
+                }
+            ],
+            "systemInstruction": {"parts": [{"text": self.context}]},
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
             "doc_path": self.doc_path,
         }
 
@@ -536,31 +575,46 @@ class TranscriptSummaryQuery(PredictionQuery):
     doc_path: str
     content: str
     member: str
+    context: str = ""
 
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
         return {
-            "request": {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": f"逐字稿中的立法委員是 {self.member}。\n",
-                            },
-                            {"text": "請根據下述的內容，以繁體中文做出總結。"},
-                            {"text": self.content},
-                        ],
-                    }
-                ]
-            },
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": f"逐字稿中的立法委員是 {self.member}。\n",
+                        },
+                        {"text": "請根據下述的內容，以繁體中文做出總結。"},
+                        {"text": self.content},
+                    ],
+                }
+            ],
+            "systemInstruction": {"parts": [{"text": self.context}]},
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
             "doc_path": self.doc_path,
         }
 
 
 @dataclasses.dataclass
-class DocumentSummaryResult:
-    doc_path: str
+class DocumentSummaryResult(PredictionResult):
     text: str
+    # meta data
+    doc_path: str | None = None
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["DocumentSummaryResult"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        return DocumentSummaryResult(text)
 
 
 class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResult]):
@@ -573,19 +627,13 @@ class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResu
         doc_path = row.get("doc_path", None)
         if doc_path is None:
             return None
-        payload = row.get("response")
-        if not payload:
+        response = row.get("response", None)
+        if not response:
             return None
-        response: list[dict[str, Any]] = json.loads(payload)
-        if len(response) != 1:
-            return None
-        parts = response[0].get("content", {}).get("parts", [])
-        if not parts:
-            return None
-        text = parts[0].get("text", "")
-        if not text:
-            return None
-        return DocumentSummaryResult(doc_path, text)
+        rst = DocumentSummaryResult.from_response(response)
+        if rst is not None:
+            rst.doc_path = doc_path
+        return rst
 
     @property
     def schema(self) -> list[bigquery.SchemaField]:
@@ -604,69 +652,71 @@ class AudioTranscriptQuery(PredictionQuery):
     doc_path: str
     audio: bytes  # audio base64 encoded string
 
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
         return {
-            "request": {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": "Please transcribe the audio using zh-TW as the language."
-                            },
-                            {
-                                "inlineData": {
-                                    "mimeType": "audio/mp3",
-                                    "data": str(self.audio, "utf-8"),
-                                }
-                            },
-                        ],
-                    }
-                ],
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "responseSchema": {
-                        "type": "object",
-                        "properties": {
-                            "subtitles": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {"text": {"type": "string"}},
-                                    "required": ["text"],
-                                },
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": "Please transcribe the audio using zh-TW as the language."
+                        },
+                        {
+                            "inlineData": {
+                                "mimeType": "audio/mp3",
+                                "data": str(self.audio, "utf-8"),
                             }
                         },
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "object",
+                    "properties": {
+                        "subtitles": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {"text": {"type": "string"}},
+                                "required": ["text"],
+                            },
+                        }
                     },
-                    "maxOutputTokens": 8192,
                 },
-                "safetySettings": [
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                ],
+                "maxOutputTokens": 8192,
             },
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
             "doc_path": self.doc_path,
         }
 
 
 @dataclasses.dataclass
-class AudioTranscriptResult:
-    doc_path: str
+class AudioTranscriptResult(PredictionResult):
     transcript: str
+    doc_path: str = ""
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["AudioTranscriptResult"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        try:
+            data = json.loads(text)
+            transcript = "\n".join(
+                subtitle.get("text", "") for subtitle in data.get("subtitles", [])
+            )
+            return AudioTranscriptResult(transcript)
+        except json.JSONDecodeError:
+            return AudioTranscriptResult("")
 
 
 class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResult]):
@@ -686,23 +736,13 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
         doc_path = row.get("doc_path", None)
         if doc_path is None:
             raise ValueError(f"Can't find doc_path in row {row}")
-        response = row.get("response", "[]")
+        response = row.get("response", None)
         if not response:
             return None
-        candidates = json.loads(response)
-        if not candidates:
-            return None
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            return None
-        try:
-            data = json.loads(parts[0].get("text", "{}"))
-            transcript = "\n".join(
-                subtitle.get("text", "") for subtitle in data.get("subtitles", [])
-            )
-            return AudioTranscriptResult(doc_path, transcript)
-        except json.JSONDecodeError:
-            return AudioTranscriptResult(doc_path, "")
+        rst = AudioTranscriptResult.from_response(response)
+        if rst is not None:
+            rst.doc_path = doc_path
+        return rst
 
 
 @dataclasses.dataclass
@@ -727,97 +767,105 @@ class SpeechesSummaryQuery(PredictionQuery):
             buff.write("\n\n")
         return buff.getvalue()
 
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
         return {
-            "request": {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": (
-                                    "將相似的內容主題分組並以中文(zh-TW)進行摘要，確保每個摘要涵蓋獨特的主題，避免重複。在摘要中加入註釋，詳細解釋各主題的細節、重點或相關資訊。注意:\n"
-                                    "1. 避免重複的主題。 每個 topicName 應該是獨一無二的。\n"
-                                    "2. 用委員會的主題來分類，減少同一個委員會的重複主題。\n"
-                                    "3. 詳細說明細節。 在 details 數組中提供豐富的資訊和見解\n"
-                                    "4. 在 referenceVideos 數組中提供參考的影片，內容接近就好，不需要完全一致。\n"
-                                    "5. 著重在事件描述，不要帶入人名。\n"
-                                    "6. 請確保主題數量不超過 10 個\n\n"
-                                )
-                            },
-                            {"text": self._speeches_markdown()},
-                        ],
-                    }
-                ],
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "responseSchema": {
-                        "type": "object",
-                        "properties": {
-                            "topics": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "topicName": {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": (
+                                "將相似的內容主題分組並以中文(zh-TW)進行摘要，確保每個摘要涵蓋獨特的主題，避免重複。在摘要中加入註釋，詳細解釋各主題的細節、重點或相關資訊。注意:\n"
+                                "1. 避免重複的主題。 每個 topicName 應該是獨一無二的。\n"
+                                "2. 用委員會的主題來分類，減少同一個委員會的重複主題。\n"
+                                "3. 詳細說明細節。 在 details 數組中提供豐富的資訊和見解\n"
+                                "4. 在 referenceVideos 數組中提供參考的影片，內容接近就好，不需要完全一致。\n"
+                                "5. 著重在事件描述，不要帶入人名。\n"
+                                "6. 請確保主題數量不超過 10 個\n\n"
+                            )
+                        },
+                        {"text": self._speeches_markdown()},
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "object",
+                    "properties": {
+                        "topics": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "topicName": {
+                                        "type": "string",
+                                        "description": "The name or title of the topic.",
+                                    },
+                                    "details": {
+                                        "type": "array",
+                                        "items": {
                                             "type": "string",
-                                            "description": "The name or title of the topic.",
-                                        },
-                                        "details": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string",
-                                                "description": "Details or remarks related to the topic.",
-                                            },
-                                        },
-                                        "referenceVideos": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string",
-                                                "format": "uri",
-                                            },
-                                            "description": "List of reference videos related to the topic.",
+                                            "description": "Details or remarks related to the topic.",
                                         },
                                     },
-                                    "required": [
-                                        "topicName",
-                                        "details",
-                                        "referenceVideos",
-                                    ],
+                                    "referenceVideos": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uri",
+                                        },
+                                        "description": "List of reference videos related to the topic.",
+                                    },
                                 },
-                            }
-                        },
+                                "required": [
+                                    "topicName",
+                                    "details",
+                                    "referenceVideos",
+                                ],
+                            },
+                        }
                     },
-                    "temperature": 0.5,
-                    "maxOutputTokens": 8192,
                 },
-                "safetySettings": [
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                    {
-                        "category": SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                        "threshold": SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                    },
-                ],
+                "temperature": 0.5,
+                "maxOutputTokens": 8192,
             },
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
             "doc_path": self.doc_path,
         }
 
 
 @dataclasses.dataclass
-class SpeechesSummary:
-    doc_path: str
+class SpeechesSummary(PredictionResult):
     remarks: list[models.SpeechTopicRemark] = dataclasses.field(default_factory=list)
+    doc_path: str = ""
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["SpeechesSummary"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        try:
+            data = json.loads(text)
+            summary = data.get("topics", [])
+            remarks = [
+                models.SpeechTopicRemark(
+                    topic=remark.get("topicName", ""),
+                    details=remark.get("details", []),
+                    video_urls=remark.get("referenceVideos", []),
+                )
+                for remark in summary
+            ]
+            return SpeechesSummary(remarks)
+        except json.JSONDecodeError:
+            return None
 
 
 class GeminiBatchSpeechesSummaryJob(GeminiBatchPredictionJob[SpeechesSummary]):
@@ -837,29 +885,13 @@ class GeminiBatchSpeechesSummaryJob(GeminiBatchPredictionJob[SpeechesSummary]):
         doc_path = row.get("doc_path", None)
         if doc_path is None:
             return None
-        response = row.get("response", "[]")
+        response = row.get("response", None)
         if not response:
             return None
-        candidates = json.loads(response)
-        if not candidates:
-            return None
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            return None
-        try:
-            data = json.loads(parts[0].get("text", "{}"))
-            summary = data.get("topics", [])
-            remarks = [
-                models.SpeechTopicRemark(
-                    topic=remark.get("topicName", ""),
-                    details=remark.get("details", []),
-                    video_urls=remark.get("referenceVideos", []),
-                )
-                for remark in summary
-            ]
-            return SpeechesSummary(doc_path, remarks)
-        except json.JSONDecodeError:
-            return None
+        rst = SpeechesSummary.from_response(response)
+        if rst is not None:
+            rst.doc_path = doc_path
+        return rst
 
 
 # TODO: improve transcript's readability
@@ -871,36 +903,62 @@ class HashTagsSummaryQuery(PredictionQuery):
     doc_path: str
     content: str
 
-    def to_request(self) -> dict[str, Any]:
+    def to_request(self) -> GenerateContentRequest:
         return {
-            "request": {
-                "contents": [{"role": "user", "parts": [{"text": self.content}]}],
-                "systemInstruction": {
-                    "parts": [
-                        {
-                            "text": (
-                                "Please generate a short list of hashtags "
-                                "that capture the essence of the following document. "
-                                "PLease notice:\n"
-                                "1. The list should be as short as possible\n"
-                                "2. Do not create more than 10 tags.\n"
-                                "3. Create tags in zh-TW."
-                            )
-                        }
-                    ]
-                },
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                },
+            "contents": [{"role": "user", "parts": [{"text": self.content}]}],
+            "systemInstruction": {
+                "parts": [
+                    {
+                        "text": (
+                            "Please generate a short list of hashtags "
+                            "that capture the essence of the following document. "
+                            "PLease notice:\n"
+                            "1. The list should be as short as possible\n"
+                            "2. Do not create more than 10 tags.\n"
+                            "3. Create tags in zh-TW."
+                        )
+                    }
+                ]
             },
+            "generationConfig": {
+                "responseMimeType": "application/json",
+            },
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
             "doc_path": self.doc_path,
         }
 
 
 @dataclasses.dataclass
-class HashTagsSummary:
-    doc_path: str
+class HashTagsSummary(PredictionResult):
     tags: list[str]
+    doc_path: str = ""
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["HashTagsSummary"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        try:
+            data = json.loads(text)
+            tags: list[str]
+            if isinstance(data, dict):
+                vals = list(data.values())
+                if not vals:
+                    return None
+                tags = [v.strip("#") for v in vals[0]]
+            elif isinstance(data, list):
+                tags = [v.strip("#") for v in data]
+            else:
+                return None
+            return HashTagsSummary(tags)
+        except json.JSONDecodeError:
+            return None
 
 
 class GeminiHashTagsSummaryJob(GeminiBatchPredictionJob[HashTagsSummary]):
@@ -924,21 +982,11 @@ class GeminiHashTagsSummaryJob(GeminiBatchPredictionJob[HashTagsSummary]):
         doc_path = row.get("doc_path", None)
         if doc_path is None:
             return None
-        response = self._get_only_candidate(row)
+
+        response = row.get("response", None)
         if not response:
             return None
-        try:
-            data = json.loads(response)
-            tags: list[str]
-            if isinstance(data, dict):
-                vals = list(data.values())
-                if not vals:
-                    return None
-                tags = [v.strip("#") for v in vals[0]]
-            elif isinstance(data, list):
-                tags = [v.strip("#") for v in data]
-            else:
-                return None
-            return HashTagsSummary(doc_path, tags)
-        except json.JSONDecodeError:
-            return None
+        rst = HashTagsSummary.from_response(response)
+        if rst is not None:
+            rst.doc_path = doc_path
+        return rst

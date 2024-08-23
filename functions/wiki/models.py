@@ -1,11 +1,11 @@
 import dataclasses
 import uuid
 
+import params
 from google.cloud.firestore_v1.vector import Vector
 
-
 DIRECTORS_COLLECTION = "directors"
-EMBEDDING_SIZE = 512
+EMBEDDING_SIZE = params.EMBEDDING_SIZE.value
 
 
 @dataclasses.dataclass

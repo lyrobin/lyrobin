@@ -6,12 +6,12 @@ Test for legislative_parser.py
 import unittest
 
 import requests  # type: ignore
+import search.client as search_client
 import utils
 from firebase_admin import firestore, storage  # type: ignore
-from legislature import models
-from utils import testings
 from google.cloud.firestore import DocumentReference  # type: ignore
-import search.client as search_client
+from legislature import models
+from utils import tasks, testings
 
 
 # fetch_meeting_from_web
@@ -314,6 +314,20 @@ def test_update_meetings_by_date():
     url = utils.get_function_url("update_meetings_by_date")
     res = requests.get(url, params={"date": "113/04/24"}, timeout=30)
     assert res.ok
+
+
+@testings.require_firestore_emulator
+@testings.skip_when_no_network
+def test_update_video_embeddings():
+    doc_path = "meetings/2024030180/ivods/00084705648089667888/speeches/ba63d8c8ec393d1787165f85fd0ceb9d"
+    q = tasks.CloudRunQueue.open("updateDocumentEmbeddings")
+    q.run(doc_path=doc_path, group=models.SPEECH_COLLECT)
+
+    db = firestore.client()
+    ref = db.document(doc_path)
+    embeddings = models.get_embeddings(ref)
+
+    assert len(embeddings) > 0
 
 
 if __name__ == "__main__":

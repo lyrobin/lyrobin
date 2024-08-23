@@ -7,7 +7,7 @@ This module contains the models for the Firestore database.
 import dataclasses
 import datetime as dt
 import uuid
-from typing import TypeVar, Type, Any
+from typing import TypeVar, Type, Any, Sequence
 from urllib import parse
 import json
 
@@ -16,6 +16,7 @@ import pytz  # type: ignore
 import utils
 from google.cloud.firestore_v1.vector import Vector
 from legislature import LEGISLATURE_MEETING_URL
+from google.cloud import firestore  # type: ignore
 
 # Collection Constants
 MEETING_COLLECT = "meetings"
@@ -23,6 +24,8 @@ IVOD_COLLECT = "ivods"
 FILE_COLLECT = "files"
 PROCEEDING_COLLECT = "proceedings"
 ATTACH_COLLECT = "attachments"
+# Sub-collection - general
+EMBEDDINGS_COLLECT = "embeddings"
 # Sub-collection - ivod
 VIDEO_COLLECT = "videos"
 SPEECH_COLLECT = "speeches"
@@ -138,6 +141,9 @@ class FireStoreDocument:
     embedding_vector: list[float] = dataclasses.field(default_factory=list)
     embedding_updated_at: DateTimeField = DateTimeField()
     last_update_time: DateTimeField = DateTimeField()
+
+    # Full text embeddings
+    full_text_embeddings_count: int = 0
 
     # AI Summary Job
     ai_summarized: bool = False
@@ -387,3 +393,65 @@ class Legislator(FireStoreDocument):
         self.document_id = uuid.uuid3(
             uuid.NAMESPACE_URL, f"{self.name}.{self.ename}"
         ).hex
+
+
+@dataclasses.dataclass
+class Embedding:
+    idx: int
+    embedding: list[float] = dataclasses.field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Embedding":
+        return cls(data["idx"], list(data["embedding"]))
+
+    def asdict(self) -> dict:
+        return {"idx": self.idx, "embedding": Vector(self.embedding)}
+
+    def to_vector(self) -> Vector:
+        return Vector(self.embedding)
+
+
+def update_embeddings(
+    ref: firestore.DocumentReference, embeddings: Sequence[Embedding | list[float]]
+):
+    if not ref.get().exists:
+        raise ValueError(f"Document {ref.path} does not exist")
+    doc = FireStoreDocument.from_dict(ref.get().to_dict())
+    doc.full_text_embeddings_count = len(embeddings)
+    embeddings_collect: firestore.CollectionReference = ref.collection(
+        EMBEDDINGS_COLLECT
+    )
+
+    new_embeddings: list[Embedding] = []
+    for i, e in enumerate(embeddings):
+        if isinstance(e, Embedding):
+            e.idx = i
+            new_embeddings.append(e)
+        elif isinstance(e, list):
+            new_embeddings.append(Embedding(i, e))
+        else:
+            raise TypeError(f"Invalid embedding type at {i}: {type(e)}")
+
+    for embedding in new_embeddings:
+        embeddings_collect.document(str(embedding.idx)).set(
+            embedding.asdict(), merge=True
+        )
+    ref.update(doc.asdict())
+
+
+def get_embeddings(ref: firestore.DocumentReference) -> list[Embedding]:
+    if not ref.get().exists:
+        raise ValueError(f"Document {ref.path} does not exist")
+    doc = FireStoreDocument.from_dict(ref.get().to_dict())
+    if doc.full_text_embeddings_count <= 0:
+        return []
+    embeddings_collect: firestore.CollectionReference = ref.collection(
+        EMBEDDINGS_COLLECT
+    )
+    embedding_refs = [
+        embeddings_collect.document(str(i))
+        for i in range(doc.full_text_embeddings_count)
+    ]
+    if not all(ref.get().exists for ref in embedding_refs):
+        raise RuntimeError("Some embeddings do not exist.")
+    return [Embedding.from_dict(ref.get().to_dict()) for ref in embedding_refs]

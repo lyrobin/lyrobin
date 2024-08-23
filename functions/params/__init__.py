@@ -44,3 +44,9 @@ EMBEDDING_MODEL = StringParam(
     default="text-multilingual-embedding-002",
     description="Embedding Model",
 )
+
+EMBEDDING_SIZE = IntParam(
+    name="EMBEDDING_SIZE",
+    default=768,
+    description="Embedding Size",
+)

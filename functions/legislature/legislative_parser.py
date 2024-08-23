@@ -10,6 +10,7 @@ import os
 from typing import Any
 
 import google.cloud.firestore  # type: ignore
+from ai import embeddings
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import (
@@ -180,6 +181,7 @@ def on_meeting_file_update(
     ],
 ):
     try:
+        _update_meeting_file_embeddings(event)
         _index_meeting_file(event)
     except Exception as e:
         logger.error(f"Fail on meeting file update {event.params}")
@@ -195,6 +197,26 @@ def _index_meeting_file(event: firestore_fn.Event):
         f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}",
         search_client.DocType.MEETING_FILE,
     )
+
+
+def _update_meeting_file_embeddings(
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
+):
+    meet_no = event.params["meetNo"]
+    file_no = event.params["fileNo"]
+    doc_path = f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}"
+    before: models.MeetingFile | None
+    after: models.MeetingFile | None
+    if event.data.before:
+        before = models.MeetingFile.from_dict(event.data.before.to_dict())
+    if event.data.after:
+        after = models.MeetingFile.from_dict(event.data.after.to_dict())
+
+    if after and (not before or after.full_text != before.full_text):
+        q = tasks.CloudRunQueue.open("updateDocumentEmbeddings")
+        q.run(doc_path=doc_path, group=models.FILE_COLLECT)
 
 
 @tasks_fn.on_task_dispatched(
@@ -815,6 +837,7 @@ def on_proceeding_attachment_update(
     ],
 ):
     try:
+        _update_proceeding_attachment_embeddings(event)
         _index_proceeding_attachment(event)
     except Exception as e:
         logger.error(f"Fail on_proceeding_attachment_update: {event.params}")
@@ -831,6 +854,29 @@ def _index_proceeding_attachment(event: firestore_fn.Event):
         f"{models.PROCEEDING_COLLECT}/{proc_no}/{models.ATTACH_COLLECT}/{attach_no}",
         search_client.DocType.ATTACHMENT,
     )
+
+
+def _update_proceeding_attachment_embeddings(
+    event: firestore_fn.Event[
+        firestore_fn.Change[firestore_fn.DocumentSnapshot | None]
+    ],
+):
+    proc_no = event.params["procNo"]
+    attach_no = event.params["attachNo"]
+    doc_path = (
+        f"{models.PROCEEDING_COLLECT}/{proc_no}/" f"{models.ATTACH_COLLECT}/{attach_no}"
+    )
+
+    before: models.Attachment | None
+    after: models.Attachment | None
+    if event.data.before:
+        before = models.Attachment.from_dict(event.data.before.to_dict())
+    if event.data.after:
+        after = models.Attachment.from_dict(event.data.after.to_dict())
+
+    if after and (not before or after.full_text != before.full_text):
+        q = tasks.CloudRunQueue.open("updateDocumentEmbeddings")
+        q.run(doc_path=doc_path, group=models.ATTACH_COLLECT)
 
 
 @firestore_fn.on_document_updated(
@@ -853,6 +899,19 @@ def on_speech_update(
             f"{models.IVOD_COLLECT}/{video_no}/"
             f"{models.SPEECH_COLLECT}/{speech_no}"
         )
+
+        before: models.Video | None
+        after: models.Video | None
+        if event.data.before:
+            before = models.Video.from_dict(event.data.before.to_dict())
+        if event.data.after:
+            after = models.Video.from_dict(event.data.after.to_dict())
+
+        # Update embeddings
+        if after and (not before or after.transcript != before.transcript):
+            q = tasks.CloudRunQueue.open("updateDocumentEmbeddings")
+            q.run(doc_path=doc_path, group=models.SPEECH_COLLECT)
+
         _index_speech(doc_path)
     except Exception as e:
         logger.error(f"Fail on_speech_update: {event.params}")
@@ -975,3 +1034,43 @@ def _update_meeting_by_date(
         batch.set(ref, m.asdict())
     batch.commit()
     return new_meetings
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=300),
+    memory=MemoryOption.MB_512,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=30,
+    concurrency=10,
+)
+def updateDocumentEmbeddings(request: tasks_fn.CallableRequest):
+    doc_path = request.data["docPath"]
+    group = request.data["group"]
+
+    db = firestore.client()
+    ref = db.document(doc_path)
+    doc = ref.get()
+    if not doc.exists:
+        logger.warn(f"Document {doc_path} doesn't exist.")
+        return
+
+    text: str
+    match group:
+        case models.SPEECH_COLLECT:
+            video = models.Video.from_dict(doc.to_dict())
+            if not video.transcript or not video.has_transcript:
+                logger.warn(f"Video {doc_path} doesn't have transcript.")
+                return
+            text = video.transcript
+        case models.ATTACH_COLLECT | models.FILE_COLLECT:
+            attach = models.Attachment.from_dict(doc.to_dict())
+            if not attach.full_text:
+                logger.warn(f"Attach {doc_path} doesn't have full text.")
+                return
+            text = attach.full_text
+        case _:
+            raise TypeError(f"Unknown group: {group}")
+    text_embeddings = embeddings.get_embeddings_from_text(text)
+    models.update_embeddings(ref, text_embeddings)

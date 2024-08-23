@@ -10,7 +10,7 @@ from firebase_functions.options import (
 )
 from wiki import models, parsers
 from utils import tasks
-from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
+from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel  # type: ignore
 from params import EMBEDDING_MODEL
 
 
