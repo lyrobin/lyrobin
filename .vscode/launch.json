@@ -9,10 +9,24 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "purpose": ["debug-test"],
+            "purpose": [
+                "debug-test"
+            ],
             "console": "integratedTerminal",
             "justMyCode": false,
             "envFile": "${workspaceFolder}/.env"
-          }
+        },
+        {
+            "name": "Launch API Server",
+            "request": "launch",
+            "mode": "debug",
+            "type": "go",
+            "cwd": "${workspaceFolder}/cloudrun/api-server",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PORT": "8003"
+            },
+            "program": "${workspaceFolder}/cloudrun/api-server/main.go"
+        }
     ]
 }

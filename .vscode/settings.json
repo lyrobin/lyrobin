@@ -3,5 +3,6 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "git.enableCommitSigning": true,
-  "debugpy.debugJustMyCode": false
+  "debugpy.debugJustMyCode": false,
+  "go.testEnvFile": "${workspaceFolder}/.env"
 }
