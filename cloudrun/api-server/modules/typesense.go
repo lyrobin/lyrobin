@@ -52,12 +52,13 @@ type SearchResult struct {
 }
 
 type Document struct {
-	Path        string `json:"path,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Content     string `json:"content,omitempty"`
-	URL         string `json:"url,omitempty"`
-	DocType     string `json:"doctype,omitempty"`
-	CreatedDate int64  `json:"created_date,omitempty"`
+	Path        string   `json:"path,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Content     string   `json:"content,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	DocType     string   `json:"doctype,omitempty"`
+	CreatedDate int64    `json:"created_date,omitempty"`
+	HashTags    []string `json:"hashtags,omitempty"`
 }
 
 type SpeechRemark struct {
@@ -104,6 +105,16 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 	filter := "doc_type:!legislator"
 	if req.Filter != "" {
 		filter += "&&" + req.Filter
+	}
+	query, hashtags := req.SplitHashtags()
+	if query == "" {
+		query = "*"
+	}
+	if len(hashtags) > 0 {
+		for i, h := range hashtags {
+			hashtags[i] = fmt.Sprintf("hashtags:=%s", h)
+		}
+		filter += "&&" + strings.Join(hashtags, "&&")
 	}
 	params := &api.SearchCollectionParams{
 		Q:                       req.Query,
@@ -228,6 +239,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			URL:         m.URL,
 			DocType:     docType,
 			CreatedDate: createdDate,
+			HashTags:    m.HashTags,
 		}, nil
 	case Attachment:
 		m, err := e.store.GetAttachment(ctx, path)
@@ -241,6 +253,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			URL:         m.URL,
 			DocType:     docType,
 			CreatedDate: createdDate,
+			HashTags:    m.HashTags,
 		}, nil
 	case Proceeding:
 		m, err := e.store.GetProceeding(ctx, path)
@@ -276,6 +289,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			URL:         m.URL,
 			DocType:     docType,
 			CreatedDate: createdDate,
+			HashTags:    m.HashTags,
 		}, nil
 	default:
 		return Document{}, errors.New("invalid document type " + docType)
@@ -299,4 +313,18 @@ func trimString(s string, max int) string {
 		return s
 	}
 	return string(runes[:max]) + "…"
+}
+
+func (r SearchRequest) SplitHashtags() (string, []string) {
+	var hashtags []string
+	var queries []string
+	for _, q := range strings.Split(r.Query, " ") {
+		q = strings.TrimSpace(q)
+		if strings.HasPrefix(q, "#") {
+			hashtags = append(hashtags, q[1:])
+		} else {
+			queries = append(queries, q)
+		}
+	}
+	return strings.Join(queries, " "), hashtags
 }

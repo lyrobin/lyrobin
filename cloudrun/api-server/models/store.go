@@ -34,17 +34,19 @@ type Meeting struct {
 }
 
 type MeetingFile struct {
-	Name    string `firestore:"name,omitempty"`
-	URL     string `firestore:"url,omitempty"`
-	Content string `firestore:"full_text,omitempty"`
-	Summary string `firestore:"ai_summary,omitempty"`
+	Name     string   `firestore:"name,omitempty"`
+	URL      string   `firestore:"url,omitempty"`
+	Content  string   `firestore:"full_text,omitempty"`
+	Summary  string   `firestore:"ai_summary,omitempty"`
+	HashTags []string `firestore:"hash_tags,omitempty"`
 }
 
 type Attachment struct {
-	Name    string `firestore:"name,omitempty"`
-	URL     string `firestore:"url,omitempty"`
-	Content string `firestore:"full_text,omitempty"`
-	Summary string `firestore:"ai_summary,omitempty"`
+	Name     string   `firestore:"name,omitempty"`
+	URL      string   `firestore:"url,omitempty"`
+	Content  string   `firestore:"full_text,omitempty"`
+	Summary  string   `firestore:"ai_summary,omitempty"`
+	HashTags []string `firestore:"hash_tags,omitempty"`
 }
 
 type Proceeding struct {
@@ -64,6 +66,7 @@ type Video struct {
 	Clips      []string `firestore:"clips,omitempty"`
 	Playlist   string   `firestore:"playlist,omitempty"`
 	HdPlaylist string   `firestore:"hd_playlist,omitempty"`
+	HashTags   []string `firestore:"hash_tags,omitempty"`
 }
 
 type Legislator struct {
