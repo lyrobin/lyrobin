@@ -15,6 +15,7 @@ export interface Document {
   url: string;
   doctype: 'meeting' | 'proceeding' | 'video' | 'meetingfile' | 'attachment';
   created_date: number;
+  hashtags: string[];
 }
 
 export interface SearchResult {

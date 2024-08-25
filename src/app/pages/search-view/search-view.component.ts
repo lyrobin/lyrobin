@@ -172,4 +172,8 @@ export class SearchViewComponent {
     }
     return results.join(',');
   }
+
+  onGotoHashTag(tag: string) {
+    this.onSearch('#' + tag);
+  }
 }

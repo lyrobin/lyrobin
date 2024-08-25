@@ -42,6 +42,7 @@ import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
 import { VideoDownloaderService } from '../../providers/video-downloader.service';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { TagModule } from 'primeng/tag';
 
 interface Hit extends Document {
   index: number;
@@ -72,6 +73,7 @@ interface Hit extends Document {
     LoginDialogComponent,
     DatePipe,
     ToastModule,
+    TagModule,
   ],
   providers: [MessageService],
   templateUrl: './search-results.component.html',
@@ -98,6 +100,7 @@ export class SearchResultsComponent implements OnChanges {
   @Input() page: number = 1;
   @Input() loading: boolean = false;
   @Output() onPageChange = new EventEmitter<number>();
+  @Output() onGotoHashTag = new EventEmitter<string>();
   @ContentChild(SmartSummaryCardDirective, { read: TemplateRef })
   smartSummaryCardTemplate?: any;
   @ViewChild('loginDialog') loginDialog!: LoginDialogComponent;
@@ -210,5 +213,9 @@ export class SearchResultsComponent implements OnChanges {
         return this.videoDownloader.downloadFromPlaylist(url);
       })
       .finally(() => (this.downloadingItem = undefined));
+  }
+
+  gotoHashtag(hashtag: string) {
+    this.onGotoHashTag.emit(hashtag);
   }
 }

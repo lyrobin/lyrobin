@@ -61,7 +61,16 @@
                         [innerHTML]="hit.content"></span>
                     </div>
                   </div>
-                  <div class="col-12 lg:col-9">
+                  <div class="col-12 lg:col-9 my-1">
+                    @for (tag of hit.hashtags; track $index) {
+                      <p-tag
+                        [value]="'#' + tag"
+                        severity="secondary"
+                        styleClass="my-1 mx-1 cursor-pointer"
+                        (click)="gotoHashtag(tag)"></p-tag>
+                    }
+                  </div>
+                  <div class="col-12 lg:col-9 my-1">
                     @if (hit.doctype == 'video') {
                       <p-button
                         icon="pi pi-download"
