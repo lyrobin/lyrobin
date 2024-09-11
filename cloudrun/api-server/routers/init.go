@@ -50,6 +50,7 @@ func (r Router) Register(e *gin.Engine) {
 		g := e.Group("/ai")
 		g.GET("/summary", HandleAISummary(r.StoreReader))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
+		g.GET("/topic", HandleSearchTopic(r.StoreReader))
 	}
 	{
 		g := e.Group("/meetings/:meetID")

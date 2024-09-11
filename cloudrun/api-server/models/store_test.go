@@ -46,3 +46,22 @@ func TestGet(t *testing.T) {
 		}
 	})
 }
+
+func TestGetTopicByTags(t *testing.T) {
+	ctx := context.Background()
+	app, err := firebase.NewApp(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := models.FireStore{App: app}
+
+	t.Run("Existing", func(t *testing.T) {
+		topic, err := store.GetTopicByTags(ctx, []string{"健保"})
+		if err != nil {
+			t.Error(err)
+		}
+		if topic.Title == "" {
+			t.Error("empty topic")
+		}
+	})
+}

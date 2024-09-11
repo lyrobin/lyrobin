@@ -17,6 +17,22 @@
             "envFile": "${workspaceFolder}/.env"
         },
         {
+            "name": "Python: Debug main",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "purpose": [
+                "debug-in-terminal"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "envFile": "${workspaceFolder}/.env",
+            "cwd": "${workspaceFolder}/functions",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/functions"
+            }
+        },
+        {
             "name": "Launch API Server",
             "request": "launch",
             "mode": "debug",

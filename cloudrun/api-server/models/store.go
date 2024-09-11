@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go/v4"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/config"
+	"google.golang.org/api/iterator"
 )
 
 type StoreReader interface {
@@ -20,6 +22,7 @@ type StoreReader interface {
 	GetProceeding(ctx context.Context, path string) (Proceeding, error)
 	GetVideo(ctx context.Context, path string) (Video, error)
 	GetLegislator(ctx context.Context, path string) (Legislator, error)
+	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
 }
 
 type Document struct {
@@ -77,6 +80,12 @@ type Legislator struct {
 	Area    string `firestore:"area,omitempty"`
 	Avatar  string `firestore:"avatar,omitempty"`
 	Remarks string `firestore:"ai_summary,omitempty"`
+}
+
+type Topic struct {
+	Title   string   `firestore:"title,omitempty"`
+	Summary string   `firestore:"summary,omitempty"`
+	Tags    []string `firestore:"tags,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}
@@ -215,4 +224,40 @@ func (s *FireStore) GetDocument(ctx context.Context, path string) (Document, err
 	var document Document
 	doc.DataTo(&document)
 	return document, nil
+}
+
+func (s *FireStore) GetTopicByTags(ctx context.Context, tags []string) (Topic, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return Topic{}, err
+	}
+	defer client.Close()
+
+	iter := client.Collection(
+		"topics",
+	).Where(
+		"tags", "array-contains-any", tags,
+	).Where(
+		"summarized", "==", true,
+	).OrderBy(
+		"timestamp", firestore.Desc,
+	).Limit(1).Documents(ctx)
+
+	var topics []Topic
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return Topic{}, err
+		}
+		var topic Topic
+		doc.DataTo(&topic)
+		topics = append(topics, topic)
+	}
+	if len(topics) <= 0 {
+		return Topic{}, errors.New("topic not found")
+	}
+	return topics[0], nil
 }

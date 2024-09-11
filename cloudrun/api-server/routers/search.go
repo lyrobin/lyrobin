@@ -3,6 +3,7 @@ package routers
 import (
 	"strconv"
 
+	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/models"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/modules"
 	"github.com/gin-gonic/gin"
 )
@@ -65,6 +66,22 @@ func HandleSearchLegislator(se modules.SearchEngine) gin.HandlerFunc {
 		}
 		ctx.JSON(200, result)
 
+	}
+}
+
+func HandleSearchTopic(store models.StoreReader) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		tags, ok := ctx.GetQueryArray("tags")
+		if !ok {
+			ctx.String(400, "tags not found")
+			return
+		}
+		topic, err := store.GetTopicByTags(ctx.Request.Context(), tags)
+		if err != nil {
+			ctx.String(204, err.Error())
+			return
+		}
+		ctx.JSON(200, topic)
 	}
 }
 
