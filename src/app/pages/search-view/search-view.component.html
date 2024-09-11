@@ -13,12 +13,13 @@
   [loading]="loading"
   (onPageChange)="onPageChange($event)"
   (onGotoHashTag)="onGotoHashTag($event)"
-  class="flex-grow-1">
+  class="flex-grow-1 overflow-x-hidden">
   <ng-template appSmartSummaryCard>
     <app-smart-card
       class="block mb-4 p-2 w-full"
       [show]="showSmartCard"
       [legislatorRemark]="legislatorRemark"
+      [topic]="aiTopic"
       (onSearch)="onSearch($event)"></app-smart-card>
   </ng-template>
 </app-search-results>

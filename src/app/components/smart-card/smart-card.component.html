@@ -1,68 +1,87 @@
-<div *ngIf="show" class="px-2">
-  <div class="grid nested-grid mb-4">
-    <div class="col-3 lg:col-2 flex justify-content-center">
-      <p-avatar
-        styleClass="mr-2"
-        size="xlarge"
-        shape="circle"
-        [image]="legislatorRemark?.avatar" />
-    </div>
-    <div
-      class="col-9 lg:col-10 flex flex-column justify-content-center legislator-info">
-      <span>{{ legislatorRemark?.name }}</span>
-      <span>{{ legislatorRemark?.party }}</span>
-      <span>{{ legislatorRemark?.area }}</span>
-    </div>
-  </div>
-  <div class="w-full lg:w-11">
-    @for (
-      remark of legislatorRemark?.remarks?.slice(0, maxRemarks);
-      track $index
-    ) {
-      <p-fieldset
-        [legend]="remark.topic"
-        [toggleable]="true"
-        [collapsed]="true"
-        styleClass="my-2">
-        <div>
-          @for (video of remark.video_urls; track $index) {
-            <p-button
-              icon="pi pi-video"
-              [badge]="($index + 1 | number) || '0'"
-              size="small"
-              styleClass="p-1 m-2"
-              (onClick)="gotoExternal(video)"></p-button>
-          }
-        </div>
-        <ul>
-          @for (detail of remark.details; track $index) {
-            <li>{{ detail }}</li>
-          }
-        </ul>
-        <div class="flex justify-content-end">
-          <p-button
-            label="搜尋"
-            icon="pi pi-search"
-            styleClass="p-1"
-            size="small"
+@if (showTopic && isUserLoggedIn$()) {
+  <div class="px-2">
+    <p-card [header]="topic?.title" styleClass="smart-card">
+      <div>
+        @for (tag of topic?.tags; track $index) {
+          <p-tag
             severity="secondary"
-            (onClick)="search(remark.topic)">
-          </p-button>
-        </div>
-      </p-fieldset>
-    }
+            styleClass="my-1 mx-1 cursor-pointer"
+            [value]="'#' + tag"
+            (click)="search('#' + tag)"></p-tag>
+        }
+      </div>
+      <p-scrollPanel [style]="{ width: '100%', height: '150px' }">
+        <markdown class="m-0" [data]="topic?.summary"></markdown>
+      </p-scrollPanel>
+    </p-card>
   </div>
-  <div class="flex justify-content-center">
-    <p-button
-      *ngIf="hasMore"
-      styleClass="py-1 px-4"
-      size="large"
-      (onClick)="gotoExpand()"
-      [text]="true"
-      [outlined]="true"
-      severity="secondary">
-      <fa-icon [icon]="expandIcon" size="xs"></fa-icon>
-    </p-button>
+} @else if (showLegislator) {
+  <div class="px-2">
+    <div class="grid nested-grid mb-4">
+      <div class="col-3 lg:col-2 flex justify-content-center">
+        <p-avatar
+          styleClass="mr-2"
+          size="xlarge"
+          shape="circle"
+          [image]="legislatorRemark?.avatar" />
+      </div>
+      <div
+        class="col-9 lg:col-10 flex flex-column justify-content-center legislator-info">
+        <span>{{ legislatorRemark?.name }}</span>
+        <span>{{ legislatorRemark?.party }}</span>
+        <span>{{ legislatorRemark?.area }}</span>
+      </div>
+    </div>
+    <div class="w-full lg:w-11">
+      @for (
+        remark of legislatorRemark?.remarks?.slice(0, maxRemarks);
+        track $index
+      ) {
+        <p-fieldset
+          [legend]="remark.topic"
+          [toggleable]="true"
+          [collapsed]="true"
+          styleClass="my-2">
+          <div>
+            @for (video of remark.video_urls; track $index) {
+              <p-button
+                icon="pi pi-video"
+                [badge]="($index + 1 | number) || '0'"
+                size="small"
+                styleClass="p-1 m-2"
+                (onClick)="gotoExternal(video)"></p-button>
+            }
+          </div>
+          <ul>
+            @for (detail of remark.details; track $index) {
+              <li>{{ detail }}</li>
+            }
+          </ul>
+          <div class="flex justify-content-end">
+            <p-button
+              label="搜尋"
+              icon="pi pi-search"
+              styleClass="p-1"
+              size="small"
+              severity="secondary"
+              (onClick)="search(remark.topic)">
+            </p-button>
+          </div>
+        </p-fieldset>
+      }
+    </div>
+    <div class="flex justify-content-center">
+      <p-button
+        *ngIf="hasMore"
+        styleClass="py-1 px-4"
+        size="large"
+        (onClick)="gotoExpand()"
+        [text]="true"
+        [outlined]="true"
+        severity="secondary">
+        <fa-icon [icon]="expandIcon" size="xs"></fa-icon>
+      </p-button>
+    </div>
+    <p-divider styleClass="mb-4" />
   </div>
-  <p-divider styleClass="mb-4" />
-</div>
+}

@@ -37,3 +37,9 @@ export interface LegislatorRemark {
   avatar: string;
   remarks: SpeechRemark[];
 }
+
+export interface Topic {
+  title: string;
+  tags: string[];
+  summary: string;
+}

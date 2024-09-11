@@ -14,6 +14,14 @@
             color: var(--primary-500);
         }
     }
+
+    .smart-card {
+        background-color: var(--surface);
+    }
+
+    .smart-card.p-card {
+        color: var(--surface-300);
+    }
 }
 
 .legislator-info{

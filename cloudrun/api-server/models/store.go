@@ -83,9 +83,9 @@ type Legislator struct {
 }
 
 type Topic struct {
-	Title   string   `firestore:"title,omitempty"`
-	Summary string   `firestore:"summary,omitempty"`
-	Tags    []string `firestore:"tags,omitempty"`
+	Title   string   `firestore:"title,omitempty" json:"title,omitempty"`
+	Summary string   `firestore:"summary,omitempty" json:"summary,omitempty"`
+	Tags    []string `firestore:"tags,omitempty" json:"tags,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}

@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { parse } from 'date-fns';
 import { lastValueFrom } from 'rxjs';
 import { environment } from './../../environments/environment';
-import { Facet, LegislatorRemark, SearchResult } from './search';
+import { Facet, LegislatorRemark, SearchResult, Topic } from './search';
 
 @Injectable({
   providedIn: 'root',
@@ -92,6 +92,16 @@ export class SearchService {
       this.http.get<LegislatorRemark>(`${this.apiUrl}/ai/legislator`, {
         params: {
           name,
+        },
+      })
+    );
+  }
+
+  topic(tags: string[]): Promise<Topic | null> {
+    return lastValueFrom(
+      this.http.get<Topic>(`${this.apiUrl}/ai/topic`, {
+        params: {
+          tags,
         },
       })
     );

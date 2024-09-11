@@ -8,7 +8,12 @@ import { SearchResultsComponent } from '../../components/search-results/search-r
 import { SmartCardComponent } from '../../components/smart-card/smart-card.component';
 import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
 import { EventLoggerService } from '../../providers/event-logger.service';
-import { Facet, LegislatorRemark, SearchResult } from '../../providers/search';
+import {
+  Facet,
+  LegislatorRemark,
+  SearchResult,
+  Topic,
+} from '../../providers/search';
 import { SearchService } from '../../providers/search.service';
 import { translate } from '../../utils/facet-value.pipe';
 
@@ -31,6 +36,7 @@ export class SearchViewComponent {
   result?: SearchResult;
   loading: boolean = true;
   legislatorRemark?: LegislatorRemark;
+  aiTopic?: Topic;
 
   constructor(
     private searchService: SearchService,
@@ -58,6 +64,7 @@ export class SearchViewComponent {
         this.loading = false;
       });
     this.loadLegislator();
+    this.loadTopic();
   }
 
   private loadLegislator() {
@@ -76,11 +83,29 @@ export class SearchViewComponent {
     });
   }
 
+  private loadTopic() {
+    this.aiTopic = undefined;
+    let tags = this.query
+      ?.split(' ')
+      .filter(t => t.startsWith('#'))
+      .map(t => t.slice(1));
+    if (tags?.length) {
+      this.searchService.topic(tags).then(topic => {
+        if (topic && topic.summary.length > 0) {
+          this.aiTopic = topic;
+        }
+      });
+    }
+  }
+
   get showSmartCard(): boolean {
     if (this.loading) {
       return false;
     }
     if (this.legislatorRemark) {
+      return true;
+    }
+    if (this.aiTopic) {
       return true;
     }
     return false;
