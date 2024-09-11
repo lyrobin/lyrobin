@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	firebase "firebase.google.com/go/v4"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/config"
@@ -59,14 +60,15 @@ type Proceeding struct {
 }
 
 type Video struct {
-	URL        string   `firestore:"url,omitempty"`
-	Summary    string   `firestore:"ai_summary,omitempty"`
-	Transcript string   `firestore:"transcript,omitempty"`
-	Member     string   `firestore:"member,omitempty"`
-	Clips      []string `firestore:"clips,omitempty"`
-	Playlist   string   `firestore:"playlist,omitempty"`
-	HdPlaylist string   `firestore:"hd_playlist,omitempty"`
-	HashTags   []string `firestore:"hash_tags,omitempty"`
+	URL        string    `firestore:"url,omitempty"`
+	Summary    string    `firestore:"ai_summary,omitempty"`
+	Transcript string    `firestore:"transcript,omitempty"`
+	Member     string    `firestore:"member,omitempty"`
+	Clips      []string  `firestore:"clips,omitempty"`
+	Playlist   string    `firestore:"playlist,omitempty"`
+	HdPlaylist string    `firestore:"hd_playlist,omitempty"`
+	HashTags   []string  `firestore:"hash_tags,omitempty"`
+	StartTime  time.Time `firestore:"start_time,omitempty"`
 }
 
 type Legislator struct {

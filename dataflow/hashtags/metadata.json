@@ -1,0 +1,5 @@
+{
+    "name": "Group Hashtags",
+    "description": "An Apache Beam batch pipeline that reads tags from firebase and groups them by topics.",
+    "parameters": []
+}

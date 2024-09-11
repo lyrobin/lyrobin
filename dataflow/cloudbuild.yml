@@ -1,0 +1,32 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hashtags-go",
+        "--file",
+        "dataflow/hashtags/Dockerfile",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hashtags-go",
+      ]
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args: [
+      "dataflow",
+      "flex-template",
+      "build",
+      "gs://${PROJECT_ID}_dataflow/templates/hashtags-go.json",
+      "--image",
+      "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hashtags-go:latest",
+      "--sdk-language",
+      "GO",
+      "--metadata-file",
+      "dataflow/hashtags/metadata.json",
+    ]
+ 

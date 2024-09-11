@@ -1,0 +1,5 @@
+services:
+  dataflow-hashtags:
+    build:
+      context: ../
+      dockerfile: dataflow/hashtags/Dockerfile
