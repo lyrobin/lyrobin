@@ -11,7 +11,7 @@ import pathlib
 import urllib.parse
 import uuid
 from collections.abc import Iterable
-from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self, Literal
+from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self, Literal, Sequence
 
 import firebase_admin  # type: ignore
 import pytz  # type: ignore
@@ -74,6 +74,7 @@ class PredictionJob:
     DOC_SUMMARY = "summary"
     SPEECHES_SUMMARY = "speeches"
     HASH_TAGS_SUMMARY = "hashtags"
+    HASHTAGS_TOPIC_SUMMARY = "hashtags_topic"
 
 
 BATCH_JOB_STATUS_NEW = "NEW"
@@ -109,6 +110,8 @@ class BatchPredictionJob:
                 return GeminiBatchSpeechesSummaryJob.from_batch_job(self)
             case PredictionJob.HASH_TAGS_SUMMARY:
                 return GeminiHashTagsSummaryJob.from_batch_job(self)
+            case PredictionJob.HASHTAGS_TOPIC_SUMMARY:
+                return GeminiHashTagsTopicSummaryJob.from_batch_job(self)
             case _:
                 raise ValueError(f"Unknown job type {self.job_type}")
 
@@ -412,7 +415,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
         self._caller = v
         return self
 
-    def write_queries(self, queries: list[PredictionQuery]):
+    def write_queries(self, queries: Sequence[PredictionQuery]):
         self._queries += len(queries)
         rows_to_inserts = [q.to_batch_request() for q in queries]
         for batch in itertools.batched(rows_to_inserts, 50):
@@ -988,6 +991,106 @@ class GeminiHashTagsSummaryJob(GeminiBatchPredictionJob[HashTagsSummary]):
         if not response:
             return None
         rst = HashTagsSummary.from_response(response)
+        if rst is not None:
+            rst.doc_path = doc_path
+        return rst
+
+
+@dataclasses.dataclass
+class HashTagsTopicSummaryQuery(PredictionQuery):
+    doc_path: str
+    tags: list[str]
+    content: str
+
+    def to_request(self) -> GenerateContentRequest:
+        return {
+            "contents": [{"role": "user", "parts": [{"text": self.content}]}],
+            "systemInstruction": {
+                "parts": [
+                    {
+                        "text": (
+                            "以下內容來自於近期立法院和"
+                            + "、".join(self.tags)
+                            + "相關的會議，"
+                            + "使用繁體中文報導發生的事情。注意:\n"
+                            + "1. 不要提及任何人名。\n"
+                            + "2. 以概括式的方式下標題。\n"
+                            + "3. 以新聞報導的方式詳細的描述事情的完整過程。\n"
+                            + "4. 不要限定在特定的事件，請涵蓋所有的事件。\n"
+                            + "5. 充實內容，不要少於 300 字。\n"
+                            + "6. 不要針對任何人。"
+                        )
+                    }
+                ]
+            },
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "summary": {"type": "string"},
+                    },
+                },
+            },
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class HashTagsTopicSummary(PredictionResult):
+
+    title: str
+    summary: str
+    doc_path: str = ""
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["HashTagsTopicSummary"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        try:
+            data = json.loads(text)
+            title = data.get("title", "")
+            summary = data.get("summary", "")
+            return HashTagsTopicSummary(title, summary)
+        except json.JSONDecodeError:
+            return None
+
+
+class GeminiHashTagsTopicSummaryJob(GeminiBatchPredictionJob[HashTagsTopicSummary]):
+
+    @property
+    def model(self) -> str:
+        return "publishers/google/models/gemini-1.5-flash-001"
+
+    @property
+    def schema(self) -> list[bigquery.SchemaField]:
+        return [
+            bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
+            bigquery.SchemaField("doc_path", "STRING"),
+        ]
+
+    @property
+    def job_type(self) -> str:
+        return PredictionJob.HASHTAGS_TOPIC_SUMMARY
+
+    def parse_row(self, row: bigquery.Row) -> HashTagsTopicSummary | None:
+        doc_path = row.get("doc_path", None)
+        if doc_path is None:
+            return None
+        response = row.get("response", None)
+        if not response:
+            return None
+        rst = HashTagsTopicSummary.from_response(response)
         if rst is not None:
             rst.doc_path = doc_path
         return rst

@@ -9,6 +9,7 @@ import functions_framework
 import opencc  # type: ignore
 import pytz  # type: ignore
 from ai import gemini
+from ai import models as aimodels
 from cloudevents.http.event import CloudEvent
 from firebase_admin import firestore  # type: ignore
 from firebase_functions import logger, storage_fn
@@ -48,6 +49,43 @@ def _process_batch_embedding_job(job: gemini.GeminiBatchEmbeddingJob):
         m.embedding_updated_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
         batch.update(ref, m.asdict())
     batch.commit()
+
+
+@functions_framework.cloud_event
+def on_receive_bigquery_batch_updates(event: CloudEvent):
+    resource: str | None = event.get("resourcename")
+    if not resource:
+        raise ValueError(f"Need bigquery event, got {event}.")
+    tokens = resource.strip("/").split("/")
+    attributes = {k: v for k, v in zip(tokens[0::2], tokens[1::2])}
+    table = attributes["tables"]
+    logger.info(f"Received bigquery event for {table}")
+    if table.startswith(
+        f"prediction-{gemini.PredictionJob.HASHTAGS_TOPIC_SUMMARY}-destination"
+    ):
+        _process_hashtags_topic_summary_job(event)
+    else:
+        logger.warn(f"No handler found for {table}")
+
+
+def _process_hashtags_topic_summary_job(event: CloudEvent):
+    db = firestore.client()
+    job = gemini.GeminiHashTagsTopicSummaryJob.from_bq_event(event)
+    for rows in itertools.batched(job.list_results(), 50):
+        batch = db.batch()
+        for row in rows:
+            ref = db.document(row.doc_path)
+            doc = ref.get()
+            if not doc.exists:
+                logger.warn(f"No document found for {row.doc_path}")
+                continue
+            m = aimodels.Topic.from_dict(doc.to_dict())
+            m.summarized = True
+            m.title = row.title
+            m.summary = row.summary
+            batch.update(ref, m.to_dict())
+        batch.commit()
+    job.mark_as_done()
 
 
 @functions_framework.cloud_event

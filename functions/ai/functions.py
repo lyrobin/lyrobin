@@ -1,8 +1,12 @@
 """Firebase cloud functions."""
 
+import uuid
+import io
+
 from ai import gemini
+from ai import models as aimodels
 from firebase_admin import firestore  # type: ignore
-from firebase_functions import firestore_fn, tasks_fn
+from firebase_functions import firestore_fn, https_fn, tasks_fn
 from firebase_functions.options import (
     MemoryOption,
     RateLimits,
@@ -10,6 +14,7 @@ from firebase_functions.options import (
     SupportedRegion,
 )
 from google.cloud.firestore import Client, FieldFilter  # type: ignore
+from legislature import models
 from utils import tasks
 
 _MAX_CONCURRENT_BATCH_JOBS = 1
@@ -77,3 +82,44 @@ def on_gemini_job_update(
         "runGeminiBatchPredictionJob", region=gemini.GEMINI_REGION
     )
     q.run()
+
+
+@https_fn.on_request(
+    region=SupportedRegion.US_CENTRAL1,
+    memory=MemoryOption.GB_2,
+    timeout_sec=3600,
+)
+def update_topics_summary(_: https_fn.Request) -> https_fn.Response:
+    db = firestore.client()
+    topics = (
+        db.collection(aimodels.TOPICS_COLLECTION)
+        .where(filter=FieldFilter("summarized", "==", False))
+        .stream()
+    )
+    uid = uuid.uuid4().hex
+    job = gemini.GeminiHashTagsTopicSummaryJob(uid)
+    queries = []
+    for topic_doc in topics:
+        topic = aimodels.Topic.from_dict(topic_doc.to_dict())
+        buf = io.StringIO()
+        videos = [
+            models.Video.from_dict(v.to_dict())
+            for v in db.collection_group(models.SPEECH_COLLECT)
+            .where(filter=FieldFilter("hash_tags", "array_contains_any", topic.tags))
+            .order_by("start_time", "DESCENDING")
+            .limit(1000)
+            .stream()
+        ]
+        for v in videos:
+            buf.write(f"# {v.start_time}\n")
+            buf.write("> " + ",".join(v.hash_tags) + "\n\n")
+            buf.write(f"{v.ai_summary}\n")
+            buf.write("\n")
+        queries.append(
+            gemini.HashTagsTopicSummaryQuery(
+                topic_doc.reference.path, topic.tags, buf.getvalue()
+            )
+        )
+    job.write_queries(queries)
+    job.submit()
+    return https_fn.Response("OK")

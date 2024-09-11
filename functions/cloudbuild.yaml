@@ -1,6 +1,7 @@
 steps:
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: "bash"
+  waitFor: ['-']
   args:
     - "-c"
     - |
@@ -21,6 +22,7 @@ steps:
       --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: "bash"
+  waitFor: ['-']
   args:
     - "-c"
     - |
@@ -41,6 +43,7 @@ steps:
       --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: "bash"
+  waitFor: ['-']
   args:
     - "-c"
     - |
@@ -61,6 +64,7 @@ steps:
       --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: "bash"
+  waitFor: ['-']
   args:
     - "-c"
     - |
@@ -73,6 +77,27 @@ steps:
       --trigger-event-filters="serviceName=bigquery.googleapis.com" \
       --trigger-event-filters="methodName=google.cloud.bigquery.v2.JobService.InsertJob" \
       --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gemini/tables/prediction-hashtags-destination-*" \
+      --timeout=540 \
+      --memory="2G" \
+      --max-instances=10 \
+      --concurrency=10 \
+      --set-env-vars='^@^FIREBASE_CONFIG={"projectId":"${PROJECT_ID}","storageBucket":"${PROJECT_ID}.appspot.com","locationId":"asia-east1"}' \
+      --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: "bash"
+  waitFor: ['-']
+  args:
+    - "-c"
+    - |
+      gcloud functions deploy on_receive_bigquery_batch_updates \
+      --gen2 \
+      --region=${LOCATION} \
+      --source=. \
+      --runtime=python312 \
+      --trigger-event-filters="type=google.cloud.audit.log.v1.written" \
+      --trigger-event-filters="serviceName=bigquery.googleapis.com" \
+      --trigger-event-filters="methodName=google.cloud.bigquery.v2.JobService.InsertJob" \
+      --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gemini/tables/prediction-*" \
       --timeout=540 \
       --memory="2G" \
       --max-instances=10 \
