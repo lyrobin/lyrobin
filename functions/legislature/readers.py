@@ -415,7 +415,7 @@ class IvodReader:
         self._s = bs4.BeautifulSoup(html, "html.parser")
         purl = parse.urlparse(url)
         self._origin = f"{purl.scheme}://{purl.netloc}"
-        self._url = f"{purl.scheme}://{purl.netloc}/{purl.path}"
+        self._url = f"{purl.scheme}://{purl.netloc}/{purl.path.strip('/')}"
         qs = parse.parse_qs(purl.query.lower())
         self._meet = qs.get("meet", [""])[0]
         self._page = int(qs.get("page", [1])[0])

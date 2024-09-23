@@ -130,7 +130,7 @@ DEFAULT_SAFE_SETTINGS: list[SafetySetting] = [
     },
     {
         "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_NONE,
+        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
     },
     {
         "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,

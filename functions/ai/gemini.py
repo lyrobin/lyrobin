@@ -11,26 +11,30 @@ import pathlib
 import urllib.parse
 import uuid
 from collections.abc import Iterable
-from typing import Any, Generic, NamedTuple, Optional, TypeVar, Self, Literal, Sequence
+from typing import Any, Generic, Literal, NamedTuple, Optional, Self, Sequence, TypeVar
 
 import firebase_admin  # type: ignore
 import pytz  # type: ignore
 import requests  # type: ignore
 import utils
 import vertexai  # type: ignore
+from ai import (
+    DEFAULT_SAFE_SETTINGS,
+    GenerateContentRequest,
+    GenerateContentResponse,
+)
 from cloudevents.http.event import CloudEvent
 from firebase_admin import firestore, storage
 from firebase_functions.options import SupportedRegion
 from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
-from google.cloud.firestore import FieldFilter, DocumentSnapshot  # type: ignore
+from google.cloud.firestore import DocumentSnapshot, FieldFilter  # type: ignore
 from google.cloud.storage import Blob  # type: ignore
 from legislature import models
 from params import EMBEDDING_MODEL, EMBEDDING_SIZE
 from vertexai.generative_models import Part  # type: ignore
 from vertexai.generative_models import GenerativeModel
 from vertexai.preview.language_models import TextEmbeddingModel  # type: ignore
-from ai import GenerateContentRequest, GenerateContentResponse, DEFAULT_SAFE_SETTINGS
 
 _REGION = SupportedRegion.US_CENTRAL1
 _BUCKET = "gemini-batch"
@@ -651,6 +655,53 @@ class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResu
 
 
 @dataclasses.dataclass
+class LongAudioTranscriptQuery(PredictionQuery):
+    doc_path: str
+    url: str  # gsutil url
+
+    def to_request(self) -> GenerateContentRequest:
+        return {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": "Please transcribe the audio using zh-TW as the language."
+                        },
+                        {
+                            "fileData": {
+                                "mimeType": "audio/mp3",
+                                "fileUri": self.url,
+                            }
+                        },
+                    ],
+                }
+            ],
+            "safetySettings": DEFAULT_SAFE_SETTINGS,
+        }
+
+    def to_batch_request(self) -> dict[str, Any]:
+        return {
+            "request": self.to_request(),
+            "doc_path": self.doc_path,
+        }
+
+
+@dataclasses.dataclass
+class LongAudioTranscriptResult(PredictionResult):
+    transcript: str
+
+    @classmethod
+    def from_response(
+        cls, response: GenerateContentResponse
+    ) -> Optional["LongAudioTranscriptResult"]:
+        text = _get_only_candidate(response)
+        if not text:
+            return None
+        return cls(text)
+
+
+@dataclasses.dataclass
 class AudioTranscriptQuery(PredictionQuery):
     doc_path: str
     audio: bytes  # audio base64 encoded string
@@ -1011,7 +1062,7 @@ class HashTagsTopicSummaryQuery(PredictionQuery):
                         "text": (
                             "以下內容來自於近期立法院和"
                             + "、".join(self.tags)
-                            + "相關的會議，"
+                            + "相關的會議紀錄，"
                             + "使用繁體中文報導發生的事情。注意:\n"
                             + "1. 不要提及任何人名。\n"
                             + "2. 以概括式的方式下標題。\n"
@@ -1070,7 +1121,7 @@ class GeminiHashTagsTopicSummaryJob(GeminiBatchPredictionJob[HashTagsTopicSummar
 
     @property
     def model(self) -> str:
-        return "publishers/google/models/gemini-1.5-flash-001"
+        return "publishers/google/models/gemini-1.5-pro-001"
 
     @property
     def schema(self) -> list[bigquery.SchemaField]:

@@ -5,11 +5,13 @@ import datetime as dt
 import io
 import urllib.parse
 import uuid
+import requests
 
 from ai import context, gemini
+import firebase_admin  # type: ignore
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
-from firebase_functions.options import MemoryOption, Timezone
+from firebase_functions.options import MemoryOption, Timezone, SupportedRegion
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models
@@ -590,3 +592,31 @@ def _attach_legislator_context_to_summary_queries(
         ctx = io.StringIO(q.context)
         context.attach_legislators_background(ctx, [11])
         q.context = ctx.getvalue()
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 23 * * *",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_1,
+    timeout_sec=1800,
+)
+def update_historical_meetings(_):
+    app: firebase_admin.App = firebase_admin.get_app()
+    region = SupportedRegion.ASIA_EAST1
+    proj = app.project_id
+    token = app.credential.get_access_token().access_token
+    url = f"https://{region}-{proj}.cloudfunctions.net/update_meetings_by_date"
+    today = dt.datetime.now(tz=_TZ)
+    for i in range(15):
+        date = today - dt.timedelta(days=i)
+        tw_year = date.year - 1911
+        res = requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            params={"date": f"{tw_year}/" + date.strftime("%m/%d")},
+            timeout=120,
+        )
+        res.raise_for_status()
