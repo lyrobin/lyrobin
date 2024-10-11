@@ -20,6 +20,7 @@ import utils
 import vertexai  # type: ignore
 from ai import (
     DEFAULT_SAFE_SETTINGS,
+    NON_BLOCKING_SAFE_SETTINGS,
     GenerateContentRequest,
     GenerateContentResponse,
 )
@@ -47,7 +48,9 @@ GEMINI_BUCKET = _BUCKET
 
 T = TypeVar("T")
 R = TypeVar("R", bound="PredictionResult")
-SupportedModels = Literal["gemini-1.5-flash-001", "gemini-1.5-pro-001"]
+SupportedModels = Literal[
+    "gemini-1.5-flash-001", "gemini-1.5-flash-002", "gemini-1.5-pro-001"
+]
 
 
 class MeetSpeech(NamedTuple):
@@ -79,6 +82,17 @@ class PredictionJob:
     SPEECHES_SUMMARY = "speeches"
     HASH_TAGS_SUMMARY = "hashtags"
     HASHTAGS_TOPIC_SUMMARY = "hashtags_topic"
+
+
+# Constants for Gemini Batch Job States
+JOB_STATE_QUEUED = "JOB_STATE_QUEUED"
+JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED"
+JOB_STATE_FAILED = "JOB_STATE_FAILED"
+JOB_STATE_SUCCEEDED = "JOB_STATE_SUCCEEDED"
+
+GeminiBatchJobState = Literal[
+    "JOB_STATE_QUEUED", "JOB_STATE_CANCELLED", "JOB_STATE_FAILED", "JOB_STATE_SUCCEEDED"
+]
 
 
 BATCH_JOB_STATUS_NEW = "NEW"
@@ -119,6 +133,19 @@ class BatchPredictionJob:
             case _:
                 raise ValueError(f"Unknown job type {self.job_type}")
 
+    def poll_job_state(self) -> GeminiBatchJobState | None:
+        token = firebase_admin.get_app().credential.get_access_token().access_token
+        if not self.name:
+            return None
+        res = requests.get(
+            f"https://us-central1-aiplatform.googleapis.com/v1/{self.name}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=60,
+        )
+        res.raise_for_status()
+        data = res.json()
+        return data.get("state", None)
+
 
 class PredictionQuery(abc.ABC):
 
@@ -135,7 +162,7 @@ class PredictionQuery(abc.ABC):
         result_type: type[R],
         app: firebase_admin.App | None = None,
         region: str = SupportedRegion.US_CENTRAL1,
-        model: SupportedModels = "gemini-1.5-flash-001",
+        model: SupportedModels = "gemini-1.5-flash-002",
     ) -> R | None:
         _app = app or firebase_admin.get_app()
         project = _app.project_id
@@ -148,6 +175,7 @@ class PredictionQuery(abc.ABC):
             timeout=300,
         )
         res.raise_for_status()
+        print(res.text)
         return result_type.from_response(res.json())
 
 
@@ -360,7 +388,7 @@ class GeminiBatchPredictionJob(abc.ABC, Generic[T]):
 
     @property
     def model(self) -> str:
-        return "publishers/google/models/gemini-1.5-pro-001"
+        return "publishers/google/models/gemini-1.5-pro-002"
 
     @property
     def project(self) -> str:
@@ -599,6 +627,7 @@ class TranscriptSummaryQuery(PredictionQuery):
                 }
             ],
             "systemInstruction": {"parts": [{"text": self.context}]},
+            "safetySettings": NON_BLOCKING_SAFE_SETTINGS,
         }
 
     def to_batch_request(self) -> dict[str, Any]:
@@ -628,7 +657,7 @@ class GeminiBatchDocumentSummaryJob(GeminiBatchPredictionJob[DocumentSummaryResu
 
     @property
     def model(self) -> str:
-        return "publishers/google/models/gemini-1.5-flash-001"
+        return "publishers/google/models/gemini-1.5-flash-002"
 
     def parse_row(self, row: bigquery.Row) -> DocumentSummaryResult | None:
         doc_path = row.get("doc_path", None)
@@ -713,7 +742,10 @@ class AudioTranscriptQuery(PredictionQuery):
                     "role": "user",
                     "parts": [
                         {
-                            "text": "Please transcribe the audio using zh-TW as the language."
+                            "text": (
+                                "Please transcribe the audio using zh-TW as the language. "
+                                "Do not generate any content not related to the audio."
+                            )
                         },
                         {
                             "inlineData": {
@@ -724,23 +756,6 @@ class AudioTranscriptQuery(PredictionQuery):
                     ],
                 }
             ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": {
-                    "type": "object",
-                    "properties": {
-                        "subtitles": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {"text": {"type": "string"}},
-                                "required": ["text"],
-                            },
-                        }
-                    },
-                },
-                "maxOutputTokens": 8192,
-            },
             "safetySettings": DEFAULT_SAFE_SETTINGS,
         }
 
@@ -764,11 +779,7 @@ class AudioTranscriptResult(PredictionResult):
         if not text:
             return None
         try:
-            data = json.loads(text)
-            transcript = "\n".join(
-                subtitle.get("text", "") for subtitle in data.get("subtitles", [])
-            )
-            return AudioTranscriptResult(transcript)
+            return AudioTranscriptResult(text)
         except json.JSONDecodeError:
             return AudioTranscriptResult("")
 
@@ -781,6 +792,10 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
             bigquery.SchemaField("request", "JSON", mode="REQUIRED"),
             bigquery.SchemaField("doc_path", "STRING"),
         ]
+
+    @property
+    def model(self) -> str:
+        return "publishers/google/models/gemini-1.5-flash-002"
 
     @property
     def job_type(self) -> str:
@@ -1020,7 +1035,7 @@ class GeminiHashTagsSummaryJob(GeminiBatchPredictionJob[HashTagsSummary]):
 
     @property
     def model(self) -> str:
-        return "publishers/google/models/gemini-1.5-flash-001"
+        return "publishers/google/models/gemini-1.5-flash-002"
 
     @property
     def schema(self) -> list[bigquery.SchemaField]:
@@ -1121,7 +1136,7 @@ class GeminiHashTagsTopicSummaryJob(GeminiBatchPredictionJob[HashTagsTopicSummar
 
     @property
     def model(self) -> str:
-        return "publishers/google/models/gemini-1.5-pro-001"
+        return "publishers/google/models/gemini-1.5-pro-002"
 
     @property
     def schema(self) -> list[bigquery.SchemaField]:

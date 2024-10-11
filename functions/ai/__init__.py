@@ -141,3 +141,22 @@ DEFAULT_SAFE_SETTINGS: list[SafetySetting] = [
         "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_ONLY_HIGH,
     },
 ]
+
+NON_BLOCKING_SAFE_SETTINGS: list[SafetySetting] = [
+    {
+        "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": gm.SafetySetting.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        "threshold": gm.SafetySetting.HarmBlockThreshold.BLOCK_NONE,
+    },
+]

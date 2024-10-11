@@ -6,6 +6,7 @@ import io
 import urllib.parse
 import uuid
 import requests
+import dataclasses
 
 from ai import context, gemini
 import firebase_admin  # type: ignore
@@ -15,10 +16,12 @@ from firebase_functions.options import MemoryOption, Timezone, SupportedRegion
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models
+from utils import tasks
+import utils
 
 _TZ = Timezone("Asia/Taipei")
 
-_MAX_BATCH_SUMMARY_QUERY_SIZE = 1000
+_MAX_BATCH_SUMMARY_QUERY_SIZE = 200
 _MAX_BATCH_TRANSCRIPT_QUERY_SIZE = 150
 _MAX_ATTEMPTS = 2
 
@@ -154,7 +157,7 @@ def increment_attempts(db: Client, docs: list[str], field: str):
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 16 * * 6",
+    schedule="*/30 00-02,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -208,17 +211,23 @@ def _update_meeting_files_summaries():
             for doc, file in zip(docs, files)
             if file.full_text
         ]
-        _attach_legislator_context_to_summary_queries(queries)
+        if not queries:
+            continue
+        _attach_legislator_context_to_summary_queries(db, queries)
+        _attach_director_context_to_summary_queries(db, queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
         if query_size >= _MAX_BATCH_SUMMARY_QUERY_SIZE:
             break
+    if query_size <= 0:
+        logger.warn("No queries to submit")
+        return
     job.submit()
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 18 * * 6",
+    schedule="*/30 00-02,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -271,17 +280,21 @@ def _update_attachments_summaries():
             for doc, file in zip(docs, files)
             if file.full_text
         ]
-        _attach_legislator_context_to_summary_queries(queries)
+        _attach_legislator_context_to_summary_queries(db, queries)
+        _attach_director_context_to_summary_queries(db, queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
         if query_size >= _MAX_BATCH_SUMMARY_QUERY_SIZE:
             break
+    if query_size <= 0:
+        logger.warn("No queries to submit")
+        return
     job.submit()
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 20 * * 6",
+    schedule="*/30 00-02,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -297,7 +310,7 @@ def update_speeches_summaries(_):
         raise RuntimeError("Fail to update speeches summaries.") from e
 
 
-def _update_speeches_summaries():
+def _update_speeches_summaries(query_limit: int = 200):
     db = firestore.client()
 
     if running_jobs(db, "speeches_summaries"):
@@ -321,23 +334,25 @@ def _update_speeches_summaries():
         )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
-        return list(collections.limit(200).stream())
+        return list(collections.limit(query_limit).stream())
 
     uid = uuid.uuid4().hex
     job = gemini.GeminiBatchDocumentSummaryJob(uid).set_caller("speeches_summaries")
     query_size = 0
     last_doc: DocumentSnapshot | None = None
     while docs := get_docs_for_update(last_doc):
+        logger.debug(f"Processing {len(docs)} documents")
         last_doc = docs[-1]
         videos = [models.Video.from_dict(doc.to_dict()) for doc in docs]
         queries = [
             gemini.TranscriptSummaryQuery(
-                doc.reference.path, video.transcript, video.member
+                doc.reference.path, video.transcript, video.member or ""
             )
             for doc, video in zip(docs, videos)
             if video.transcript
         ]
-        _attach_legislator_context_to_summary_queries(queries)
+        _attach_legislator_context_to_summary_queries(db, queries)
+        _attach_director_context_to_summary_queries(db, queries)
         increment_attempts(db, [q.doc_path for q in queries], "ai_summary_attempts")
         job.write_queries(queries)
         query_size += len(queries)
@@ -347,7 +362,7 @@ def _update_speeches_summaries():
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 16 * * 6",
+    schedule="*/30 00-02,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -392,6 +407,8 @@ def _update_speech_transcripts():
     job = gemini.GeminiBatchAudioTranscriptJob(uid).set_caller(
         "update_speech_transcripts"
     )
+    today = dt.datetime.now(tz=_TZ)
+    transcript_task = tasks.CloudRunQueue.open("transcriptLongVideo")
     bucket = storage.bucket()
     query_size = 0
     last_doc: DocumentSnapshot | None = None
@@ -410,6 +427,8 @@ def _update_speech_transcripts():
                 continue
             if blob.size > 19.5 * 1024**2:  # 19.5 MB
                 logger.warn(f"{blob.name} is too large")
+                if today - video.start_time < dt.timedelta(days=14):
+                    transcript_task.run(doc_path=doc.reference.path)
                 continue
             queries.append(
                 gemini.AudioTranscriptQuery(
@@ -586,12 +605,51 @@ def _build_hashtag_queries(
 
 
 def _attach_legislator_context_to_summary_queries(
-    queries: list[gemini.DocumentSummaryQuery | gemini.TranscriptSummaryQuery],
+    db: Client,
+    queries: list[gemini.DocumentSummaryQuery] | list[gemini.TranscriptSummaryQuery],
+):
+    create_date = _get_create_date(db, queries[0].doc_path)
+    term = utils.get_legislative_yuan_term(create_date)
+    if not term:
+        logger.error(
+            "Can't determine the term for the document: " + queries[0].doc_path
+        )
+        raise ValueError("Can't determine the term for the document.")
+    for q in queries:
+        ctx = io.StringIO()
+        context.attach_legislators_background(ctx, [term])
+        q.context += ctx.getvalue()
+
+
+def _attach_director_context_to_summary_queries(
+    db: Client,
+    queries: list[gemini.DocumentSummaryQuery] | list[gemini.TranscriptSummaryQuery],
 ):
     for q in queries:
-        ctx = io.StringIO(q.context)
-        context.attach_legislators_background(ctx, [11])
-        q.context = ctx.getvalue()
+        ctx = io.StringIO()
+        ref = db.document(q.doc_path)
+        vectors = [e.to_vector() for e in models.get_embeddings(ref)]
+        context.attach_directors_background(ctx, vectors)
+        q.context += ctx.getvalue()
+
+
+def _get_create_date(db: Client, ref_path: str) -> dt.datetime:
+    """Get the document's created date."""
+    if ref_path.startswith(models.PROCEEDING_COLLECT):
+        doc_ref = db.document("/".join(ref_path.split("/")[0:2]))
+        doc = doc_ref.get()
+        if not doc.exists:
+            return dt.datetime.min
+        return models.Proceeding.from_dict(doc.to_dict()).created_date
+    elif ref_path.startswith(models.MEETING_COLLECT):
+        doc_ref = db.document("/".join(ref_path.split("/")[0:2]))
+        doc = doc_ref.get()
+        if not doc.exists:
+            return dt.datetime.min
+        meet: models.Meeting = models.Meeting.from_dict(doc.to_dict())
+        return meet.meeting_date_start
+    else:
+        return dt.datetime.now(tz=_TZ)
 
 
 @scheduler_fn.on_schedule(
@@ -620,3 +678,33 @@ def update_historical_meetings(_):
             timeout=120,
         )
         res.raise_for_status()
+
+
+@scheduler_fn.on_schedule(
+    schedule="*/30 * * * *",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.MB_512,
+    timeout_sec=1800,
+)
+def update_batch_job_status(_):
+    db = firestore.client()
+
+    documents = (
+        db.collection(gemini.GEMINI_COLLECTION)
+        .where(filter=FieldFilter("finished", "==", False))
+        .where(filter=FieldFilter("status", "==", gemini.BATCH_JOB_STATUS_RUNNING))
+        .stream()
+    )
+
+    for doc in documents:
+        job = gemini.BatchPredictionJob(**doc.to_dict())
+        status = job.poll_job_state()
+        if status == gemini.JOB_STATE_QUEUED:
+            continue
+        elif status == gemini.JOB_STATE_CANCELLED | status == gemini.JOB_STATE_FAILED:
+            job.status = gemini.BATCH_JOB_STATUS_FAILED
+            job.finished = True
+            doc.reference.update(dataclasses.asdict(job))

@@ -4,12 +4,15 @@
 # pylint: disable=invalid-name,no-member
 import dataclasses
 import datetime as dt
+import io
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import google.cloud.firestore  # type: ignore
+import opencc  # type: ignore
 from ai import embeddings, gemini
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
@@ -83,7 +86,7 @@ def update_meetings(request: https_fn.Request) -> https_fn.Response:
                 continue
             doc_ref = collection.document(meet.document_id)
             doc = doc_ref.get()
-            if doc.exists and doc != meet:
+            if doc.exists:
                 batch.update(doc_ref, meet.asdict())
                 continue
             batch.set(doc_ref, meet.asdict())
@@ -982,6 +985,11 @@ def update_legislators(request: https_fn.Request) -> https_fn.Response:
 
 @https_fn.on_request(region=_REGION, memory=MemoryOption.MB_512)
 def update_meetings_by_date(request: https_fn.Request):
+    """Update meetings by date.
+
+    Query parameters:
+        date: str, required, the date of the meeting in format of "Y/M/D", ex: 113/9/18.
+    """
     try:
         meet_date = request.args.get("date", "")
         term = int(request.args.get("term", 0))
@@ -995,12 +1003,25 @@ def update_meetings_by_date(request: https_fn.Request):
         raise RuntimeError(f"Fail to update meeting by date: {e}") from e
 
 
+def _guess_meeting_time_from_tags(tags: list[str]) -> str:
+    """Guess the meeting time from tags.
+
+    The tags are usually in the format of "09:00-12:00".
+    See https://ppg.ly.gov.tw/ppg/api/v1/all-sittings?size=-1&page=1&meetingDate=113/9/20 for an example.
+    """
+    for tag in tags:
+        m = re.search(r"(\d+:\d+-\d+:\d+)", tag)
+        if m:
+            return m.group(1)
+    return ""
+
+
 def _update_meeting_by_date(
     meet_date: str, term: int = 0, period: int = 0
 ) -> list[str]:
     res = session.new_legacy_session().get(
         LEGISLATURE_PPG_API.value + "/v1/all-sittings",
-        params={"size": -1, "page": 1, "meetingDate": meet_date},
+        params={"size": -1, "page": 1, "meetingDate": meet_date},  # type: ignore
         headers=session.REQUEST_HEADER,
         timeout=_DEFAULT_TIMEOUT,
     )
@@ -1012,11 +1033,18 @@ def _update_meeting_by_date(
     items = res.json().get("items", [])
     item: dict[str, Any]
     new_meetings = []
+    q = tasks.CloudRunQueue.open("fetchMeetingFromWeb")
     for item in items:
         meeting_no = item.get("id", "")
         meeting_date = item.get("meetingDate", "")
         meeting_time = item.get("meetingTime", "")
-        if not meeting_no or not meeting_date or not meeting_time:
+        if not meeting_no or not meeting_date:
+            logger.warn(f"Can't find meeting no or date for meeting {meeting_no}")
+            continue
+        if not meeting_time:
+            meeting_time = _guess_meeting_time_from_tags(item.get("tags", []))
+        if not meeting_time:
+            logger.warn(f"Can't find meeting time for meeting {meeting_no}")
             continue
         m = models.Meeting(
             meeting_no=meeting_no,
@@ -1029,6 +1057,7 @@ def _update_meeting_by_date(
         )
         ref = db.collection(models.MEETING_COLLECT).document(m.document_id)
         if ref.get().exists:
+            q.run(meet_no=m.meeting_no, url=m.get_url())
             continue
         new_meetings.append(m.meeting_no)
         batch.set(ref, m.asdict())
@@ -1121,3 +1150,51 @@ def _get_document_full_text(doc: document.DocumentSnapshot, group) -> str | None
             return attach.full_text
         case _:
             raise TypeError(f"Unknown group: {group}")
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=50),
+    memory=MemoryOption.GB_1,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=10,
+    concurrency=5,
+)
+def transcriptLongVideo(request: tasks_fn.CallableRequest):
+    """Transcript long video."""
+    try:
+        doc_path = request.data["docPath"]
+        _transcript_long_video(doc_path)
+    except Exception as e:
+        logger.error(f"Fail to transcriptLongVideo: {e}")
+        raise RuntimeError(f"Fail to transcriptLongVideo: {e}") from e
+
+
+def _transcript_long_video(doc_path: str):
+    db = firestore.client()
+    ref = db.document(doc_path)
+    doc = ref.get()
+    if not doc.exists:
+        logger.warn(f"Document {doc_path} doesn't exist.")
+        return
+
+    video = models.Video.from_dict(doc.to_dict())
+    if not video.clips:
+        logger.warn(f"Video {doc_path} doesn't have clips.")
+        return
+
+    transcript = io.StringIO()
+    for audio in video.audios:
+        q = gemini.LongAudioTranscriptQuery(doc_path, audio)
+        rst = q.run(gemini.LongAudioTranscriptResult)
+        if not rst:
+            continue
+        transcript.write(rst.transcript)
+
+    cc = opencc.OpenCC("s2tw")
+    video.transcript = cc.convert(transcript.getvalue())
+    video.has_transcript = bool(video.transcript)
+    video.transcript_updated_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+
+    ref.update(video.asdict())

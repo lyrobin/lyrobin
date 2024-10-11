@@ -14,6 +14,7 @@ from firebase_functions.options import SupportedRegion
 from google.auth import credentials
 from google.auth.transport.requests import AuthorizedSession
 from utils import testings
+from utils.time import get_legislative_yuan_term
 
 T = TypeVar("T")
 

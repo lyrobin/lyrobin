@@ -40,7 +40,7 @@ def attach_legislators_background(f: IO[str], terms: list[int]):
         return
     f.write("# 立委名單\n\n")
     f.writelines(lines)
-    f.write("\n")
+    f.write("\n\n")
 
 
 def attach_directors_background(f: IO[str], vectors: list[Vector], limit: int = 20):
