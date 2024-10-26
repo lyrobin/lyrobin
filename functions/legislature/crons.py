@@ -7,8 +7,10 @@ import urllib.parse
 import uuid
 import requests
 import dataclasses
+import collections
 
 from ai import context, gemini
+from ai import langchain
 import firebase_admin  # type: ignore
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
@@ -16,6 +18,7 @@ from firebase_functions.options import MemoryOption, Timezone, SupportedRegion
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models
+from legislature import reports
 from utils import tasks
 import utils
 
@@ -294,7 +297,7 @@ def _update_attachments_summaries():
 
 
 @scheduler_fn.on_schedule(
-    schedule="*/30 00-02,21-23 * * *",
+    schedule="*/30 13-15,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -362,7 +365,7 @@ def _update_speeches_summaries(query_limit: int = 200):
 
 
 @scheduler_fn.on_schedule(
-    schedule="*/30 00-02,21-23 * * *",
+    schedule="*/30 13-15,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -555,6 +558,10 @@ def _update_document_hash_tags(
         collections = query.where(
             filter=FieldFilter("has_hash_tags", "==", False)
         ).where(filter=FieldFilter("has_tags_summary_attempts", "<", _MAX_ATTEMPTS))
+        if collection in [models.SPEECH_COLLECT, models.VIDEO_COLLECT]:
+            collections = collections.where(
+                filter=FieldFilter("has_transcript", "==", True)
+            )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
         return list(collections.limit(query_limit).stream())
@@ -653,7 +660,7 @@ def _get_create_date(db: Client, ref_path: str) -> dt.datetime:
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 23 * * *",
+    schedule="0 13-15,23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -708,3 +715,87 @@ def update_batch_job_status(_):
             job.status = gemini.BATCH_JOB_STATUS_FAILED
             job.finished = True
             doc.reference.update(dataclasses.asdict(job))
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 8 * * 6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_1,
+    timeout_sec=1800,
+)
+def generate_weekly_report(_):
+    try:
+        today = dt.datetime.now(tz=_TZ)
+        monday = today - dt.timedelta(days=today.weekday())
+        saturday = monday + dt.timedelta(days=5)
+        _generate_weekly_report(monday, saturday)
+    except Exception as e:
+        logger.error(f"Fail to generate weekly report, {e}")
+        raise RuntimeError("Fail to generate weekly report.") from e
+
+
+def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
+    # get datetime object of this week's monday
+    # today = dt.datetime.now(tz=_TZ)
+    # monday = today - dt.timedelta(days=today.weekday())
+    db = firestore.client()
+
+    docs = (
+        db.collection(models.MEETING_COLLECT)
+        .where("meeting_date_start", ">=", start)
+        .where("meeting_date_start", "<=", end)
+        .order_by("meeting_date_start", direction="ASCENDING")
+        .stream()
+    )
+
+    meetings: dict[str, list[models.MeetingModel]] = collections.defaultdict(list)
+    for doc in docs:
+        m = models.MeetingModel.from_ref(doc.reference)
+        meetings[m.value.meeting_unit].append(m)
+
+    all_meetings = []
+    for _, v in meetings.items():
+        all_meetings.extend(v)
+
+    report_txt = reports.dumps_meetings_report(all_meetings)
+    transcript_txt = reports.dumps_meeting_transcripts(all_meetings)
+
+    bucket = storage.bucket()
+    week_number = start.isocalendar().week
+
+    # all report
+    blob = bucket.blob(f"reports/weekly/w{week_number}.md")
+    blob.upload_from_string(report_txt, content_type="text/markdown; charset=utf-8")
+    report_uri = f"gs://{bucket.name}/{blob.name}"
+
+    # transcript
+    transcript_blob = bucket.blob(f"reports/weekly/w{week_number}_transcripts.md")
+    transcript_blob.upload_from_string(
+        transcript_txt, content_type="text/markdown; charset=utf-8"
+    )
+    transcript_uri = f"gs://{bucket.name}/{transcript_blob.name}"
+
+    titles = langchain.generate_weekly_news_titles(report_txt)
+    weekly_report = models.WeeklyReport(
+        report_date=end,
+        all_report_uri=report_uri,
+        transcript_uri=transcript_uri,
+        titles=titles,
+    )
+    db.collection(models.WEEKLY_COLLECT).document(str(weekly_report.week)).set(
+        weekly_report.asdict(), merge=True
+    )
+
+    for title in titles:
+        doc = db.collection(models.NEWS_REPORT_COLLECT).document()
+        doc.set(
+            models.NewsReport(
+                title=title,
+                source_uri=report_uri,
+                transcript_uri=transcript_uri,
+                report_date=end,
+            ).asdict()
+        )

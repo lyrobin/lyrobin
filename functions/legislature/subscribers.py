@@ -2,8 +2,8 @@
 
 import dataclasses
 import datetime as dt
-import json
 import itertools
+import json
 
 import functions_framework
 import opencc  # type: ignore
@@ -12,11 +12,13 @@ from ai import gemini
 from ai import models as aimodels
 from cloudevents.http.event import CloudEvent
 from firebase_admin import firestore  # type: ignore
-from firebase_functions import logger, storage_fn
-from firebase_functions.options import MemoryOption
+from firebase_functions import firestore_fn, logger, storage_fn
+from firebase_functions.options import MemoryOption, SupportedRegion
 from legislature import models
+from utils import tasks
 
 _EAST_TZ = pytz.timezone("US/Eastern")
+_REGION = SupportedRegion.ASIA_EAST1
 
 
 @storage_fn.on_object_finalized(
@@ -171,3 +173,16 @@ def on_receive_bigquery_batch_hashtags_summary(event: CloudEvent):
             batch.update(ref, m.asdict())
         batch.commit()
     job.mark_as_done()
+
+
+@firestore_fn.on_document_created(
+    document="news_reports/{documentId}",
+    region=_REGION,
+    memory=MemoryOption.MB_512,
+)
+def on_news_report_created(
+    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
+):
+    doc_id = event.params["documentId"]
+    q = tasks.CloudRunQueue("generateNewsReport", region=gemini.GEMINI_REGION)
+    q.run(doc=doc_id)

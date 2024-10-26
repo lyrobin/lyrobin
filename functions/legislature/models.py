@@ -2,21 +2,26 @@
 This module contains the models for the Firestore database.
 """
 
+import abc
+import contextlib
+
 # pylint: disable=attribute-defined-outside-init
 # pylint: disable=no-member
 import dataclasses
 import datetime as dt
-import uuid
-from typing import TypeVar, Type, Any, Sequence
-from urllib import parse
+import functools
 import json
+import uuid
+from typing import Any, Sequence, Type, TypeVar
+from urllib import parse
 
 import deepdiff  # type: ignore
 import pytz  # type: ignore
 import utils
+from firebase_admin import storage  # type: ignore
+from google.cloud import firestore  # type: ignore
 from google.cloud.firestore_v1.vector import Vector
 from legislature import LEGISLATURE_MEETING_URL
-from google.cloud import firestore  # type: ignore
 
 # Collection Constants
 MEETING_COLLECT = "meetings"
@@ -24,6 +29,8 @@ IVOD_COLLECT = "ivods"
 FILE_COLLECT = "files"
 PROCEEDING_COLLECT = "proceedings"
 ATTACH_COLLECT = "attachments"
+WEEKLY_COLLECT = "weekly"
+NEWS_REPORT_COLLECT = "news_reports"
 # Sub-collection - general
 EMBEDDINGS_COLLECT = "embeddings"
 # Sub-collection - ivod
@@ -32,6 +39,7 @@ SPEECH_COLLECT = "speeches"
 MEMBER_COLLECT = "members"
 
 T = TypeVar("T", bound="FireStoreDocument")
+K = TypeVar("K", bound="BaseDocument")
 _TZ = pytz.timezone("Asia/Taipei")
 
 MODEL_TIMEZONE = _TZ
@@ -127,6 +135,27 @@ class DateTimeField:
             raise TypeError(
                 f"{self._default_name} must be a dt.datetime or str, not {value}"
             )
+
+
+@dataclasses.dataclass
+class BaseDocument(abc.ABC):
+
+    @classmethod
+    def from_dict(cls: Type[K], data: dict | None) -> K:
+        """
+        Creates a new instance from a dictionary.
+        """
+        if data is None:
+            raise ValueError("data must be a dict.")
+        fields = {field.name for field in dataclasses.fields(cls)}
+        _data = {utils.camel_to_snake(k): v for k, v in data.items()}
+        return cls(**{k: v for k, v in _data.items() if k in fields})
+
+    def asdict(self) -> dict:
+        """
+        Returns a dictionary representation of the object.
+        """
+        return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass(match_args=False)
@@ -455,3 +484,224 @@ def get_embeddings(ref: firestore.DocumentReference) -> list[Embedding]:
     if not all(ref.get().exists for ref in embedding_refs):
         raise RuntimeError("Some embeddings do not exist.")
     return [Embedding.from_dict(ref.get().to_dict()) for ref in embedding_refs]
+
+
+@dataclasses.dataclass
+class WeeklyReport(BaseDocument):
+    """Weekly report for Legislature Yuan."""
+
+    all_report_uri: str
+    transcript_uri: str
+    report_date: DateTimeField = DateTimeField()
+    titles: list[str] = dataclasses.field(default_factory=list)
+    week: int = 0
+
+    def __post_init__(self):
+        if not self.all_report_uri.startswith("gs://"):
+            raise ValueError(f"Invalid URI: {self.all_report_uri}")
+        self.week = self.report_date.isocalendar()[1]
+
+    def all_report_txt(self) -> str:
+        """Get the content of the report."""
+        bucket, blob_path = utils.parse_gsutil_uri(self.all_report_uri)
+        blob = storage.bucket(bucket).blob(blob_path)
+        return blob.download_as_text(encoding="utf-8")
+
+
+@dataclasses.dataclass
+class NewsReport(BaseDocument):
+    """A news report."""
+
+    title: str
+    source_uri: str
+    transcript_uri: str
+    content: str | None = None
+    keywords: list[str] = dataclasses.field(default_factory=list)
+    legislators: list[str] = dataclasses.field(default_factory=list)
+    report_date: DateTimeField = DateTimeField()
+    is_ready: bool = False
+
+    def get_source_text(self) -> str:
+        bucket, blob_path = utils.parse_gsutil_uri(self.source_uri)
+        blob = storage.bucket(bucket).blob(blob_path)
+        return blob.download_as_text(encoding="utf-8")
+
+    def get_transcript_text(self) -> str:
+        bucket, blob_path = utils.parse_gsutil_uri(self.transcript_uri)
+        blob = storage.bucket(bucket).blob(blob_path)
+        return blob.download_as_text(encoding="utf-8")
+
+
+# Start of data models
+class MeetingModel:
+    """A model for a meeting."""
+
+    @functools.cached_property
+    def value(self) -> Meeting:
+        """Get the value of the model."""
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return Meeting.from_dict(doc.to_dict())
+
+    @functools.cached_property
+    def proceedings(self) -> list["ProceedingModel"]:
+        """Get the proceedings of the meeting."""
+        return self._get_proceedings()
+
+    @functools.cached_property
+    def speeches(self) -> list["SpeechModel"]:
+        """Get the speeches of the meeting."""
+        return self._get_speeches()
+
+    @functools.cached_property
+    def ivods(self) -> list["IVODModel"]:
+        """Get the IVODs of the meeting."""
+        return self._get_ivods()
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @classmethod
+    def from_ref(cls, ref: firestore.DocumentReference) -> "MeetingModel":
+        """Build a MeetingModel from a Firestore reference."""
+        if not ref.path.startswith(MEETING_COLLECT):
+            raise ValueError(f"Invalid collection: {ref.path}")
+        parts = ref.path.split("/")
+        parent = ref
+        for _ in range(0, len(parts) - 2):
+            parent = parent.parent
+        return cls(parent)
+
+    def _get_proceedings(self) -> list["ProceedingModel"]:
+        docs = self.ref.collection(PROCEEDING_COLLECT).stream()
+        return [ProceedingModel.from_ref(doc.reference) for doc in docs]
+
+    def _get_speeches(self) -> list["SpeechModel"]:
+        ivods: list[firestore.DocumentReference] = [
+            doc.reference for doc in self.ref.collection(IVOD_COLLECT).stream()
+        ]
+        result: list["SpeechModel"] = []
+        for ivod in ivods:
+            result.extend(
+                SpeechModel(doc.reference)
+                for doc in ivod.collection(SPEECH_COLLECT).stream()
+            )
+        return result
+
+    def _get_ivods(self) -> list["IVODModel"]:
+        docs = self.ref.collection(IVOD_COLLECT).stream()
+        return [IVODModel.from_ref(doc.reference) for doc in docs]
+
+
+class ProceedingModel:
+    """A model for a proceeding."""
+
+    @functools.cached_property
+    def value(self) -> Proceeding:
+        """Get the value of the model."""
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return Proceeding.from_dict(doc.to_dict())
+
+    @functools.cached_property
+    def attachments(self) -> list["AttachmentModel"]:
+        """Get the attachments of the proceeding."""
+        return self._get_attachments()
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @classmethod
+    def from_ref(cls, ref: firestore.DocumentReference) -> "ProceedingModel":
+        """Build a ProceedingModel from a Firestore reference."""
+        if ref.path.startswith(MEETING_COLLECT):
+            return cls._from_sub_reference(ref)
+        elif ref.path.startswith(PROCEEDING_COLLECT):
+            return cls._from_reference(ref)
+        else:
+            raise ValueError(f"Invalid collection: {ref.path}")
+
+    @classmethod
+    def _from_reference(cls, ref: firestore.DocumentReference) -> "ProceedingModel":
+        if not ref.path.startswith(PROCEEDING_COLLECT):
+            raise ValueError(f"Invalid collection: {ref.path}")
+        parts = ref.path.split("/")
+        parent = ref
+        for _ in range(0, len(parts) - 2):
+            parent = parent.parent
+        return cls(parent)
+
+    @classmethod
+    def _from_sub_reference(cls, ref: firestore.DocumentReference) -> "ProceedingModel":
+        """Build a ProceedingModel from a Firestore reference."""
+        if not ref.path.startswith(MEETING_COLLECT):
+            raise ValueError(f"Invalid collection: {ref.path}")
+        parts = ref.path.split("/")
+        if len(parts) < 4 or parts[-2] != PROCEEDING_COLLECT:
+            raise ValueError(f"Invalid collection: {ref.path}")
+        doc = ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {ref.path} does not exist")
+        m = Proceeding.from_dict(doc.to_dict())
+        db = firestore.Client()
+        with contextlib.closing(db):
+            return cls._from_reference(
+                db.document(PROCEEDING_COLLECT + "/" + m.bill_no)
+            )
+
+    def _get_attachments(self) -> list["AttachmentModel"]:
+        docs = self.ref.collection(ATTACH_COLLECT).stream()
+        return [AttachmentModel.from_ref(doc.reference) for doc in docs]
+
+
+class AttachmentModel:
+
+    @functools.cached_property
+    def value(self) -> Attachment:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return Attachment.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @classmethod
+    def from_ref(cls, ref: firestore.DocumentReference) -> "AttachmentModel":
+        if not ref.path.startswith(PROCEEDING_COLLECT):
+            raise ValueError(f"Invalid collection: {ref.path}")
+        return cls(ref)
+
+
+class SpeechModel:
+
+    @functools.cached_property
+    def value(self) -> Video:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return Video.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+
+class IVODModel:
+
+    @functools.cached_property
+    def value(self) -> IVOD:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return IVOD.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @classmethod
+    def from_ref(cls, ref: firestore.DocumentReference) -> "IVODModel":
+        if not ref.path.startswith(MEETING_COLLECT):
+            raise ValueError(f"Invalid collection: {ref.path}")
+        return cls(ref)

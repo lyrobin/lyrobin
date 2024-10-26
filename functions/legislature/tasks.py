@@ -5,6 +5,7 @@ import tempfile
 
 import opencc  # type: ignore
 from ai import gemini
+from ai import langchain
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, tasks_fn
 from firebase_functions.options import (
@@ -119,3 +120,36 @@ def _extractAudio(doc_path: str):
         audios.append(gs_audio_path)
         v.audios = audios
     ref.update(v.asdict())
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=5),
+    max_instances=5,
+    cpu=1,
+    memory=MemoryOption.GB_1,
+    timeout_sec=1800,
+    region=gemini.GEMINI_REGION,
+    concurrency=1,
+)
+def generateNewsReport(request: tasks_fn.CallableRequest):
+    db = firestore.client()
+    ref = db.collection(models.NEWS_REPORT_COLLECT).document(request.data["doc"])
+    if not ref.get().exists:
+        raise RuntimeError(f"news report {request.data['doc']} doesn't exist.")
+    news_report = models.NewsReport.from_dict(ref.get().to_dict())
+    source_content = news_report.get_source_text()
+    weekly_news = langchain.generate_weekly_news_with_title(
+        source_content, news_report.title
+    )
+    keywords = langchain.generate_news_keywords(weekly_news)
+    legislators = langchain.search_news_stakeholders(
+        news_report.get_transcript_text(), weekly_news
+    )
+
+    news_report.content = weekly_news.content
+    news_report.keywords = keywords
+    news_report.legislators = legislators
+    news_report.is_ready = True
+
+    ref.update(news_report.asdict())
