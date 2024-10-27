@@ -25,10 +25,40 @@ def simple_retry(func):
         for _ in range(5):
             try:
                 return func(*args, **kwargs)
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 time.sleep(1)
 
     return wrapper
+
+
+def retry(max_retries=3, backoff_in_seconds=1):
+    """
+    A retry decorator with exponential backoff and maximum retries.
+
+    Args:
+        max_retries (int): Maximum number of retries.
+        backoff_in_seconds (int): Initial backoff time in seconds.
+
+    Returns:
+        function: The decorated function with retry logic.
+    """
+
+    def decorator_retry(func):
+        @functools.wraps(func)
+        def wrapper_retry(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception:  # pylint: disable=broad-except
+                    retries += 1
+                    if retries >= max_retries:
+                        raise
+                    time.sleep(backoff_in_seconds * (2 ** (retries - 1)))
+
+        return wrapper_retry
+
+    return decorator_retry
 
 
 def snake_to_camel(snake_str):
@@ -124,3 +154,16 @@ class simple_cached_property(Generic[T]):
         if value is not None:
             setattr(instance, "_cached_" + self._name, value)
         return value
+
+
+def parse_gsutil_uri(uri: str) -> tuple[str, str]:
+    """
+    Parse a gsutil URI into bucket and path.
+    """
+    if not uri.startswith("gs://"):
+        raise ValueError(f"Invalid gsutil URI: {uri}")
+    uri = uri[5:]
+    parts = uri.split("/", 1)
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts
