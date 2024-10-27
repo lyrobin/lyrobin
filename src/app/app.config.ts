@@ -74,7 +74,7 @@ export const appConfig: ApplicationConfig = {
         appId: '1:661598081211:web:febbd559cbf3295bdb999e',
         storageBucket: 'taiwan-legislative-search.appspot.com',
         apiKey: 'AIzaSyCWElTvWiGH7rZMxFl2s5xEbsLXDo3Ub44',
-        authDomain: 'auth.lyrobin.com',
+        authDomain: 'lyrobin.com',
         messagingSenderId: '661598081211',
         measurementId: 'G-Y7KWHXBGXY',
       })
