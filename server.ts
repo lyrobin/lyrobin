@@ -29,6 +29,7 @@ export function app(): express.Express {
     proxy('taiwan-legislative-search.firebaseapp.com', {
       https: true,
       proxyReqPathResolver: function (req) {
+        console.log('Proxy: ' + req.url);
         return '/__/auth' + req.url;
       },
     })
