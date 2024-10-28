@@ -290,7 +290,10 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest):
     batch = db.batch()
 
     ivods_collect = meet_doc_ref.collection(models.IVOD_COLLECT)
+    ivod_fetch_queue = tasks.CloudRunQueue.open("fetchIVODFromWeb")
     for v in ivods:
+        if ivods_collect.document(v.document_id).get().exists:
+            ivod_fetch_queue.run(meet_no=meet_no, ivod_no=v.document_id)
         batch.set(ivods_collect.document(v.document_id), v.asdict(), merge=True)
 
     files_collect = meet_doc_ref.collection(models.FILE_COLLECT)
