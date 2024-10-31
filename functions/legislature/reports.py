@@ -16,6 +16,7 @@ def dumps_meetings_report(meetings: Sequence[models.MeetingModel]) -> str:
         buf.write("## 委員發言\n")
         for s in m.speeches:
             buf.write(f"### {s.value.member}\n\n")
+            buf.write(f"- 時間: {s.value.start_time}\n")
             buf.write(f"- 影片: {s.value.hd_url}\n")
             buf.write("\n")
             buf.write(f"{s.value.transcript}\n")
@@ -41,6 +42,7 @@ def dumps_meeting_transcripts(meetings: Sequence[models.MeetingModel]) -> str:
         buf.write("## 委員發言\n")
         for s in m.speeches:
             buf.write(f"### {s.value.member}\n\n")
+            buf.write(f"- 時間: {s.value.start_time}\n")
             buf.write(f"- 影片: {s.value.hd_url}\n")
             buf.write("\n")
             buf.write(f"{s.value.transcript}\n")

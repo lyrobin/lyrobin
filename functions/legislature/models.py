@@ -684,6 +684,10 @@ class SpeechModel:
             raise ValueError(f"Document {self.ref.path} does not exist")
         return Video.from_dict(doc.to_dict())
 
+    @functools.cached_property
+    def meeting(self) -> MeetingModel:
+        return MeetingModel.from_ref(self.ref)
+
     def __init__(self, ref: firestore.DocumentReference):
         self.ref = ref
 

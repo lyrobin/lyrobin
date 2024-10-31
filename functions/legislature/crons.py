@@ -400,7 +400,7 @@ def _update_speech_transcripts():
                     dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc),
                 )
             )
-            .where(filter=FieldFilter("transcript_attempts", "<", 1))
+            .where(filter=FieldFilter("transcript_attempts", "<", _MAX_ATTEMPTS))
         )
         if last_doc is not None:
             collections = collections.start_after(last_doc)
@@ -433,6 +433,7 @@ def _update_speech_transcripts():
                 if today - video.start_time < dt.timedelta(days=14):
                     transcript_task.run(doc_path=doc.reference.path)
                 continue
+            logger.debug(f"Processing {doc.reference.path}")
             queries.append(
                 gemini.AudioTranscriptQuery(
                     doc.reference.path, base64.b64encode(blob.download_as_bytes())
@@ -718,7 +719,7 @@ def update_batch_job_status(_):
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 8 * * 6",
+    schedule="0 20 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -737,28 +738,44 @@ def generate_weekly_report(_):
         raise RuntimeError("Fail to generate weekly report.") from e
 
 
+def _get_meetings_in_range(
+    start: dt.datetime, end: dt.datetime, db: Client = None
+) -> list[models.MeetingModel]:
+    if db is None:
+        db = firestore.client()
+    docs = (
+        db.collection(models.MEETING_COLLECT)
+        .where("meeting_date_start", ">=", start)
+        .where("meeting_date_start", "<=", end)
+        .stream()
+    )
+    meetings = [models.MeetingModel.from_ref(doc.reference) for doc in docs]
+    docs = (
+        db.collection_group(models.SPEECH_COLLECT)
+        .where("start_time", ">=", start)
+        .where("start_time", "<=", end)
+        .stream()
+    )
+    meetings.extend(models.SpeechModel(doc.reference).meeting for doc in docs)
+    meetings = list(
+        {m.value.document_id: m for m in meetings}.values()
+    )  # remove duplicates
+    return meetings
+
+
 def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
     # get datetime object of this week's monday
     # today = dt.datetime.now(tz=_TZ)
     # monday = today - dt.timedelta(days=today.weekday())
     db = firestore.client()
 
-    docs = (
-        db.collection(models.MEETING_COLLECT)
-        .where("meeting_date_start", ">=", start)
-        .where("meeting_date_start", "<=", end)
-        .order_by("meeting_date_start", direction="ASCENDING")
-        .stream()
-    )
-
-    meetings: dict[str, list[models.MeetingModel]] = collections.defaultdict(list)
-    for doc in docs:
-        m = models.MeetingModel.from_ref(doc.reference)
-        meetings[m.value.meeting_unit].append(m)
+    meetings_by_unit = collections.defaultdict(list)
+    for m in _get_meetings_in_range(start, end, db):
+        meetings_by_unit[m.value.meeting_unit].append(m)
 
     all_meetings = []
-    for _, v in meetings.items():
-        all_meetings.extend(v)
+    for _, v in meetings_by_unit.items():
+        all_meetings.extend(sorted(v, key=lambda x: x.value.meeting_date_start))
 
     report_txt = reports.dumps_meetings_report(all_meetings)
     transcript_txt = reports.dumps_meeting_transcripts(all_meetings)

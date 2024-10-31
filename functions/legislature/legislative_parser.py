@@ -292,6 +292,7 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest):
     ivods_collect = meet_doc_ref.collection(models.IVOD_COLLECT)
     ivod_fetch_queue = tasks.CloudRunQueue.open("fetchIVODFromWeb")
     for v in ivods:
+        logger.debug(f"IVOD: {v.document_id}")
         if ivods_collect.document(v.document_id).get().exists:
             ivod_fetch_queue.run(meet_no=meet_no, ivod_no=v.document_id)
         batch.set(ivods_collect.document(v.document_id), v.asdict(), merge=True)
@@ -1188,7 +1189,7 @@ def _transcript_long_video(doc_path: str):
     if not video.clips:
         logger.warn(f"Video {doc_path} doesn't have clips.")
         return
-
+    logger.debug(f"Transcript long video: {doc_path}")
     transcript = io.StringIO()
     for audio in video.audios:
         q = gemini.LongAudioTranscriptQuery(doc_path, audio)
