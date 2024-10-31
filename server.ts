@@ -24,15 +24,15 @@ export function app(): express.Express {
     next();
   });
 
-  server.use(
-    '/__/auth',
-    proxy('taiwan-legislative-search.firebaseapp.com', {
-      https: true,
-      proxyReqPathResolver: function (req) {
-        return '/__/auth' + req.url;
-      },
-    })
-  );
+  // server.use(
+  //   '/__/auth',
+  //   proxy('taiwan-legislative-search.firebaseapp.com', {
+  //     https: true,
+  //     proxyReqPathResolver: function (req) {
+  //       return '/__/auth' + req.url;
+  //     },
+  //   })
+  // );
 
   // Example Express Rest API endpoints
   // server.get('/api/**', (req, res) => { });
