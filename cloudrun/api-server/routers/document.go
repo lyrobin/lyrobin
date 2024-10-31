@@ -2,6 +2,7 @@ package routers
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/models"
 	"github.com/gin-gonic/gin"
@@ -52,5 +53,24 @@ func HandleGetVideoPlaylist(store models.StoreReader) gin.HandlerFunc {
 			return
 		}
 		ctx.String(404, "playlist not found")
+	}
+}
+
+func HandleListNewsReports(store models.StoreReader) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		startAfter := ctx.Query("start")
+		limit := 10
+		if q, ok := ctx.GetQuery("limit"); ok {
+			limit, _ = strconv.Atoi(q)
+		}
+		if limit <= 0 {
+			limit = 10
+		}
+		reports, err := store.ListNewsReports(ctx.Request.Context(), startAfter, limit)
+		if err != nil {
+			ctx.String(404, err.Error())
+			return
+		}
+		ctx.JSON(200, reports)
 	}
 }

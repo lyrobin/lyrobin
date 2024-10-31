@@ -64,6 +64,10 @@ func (r Router) Register(e *gin.Engine) {
 			g.GET("/:collection/:videoID/playlist", HandleGetVideoPlaylist(r.StoreReader))
 		}
 	}
+	{
+		g := e.Group("/news")
+		g.GET("", HandleListNewsReports(r.StoreReader))
+	}
 
 	// V1 APIs
 	v1 := e.Group("/v1")

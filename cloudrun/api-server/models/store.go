@@ -23,6 +23,7 @@ type StoreReader interface {
 	GetVideo(ctx context.Context, path string) (Video, error)
 	GetLegislator(ctx context.Context, path string) (Legislator, error)
 	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
+	ListNewsReports(ctx context.Context, startAt string, limit int) ([]NewsReport, error)
 }
 
 type Document struct {
@@ -86,6 +87,16 @@ type Topic struct {
 	Title   string   `firestore:"title,omitempty" json:"title,omitempty"`
 	Summary string   `firestore:"summary,omitempty" json:"summary,omitempty"`
 	Tags    []string `firestore:"tags,omitempty" json:"tags,omitempty"`
+}
+
+type NewsReport struct {
+	Title       string    `firestore:"title,omitempty" json:"title,omitempty"`
+	SourceURI   string    `firestore:"source_uri,omitempty" json:"source_uri,omitempty"`
+	Content     string    `firestore:"content,omitempty" json:"content,omitempty"`
+	Keywords    []string  `firestore:"keywords,omitempty" json:"keywords,omitempty"`
+	Legislators []string  `firestore:"legislators,omitempty" json:"legislators,omitempty"`
+	ReportDate  time.Time `firestore:"report_date,omitempty" json:"report_date,omitempty"`
+	ID          string    `json:"id,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}
@@ -260,4 +271,51 @@ func (s *FireStore) GetTopicByTags(ctx context.Context, tags []string) (Topic, e
 		return Topic{}, errors.New("topic not found")
 	}
 	return topics[0], nil
+}
+
+func (s *FireStore) ListNewsReports(ctx context.Context, startAfter string, limit int) ([]NewsReport, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	query := client.Collection(
+		"news_reports",
+	).Where(
+		"is_ready", "==", true,
+	).OrderBy(
+		"report_date", firestore.Desc,
+	)
+
+	if startAfter != "" {
+		if !strings.HasPrefix(startAfter, "news_reports/") {
+			startAfter = "news_reports/" + startAfter
+		}
+		doc, err := client.Doc(startAfter).Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+		query = query.StartAfter(doc)
+	}
+
+	iter := query.Limit(
+		limit,
+	).Documents(ctx)
+
+	reports := []NewsReport{}
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		var report NewsReport
+		doc.DataTo(&report)
+		report.ID = strings.TrimPrefix(doc.Ref.Path, doc.Ref.Parent.Path+"/")
+		reports = append(reports, report)
+	}
+	return reports, nil
 }
