@@ -15,6 +15,11 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'news',
+    loadComponent: () =>
+      import('./pages/news/news.component').then(c => c.NewsComponent),
+  },
+  {
     path: '**',
     redirectTo: 'search',
   },

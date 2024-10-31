@@ -1,0 +1,35 @@
+<p-card [header]="newsReport.title" styleClass="news-card">
+  <p>{{ newsReport.report_date | date: 'yyyy年MM月dd日' }}</p>
+  @for (tag of newsReport.keywords; track $index) {
+    <p-tag
+      [value]="'#' + tag"
+      severity="secondary"
+      styleClass="my-1 mr-2 cursor-pointer"
+      (click)="searchKeyword(tag)"></p-tag>
+  }
+  @if (isExpanded) {
+    <markdown [data]="newsReport.content"></markdown>
+  } @else {
+    <markdown [data]="newsReport.content | limitText: 100"></markdown>
+    <p-button
+      label="閱讀更多"
+      icon="pi pi-angle-double-down"
+      styleClass="p-button-secondary p-1"
+      [outlined]="true"
+      size="small"
+      (onClick)="isExpanded = true"></p-button>
+  }
+  <ng-template pTemplate="footer">
+    <p class="font-semibold mr-2 block md:hidden">相關立委</p>
+    <div class="flex align-items-center flex-wrap">
+      <p class="font-semibold mr-2 hidden md:block lg:block">相關立委:</p>
+      @for (name of newsReport.legislators; track $index) {
+        <p-tag
+          [value]="name"
+          severity="contrast"
+          styleClass="my-1 mr-2 cursor-pointer"
+          (click)="searchLegislator(name)"></p-tag>
+      }
+    </div>
+  </ng-template>
+</p-card>

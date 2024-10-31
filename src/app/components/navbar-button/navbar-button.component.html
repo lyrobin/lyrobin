@@ -1,0 +1,54 @@
+<p-button
+  [outlined]="true"
+  icon="pi pi-bars"
+  size="small"
+  styleClass="ml-2"
+  (onClick)="navbarVisible = true"></p-button>
+<p-sidebar [(visible)]="navbarVisible" appendTo="body" position="right">
+  <ng-template pTemplate="header">
+    <div class="flex align-items-center">
+      <p-avatar
+        image="/assets/logo.png"
+        styleClass="mr-2 cursor-pointer"
+        size="normal"
+        shape="circle" />
+      <h2 class="menu-title">立院知更</h2>
+    </div>
+  </ng-template>
+  <div class="flex flex-column h-full">
+    <div class="overflow-y-auto overflow-x-hidden">
+      <ul class="list-none p-0 m-1">
+        <li>
+          <div
+            class="cursor-pointer hover:surface-100 p-2 border-round font-semibold text-lg"
+            (click)="gotoNews()">
+            每週新聞
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <div class="flex flex-column">
+      @if (isUserLoggedIn()) {
+        <div>
+          <p-avatar
+            [label]="userPhoto() ? '' : userLabel"
+            [image]="userPhoto()"
+            shape="circle"></p-avatar>
+          <span class="ml-2 font-semibold">{{ userName() }}</span>
+        </div>
+      } @else {
+        <ul class="list-none p-0 m-1">
+          <li>
+            <div
+              class="cursor-pointer hover:surface-100 p-2 border-round font-semibold text-lg"
+              (click)="login()">
+              登入
+            </div>
+          </li>
+        </ul>
+      }
+    </div>
+  </ng-template>
+</p-sidebar>

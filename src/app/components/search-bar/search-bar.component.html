@@ -8,6 +8,7 @@
       (click)="goHome()" />
     <span class="spacer"></span>
     <app-user-button></app-user-button>
+    <app-navbar-button></app-navbar-button>
   </mat-toolbar-row>
   <mat-toolbar-row
     class="flex justify-content-center lg:justify-content-around">
@@ -35,9 +36,11 @@
     </div>
     <span class="spacer"></span>
     <app-user-button class="hidden lg:block"></app-user-button>
+    <app-navbar-button class="hidden lg:block"></app-navbar-button>
   </mat-toolbar-row>
   <mat-toolbar-row
-    class="overflow-x-scroll lg:overflow-x-hidden overflow-y-visible second-toolbar-row">
+    class="overflow-x-scroll lg:overflow-x-hidden overflow-y-visible second-toolbar-row"
+    [class.hidden]="!showFacets">
     <span class="spacer md:hidden lg:block"></span>
     <mat-chip-set class="block">
       @for (f of filters; track $index) {

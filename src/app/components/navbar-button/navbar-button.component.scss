@@ -1,0 +1,15 @@
+:host::ng-deep {
+  .p-button {
+    padding: 0.5rem;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+::ng-deep .p-sidebar-header  {
+    padding: 0.5rem 1rem;
+  }
+
+.menu-title {
+  font-family: 'LXGW WenKai Mono TC';
+}

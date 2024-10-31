@@ -1,0 +1,8 @@
+:host::ng-deep {
+    .news-card {
+        background-color: var(--surface);
+    }
+    .news-card.p-card {
+        color: var(--surface-300);
+    }
+}

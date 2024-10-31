@@ -13,6 +13,7 @@ import { ExternalLinkDirective } from '../../directives/external-link.directive'
 import { EventLoggerService } from '../../providers/event-logger.service';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { UserButtonComponent } from '../../components/user-button/user-button.component';
+import { NavbarButtonComponent } from '../../components/navbar-button/navbar-button.component';
 
 @Component({
   selector: 'app-home',
@@ -30,6 +31,7 @@ import { UserButtonComponent } from '../../components/user-button/user-button.co
     FontAwesomeModule,
     MatToolbarModule,
     UserButtonComponent,
+    NavbarButtonComponent,
   ],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',

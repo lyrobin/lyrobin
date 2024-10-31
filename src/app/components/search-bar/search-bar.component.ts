@@ -28,6 +28,7 @@ import { FacetValuePipe } from '../../utils/facet-value.pipe';
 import { UserButtonComponent } from '../user-button/user-button.component';
 import { OverlayPanel, OverlayPanelModule } from 'primeng/overlaypanel';
 import { Calendar, CalendarModule } from 'primeng/calendar';
+import { NavbarButtonComponent } from '../navbar-button/navbar-button.component';
 
 export interface FacetChange {
   facet: string;
@@ -58,6 +59,7 @@ export interface FacetChange {
     UserButtonComponent,
     OverlayPanelModule,
     CalendarModule,
+    NavbarButtonComponent,
   ],
   templateUrl: './search-bar.component.html',
   styleUrl: './search-bar.component.scss',
@@ -67,6 +69,7 @@ export class SearchBarComponent {
   @Input() facets?: Facet[] = [];
   @Input() filters: FacetChange[] = [];
   @Input() loading: boolean = false;
+  @Input() showFacets: boolean = true;
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
   @Output() onFacetChange = new EventEmitter<FacetChange>();
