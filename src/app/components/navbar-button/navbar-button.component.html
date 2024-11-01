@@ -31,10 +31,11 @@
   <ng-template pTemplate="footer">
     <div class="flex flex-column">
       @if (isUserLoggedIn()) {
-        <div>
+        <div class="flex align-items-center">
           <p-avatar
             [label]="userPhoto() ? '' : userLabel"
             [image]="userPhoto()"
+            styleClass="block"
             shape="circle"></p-avatar>
           <span class="ml-2 font-semibold">{{ userName() }}</span>
         </div>

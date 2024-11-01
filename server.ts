@@ -18,11 +18,11 @@ export function app(): express.Express {
   server.set('view engine', 'html');
   server.set('views', browserDistFolder);
 
-  server.use((_, res, next) => {
-    res.append('Cross-Origin-Opener-Policy', 'same-origin');
-    res.append('Cross-Origin-Embedder-Policy', 'credentialless');
-    next();
-  });
+  // server.use((_, res, next) => {
+  //   res.append('Cross-Origin-Opener-Policy', 'same-origin');
+  //   res.append('Cross-Origin-Embedder-Policy', 'credentialless');
+  //   next();
+  // });
 
   // server.use(
   //   '/__/auth',
