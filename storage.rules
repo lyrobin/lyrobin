@@ -13,6 +13,9 @@ service firebase.storage {
         allow read: if request.auth != null;
       }
     }
+    match /reports/weekly/{fiileName} {
+      allow read: if request.auth != null;
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

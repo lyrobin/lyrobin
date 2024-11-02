@@ -31,5 +31,35 @@
           (click)="searchLegislator(name)"></p-tag>
       }
     </div>
+    <div class="flex mt-3">
+      <p-button
+        [outlined]="true"
+        icon="pi pi-download"
+        size="small"
+        label="全文下載"
+        styleClass="p-1 text-sm"
+        (click)="onDownloadFullTextButtonClick()"></p-button>
+    </div>
   </ng-template>
 </p-card>
+
+<app-login-dialog #loginDialog></app-login-dialog>
+
+<p-dialog
+  header="全文下載是什麼?"
+  [modal]="true"
+  [(visible)]="fullTextDialogVisible"
+  [style]="{ width: '25rem' }">
+  <markdown
+    class="p-text-secondary block mb-5"
+    [data]="fullTextDialogMessage"></markdown>
+  <div class="w-full flex justify-content-center">
+    <img src="/assets/rocket_launch.png" />
+  </div>
+  <p-divider />
+  <div class="w-full flex justify-content-end">
+    <p-button class="p-2" size="small" (onClick)="downloadFullText()">
+      下載
+    </p-button>
+  </div>
+</p-dialog>

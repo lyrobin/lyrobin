@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { NewsReport } from '../../providers/document';
 import { MarkdownComponent } from 'ngx-markdown';
@@ -8,7 +8,14 @@ import { LimitTextPipe } from '../../utils/limit-text.pipe';
 import { ButtonModule } from 'primeng/button';
 import { ActivatedRoute, Router } from '@angular/router';
 import { filter } from 'rxjs';
-
+import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
+import { faCircleQuestion } from '@fortawesome/free-solid-svg-icons';
+import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
+import { Store } from '@ngrx/store';
+import { isUserLoggedIn } from '../../state/selectors';
+import { DialogModule } from 'primeng/dialog';
+import { DividerModule } from 'primeng/divider';
+import { Storage, ref, getDownloadURL } from '@angular/fire/storage';
 @Component({
   selector: 'app-news-report',
   standalone: true,
@@ -19,17 +26,43 @@ import { filter } from 'rxjs';
     TagModule,
     LimitTextPipe,
     ButtonModule,
+    FontAwesomeModule,
+    LoginDialogComponent,
+    DialogModule,
+    MarkdownComponent,
+    DividerModule,
   ],
   templateUrl: './news-report.component.html',
   styleUrl: './news-report.component.scss',
 })
 export class NewsReportComponent implements OnInit {
   @Input({ required: true }) newsReport!: NewsReport;
+  @ViewChild('loginDialog') loginDialog!: LoginDialogComponent;
+
+  readonly hintIcon = faCircleQuestion;
+  readonly fullTextDownloadHint = `
+  ### 全文下載是什麼?
+  全文下載是一個功能，讓您可以下載生成這一則新聞的原始資料，包括本週的會議記錄、立法院議事錄、立委質詢等等。
+  
+  ### 全文檔案可以做什麼?
+  您可以透過上傳全文檔案到您喜歡的 AI 模型，例如 ChatGPT、Gemini 等等，讓您可以針對這則新聞進行更深入的分析。
+  `;
+
+  isUserLoggedIn$ = this.store.selectSignal(isUserLoggedIn);
   isExpanded: boolean = false;
+  fullTextDialogMessage: string = `
+  全文下載是一個功能，讓您可以下載生成這一則新聞的原始資料，包括本週的會議記錄、立法院議事錄、立委質詢等等。
+  
+  ### 全文檔案可以做什麼?
+  您可以透過上傳全文檔案到您喜歡的 AI 模型，例如 ChatGPT、Gemini 等等，讓您可以針對這則新聞進行更深入的分析。
+  `;
+  fullTextDialogVisible: boolean = false;
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private store: Store,
+    private storage: Storage
   ) {}
 
   ngOnInit(): void {
@@ -73,6 +106,27 @@ export class NewsReportComponent implements OnInit {
         page: 1,
         filter: `legislator=${legislator},created_date=${this.getDateRange()}`,
       },
+    });
+  }
+
+  onDownloadFullTextButtonClick() {
+    if (!this.isUserLoggedIn$()) {
+      this.loginDialog.toggle();
+      this.loginDialog.message = this.fullTextDownloadHint;
+    } else {
+      this.fullTextDialogVisible = true;
+    }
+  }
+
+  downloadFullText() {
+    this.fullTextDialogVisible = false;
+    getDownloadURL(ref(this.storage, this.newsReport.source_uri)).then(url => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     });
   }
 }

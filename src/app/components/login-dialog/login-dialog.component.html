@@ -1,11 +1,11 @@
 <p-dialog
-  header="解鎖更多功能"
+  [header]="title"
   [modal]="true"
   [(visible)]="visible"
   [style]="{ width: '25rem' }">
-  <span class="p-text-secondary block mb-5">{{ message }}</span>
+  <markdown class="p-text-secondary block mb-5" [data]="message"></markdown>
   <div class="w-full flex justify-content-center">
-    <img src="/assets/rocket_launch.png" />
+    <img [src]="thumbnail" />
   </div>
   <p-divider />
   <div class="w-full flex justify-content-end">
