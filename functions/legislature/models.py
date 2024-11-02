@@ -390,6 +390,22 @@ class Proceeding(FireStoreDocument):
     def __post_init__(self):
         self.document_id = self.bill_no
 
+    def derive_created_date(self) -> dt.datetime:
+        """Derive the created date from the progress if created_date is invalid."""
+        if self.created_date > dt.datetime(1911, 1, 1, tzinfo=dt.timezone.utc):
+            return self.created_date
+        first_date = ""
+        for p in self.progress:
+            if _date := p.get("date", None):
+                first_date = _date
+                break
+        else:
+            return self.created_date
+        if len(parts := first_date.split("/")) == 3:
+            y, m, d = parts
+            return dt.datetime(int(y) + 1911, int(m), int(d), tzinfo=dt.timezone.utc)
+        return self.created_date
+
 
 @dataclasses.dataclass
 class SpeechTopicRemark:

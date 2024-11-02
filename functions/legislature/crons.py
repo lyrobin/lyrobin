@@ -648,7 +648,7 @@ def _get_create_date(db: Client, ref_path: str) -> dt.datetime:
         doc = doc_ref.get()
         if not doc.exists:
             return dt.datetime.min
-        return models.Proceeding.from_dict(doc.to_dict()).created_date
+        return models.Proceeding.from_dict(doc.to_dict()).derive_created_date()
     elif ref_path.startswith(models.MEETING_COLLECT):
         doc_ref = db.document("/".join(ref_path.split("/")[0:2]))
         doc = doc_ref.get()
@@ -661,7 +661,7 @@ def _get_create_date(db: Client, ref_path: str) -> dt.datetime:
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 13-15,23 * * *",
+    schedule="0 13-15,21-23 * * *",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
@@ -719,13 +719,14 @@ def update_batch_job_status(_):
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 20 * * 6",
+    schedule="0 17 * * 6",
     timezone=_TZ,
     region=gemini.GEMINI_REGION,
     max_instances=2,
     concurrency=2,
     memory=MemoryOption.GB_1,
     timeout_sec=1800,
+    retry_count=2,
 )
 def generate_weekly_report(_):
     try:
@@ -778,7 +779,9 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
         all_meetings.extend(sorted(v, key=lambda x: x.value.meeting_date_start))
 
     report_txt = reports.dumps_meetings_report(all_meetings)
-    transcript_txt = reports.dumps_meeting_transcripts(all_meetings)
+    transcript_txt = reports.dumps_meeting_transcripts(
+        all_meetings, start=start, end=end
+    )
 
     bucket = storage.bucket()
     week_number = start.isocalendar().week
@@ -795,7 +798,10 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
     )
     transcript_uri = f"gs://{bucket.name}/{transcript_blob.name}"
 
-    titles = langchain.generate_weekly_news_titles(report_txt)
+    titles = langchain.generate_weekly_news_titles(transcript_txt)
+    if len(set(titles)) != len(titles):
+        logger.error("Duplicated titles generated: " + str(titles))
+        raise ValueError("Duplicated titles generated")
     weekly_report = models.WeeklyReport(
         report_date=end,
         all_report_uri=report_uri,

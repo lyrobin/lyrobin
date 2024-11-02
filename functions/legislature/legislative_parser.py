@@ -252,7 +252,8 @@ def _fetch_meeting_from_web(request: tasks_fn.CallableRequest):
         meet = models.Meeting.from_dict({"meetingNo": meet_no})
         meet_doc_ref.set(meet.asdict(), merge=True)
 
-    if dt.datetime.now(dt.timezone.utc) - meet.last_update_time < dt.timedelta(days=1):
+    if dt.datetime.now(dt.timezone.utc) - meet.last_update_time < dt.timedelta(hours=4):
+        logger.debug(f"Skip fetching meeting: {meet_no} because it's updated recently.")
         return
     r = readers.LegislativeMeetingReader.open(url=url)
     if r.get_meeting_name() and not meet.meeting_name:
@@ -511,7 +512,7 @@ def on_meetings_attached_file_create(
     rate_limits=RateLimits(max_concurrent_dispatches=20),
     region=_REGION,
     timeout_sec=300,
-    memory=MemoryOption.MB_512,
+    memory=MemoryOption.GB_1,
 )
 def fetchIVODFromWeb(request: tasks_fn.CallableRequest):
     """Handler on fetch ivod from web."""
@@ -526,9 +527,9 @@ def fetchIVODFromWeb(request: tasks_fn.CallableRequest):
 
 def _fetch_ivod_from_web(meet_no: str, ivod_no: str):
     db = firestore.client()
-    ref = db.document(
-        f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
-    )
+    doc_path = f"{models.MEETING_COLLECT}/{meet_no}/{models.IVOD_COLLECT}/{ivod_no}"
+    logger.debug(f"Fetch IVOD from web: {doc_path}")
+    ref = db.document(doc_path)
     doc = ref.get()
     if not doc.exists:
         return

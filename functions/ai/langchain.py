@@ -98,8 +98,12 @@ def search_news_stakeholders(
     response = gen_model.generate_content(
         [
             content + "\n\n",
-            "參考下篇新聞報導，找出和報導最相關的前五位立法委員。\n",
+            # "參考下篇新聞報導，找出和報導最相關的前五位立法委員。\n"
+            "參考下篇新聞報導，找出有討論到這則報導的委員。\n",
             f"# {news.title}\n {news.content}\n",
+            "注意:\n",
+            "1. 僅列出委員姓名。\n",
+            "2. 報告中 '### 人名' 換行之後的內容才是該立委的發言。\n",
         ],
         generation_config=GenerationConfig(
             response_mime_type="application/json",
@@ -110,7 +114,15 @@ def search_news_stakeholders(
             },
         ),
     )
-    return json.loads(response.text)[0:5]
+    names = json.loads(response.text)[0:10]
+    for name in names:
+        if "###" in name:
+            raise ValueError(f"Unexpected name format: {name}")
+        elif ":" in name:
+            raise ValueError(f"Unexpected name format: {name}")
+        elif len(name) > 20:
+            raise ValueError(f"Unexpected name length: {name}")
+    return names
 
 
 @utils.retry(backoff_in_seconds=5)

@@ -138,18 +138,16 @@ def generateNewsReport(request: tasks_fn.CallableRequest):
     if not ref.get().exists:
         raise RuntimeError(f"news report {request.data['doc']} doesn't exist.")
     news_report = models.NewsReport.from_dict(ref.get().to_dict())
-    source_content = news_report.get_source_text()
+    transcript_content = news_report.get_transcript_text()
     weekly_news = langchain.generate_weekly_news_with_title(
-        source_content, news_report.title
+        transcript_content, news_report.title
     )
     keywords = langchain.generate_news_keywords(weekly_news)
-    legislators = langchain.search_news_stakeholders(
-        news_report.get_transcript_text(), weekly_news
-    )
-
-    news_report.content = weekly_news.content
+    legislators = langchain.search_news_stakeholders(transcript_content, weekly_news)
+    cc = opencc.OpenCC("s2tw")
+    news_report.content = cc.convert(weekly_news.content)
     news_report.keywords = keywords
-    news_report.legislators = legislators
+    news_report.legislators = legislators[0:10]
     news_report.is_ready = True
 
     ref.update(news_report.asdict())
