@@ -90,13 +90,14 @@ type Topic struct {
 }
 
 type NewsReport struct {
-	Title       string    `firestore:"title,omitempty" json:"title,omitempty"`
-	SourceURI   string    `firestore:"source_uri,omitempty" json:"source_uri,omitempty"`
-	Content     string    `firestore:"content,omitempty" json:"content,omitempty"`
-	Keywords    []string  `firestore:"keywords,omitempty" json:"keywords,omitempty"`
-	Legislators []string  `firestore:"legislators,omitempty" json:"legislators,omitempty"`
-	ReportDate  time.Time `firestore:"report_date,omitempty" json:"report_date,omitempty"`
-	ID          string    `json:"id,omitempty"`
+	Title         string    `firestore:"title,omitempty" json:"title,omitempty"`
+	SourceURI     string    `firestore:"source_uri,omitempty" json:"source_uri,omitempty"`
+	TranscriptURI string    `firestore:"transcript_uri,omitempty" json:"transcript_uri,omitempty"`
+	Content       string    `firestore:"content,omitempty" json:"content,omitempty"`
+	Keywords      []string  `firestore:"keywords,omitempty" json:"keywords,omitempty"`
+	Legislators   []string  `firestore:"legislators,omitempty" json:"legislators,omitempty"`
+	ReportDate    time.Time `firestore:"report_date,omitempty" json:"report_date,omitempty"`
+	ID            string    `json:"id,omitempty"`
 }
 
 var _ StoreReader = &FireStore{}

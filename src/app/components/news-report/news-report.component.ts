@@ -117,9 +117,12 @@ export class NewsReportComponent implements OnInit {
     }
   }
 
-  downloadFullText() {
+  downloadFullText(fullDownload: boolean) {
     this.fullTextDialogVisible = false;
-    getDownloadURL(ref(this.storage, this.newsReport.source_uri)).then(url => {
+    const targetUri = fullDownload
+      ? this.newsReport.source_uri
+      : this.newsReport.transcript_uri;
+    getDownloadURL(ref(this.storage, targetUri)).then(url => {
       const link = document.createElement('a');
       link.href = url;
       link.download =

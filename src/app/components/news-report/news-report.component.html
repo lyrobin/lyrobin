@@ -58,8 +58,19 @@
   </div>
   <p-divider />
   <div class="w-full flex justify-content-end">
-    <p-button class="p-2" size="small" (onClick)="downloadFullText()">
-      下載
+    <p-button
+      size="small"
+      (onClick)="downloadFullText(true)"
+      styleClass="block p-2"
+      label="完整內容"
+      icon="pi pi-download">
+    </p-button>
+    <p-button
+      size="small"
+      (onClick)="downloadFullText(false)"
+      styleClass="block p-2 ml-2"
+      label="立委質詢"
+      icon="pi pi-download">
     </p-button>
   </div>
 </p-dialog>
