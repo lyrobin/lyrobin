@@ -124,7 +124,8 @@ export class NewsReportComponent implements OnInit {
       link.href = url;
       link.download =
         'report_' +
-        (this.newsReport.source_uri.split('/').pop() ?? 'full_text.txt');
+        (this.newsReport.source_uri.split('/').pop() ?? 'full_text.md');
+      link.target = '_blank';
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
