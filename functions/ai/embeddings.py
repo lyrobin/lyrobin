@@ -7,6 +7,7 @@ from vertexai.language_models import (  # type: ignore
     TextEmbeddingInput,
     TextEmbeddingModel,
 )
+from google.cloud.firestore_v1.vector import Vector
 
 _MAX_EMBEDDING_INPUT_SIZE = 2048
 
@@ -24,3 +25,7 @@ def get_embeddings_from_text(text: str) -> list[list[float]]:
         )
         ret.extend(e.values for e in embeddings)
     return ret
+
+
+def get_embedding_vectors_from_text(txt: str) -> list[Vector]:
+    return [Vector(e) for e in get_embeddings_from_text(txt)]

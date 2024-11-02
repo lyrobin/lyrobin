@@ -13,6 +13,9 @@ from vertexai.generative_models import (  # type: ignore
     HarmCategory,
     HarmBlockThreshold,
 )
+from ai import context
+from ai import embeddings
+import io
 
 NON_BLOCKING_SAFE_SETTINGS = {
     HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY: HarmBlockThreshold.BLOCK_NONE,
@@ -65,8 +68,12 @@ def generate_weekly_news_with_title(
     news_title: str,
     gen_model: GenerativeModel = GenerativeModel("gemini-1.5-pro-001"),
 ) -> WeeklyNews:
+    vectors = embeddings.get_embedding_vectors_from_text(news_title)
+    ctx = io.StringIO()
+    context.attach_directors_background(ctx, vectors)
     response = gen_model.generate_content(
         [
+            ctx.getvalue(),
             content,
             (
                 f"以 {news_title} 為標題，撰寫一篇新聞報導的內文。注意:\n"

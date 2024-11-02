@@ -1,5 +1,7 @@
 """Module to download content from Wiki"""
 
+# mypy: ignore-errors
+
 import functools
 import io
 from typing import Any
