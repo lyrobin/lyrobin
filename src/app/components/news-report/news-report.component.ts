@@ -1,21 +1,20 @@
-import { Component, Input, OnInit, ViewChild } from '@angular/core';
-import { CardModule } from 'primeng/card';
-import { NewsReport } from '../../providers/document';
-import { MarkdownComponent } from 'ngx-markdown';
 import { CommonModule } from '@angular/common';
-import { TagModule } from 'primeng/tag';
-import { LimitTextPipe } from '../../utils/limit-text.pipe';
-import { ButtonModule } from 'primeng/button';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { Storage, getDownloadURL, ref } from '@angular/fire/storage';
 import { ActivatedRoute, Router } from '@angular/router';
-import { filter } from 'rxjs';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { faCircleQuestion } from '@fortawesome/free-solid-svg-icons';
-import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
 import { Store } from '@ngrx/store';
-import { isUserLoggedIn } from '../../state/selectors';
+import { MarkdownComponent } from 'ngx-markdown';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
 import { DialogModule } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
-import { Storage, ref, getDownloadURL } from '@angular/fire/storage';
+import { TagModule } from 'primeng/tag';
+import { NewsReport } from '../../providers/document';
+import { isUserLoggedIn } from '../../state/selectors';
+import { LimitTextPipe } from '../../utils/limit-text.pipe';
+import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
 @Component({
   selector: 'app-news-report',
   standalone: true,
@@ -123,6 +122,9 @@ export class NewsReportComponent implements OnInit {
     getDownloadURL(ref(this.storage, this.newsReport.source_uri)).then(url => {
       const link = document.createElement('a');
       link.href = url;
+      link.download =
+        'report_' +
+        (this.newsReport.source_uri.split('/').pop() ?? 'full_text.txt');
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
