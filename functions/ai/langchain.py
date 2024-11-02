@@ -74,12 +74,13 @@ def generate_weekly_news_with_title(
     response = gen_model.generate_content(
         [
             ctx.getvalue(),
-            content,
+            f"# 會議紀錄\n\n{content}\n\n",
             (
                 f"以 {news_title} 為標題，撰寫一篇新聞報導的內文。注意:\n"
                 "1. 使用繁體中文。\n"
                 "2. 開頭不需要日期和出處。\n"
                 "3. 不需要有標題。\n"
+                "4. 會議紀錄中，### [姓名]: 換行之後的內容才是該立委的發言，不要搞錯。\n"
             ),
         ],
         generation_config=GenerationConfig(
@@ -104,13 +105,14 @@ def search_news_stakeholders(
 ) -> list[str]:
     response = gen_model.generate_content(
         [
-            content + "\n\n",
-            # "參考下篇新聞報導，找出和報導最相關的前五位立法委員。\n"
-            "參考下篇新聞報導，找出有討論到這則報導的委員。\n",
-            f"# {news.title}\n {news.content}\n",
-            "注意:\n",
-            "1. 僅列出委員姓名。\n",
-            "2. 報告中 '### 人名' 換行之後的內容才是該立委的發言。\n",
+            f"# 會議紀錄\n\n{content}\n\n",
+            (
+                "參考下篇新聞報導，找出有討論到這則報導的委員。\n"
+                f"{news.title}: {news.content}\n\n"
+                "注意:\n"
+                "1. 僅列出委員姓名。\n"
+                "2. 會議紀錄中，### [姓名]: 換行之後的內容才是該立委的發言，不要搞錯。\n"
+            ),
         ],
         generation_config=GenerationConfig(
             response_mime_type="application/json",
