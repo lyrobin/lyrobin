@@ -1,10 +1,12 @@
 """Module to generate reports for RAG."""
 
 import datetime as dt
+from typing import Any
 
 from typing import Sequence
 import io
 from legislature import models
+import json
 
 
 def dumps_meetings_report(meetings: Sequence[models.MeetingModel]) -> str:
@@ -65,6 +67,42 @@ def dumps_meeting_transcripts(
             buf.write(f"{s.value.transcript}\n")
             buf.write("\n\n")
     return buf.getvalue()
+
+
+def dump_meeting_transcripts_in_json(
+    meetings: Sequence[models.MeetingModel],
+    start: dt.datetime | None = None,
+    end: dt.datetime | None = None,
+) -> str:
+
+    if start is None:
+        start = dt.datetime(1911, 1, 1, tzinfo=models.MODEL_TIMEZONE)
+    if end is None:
+        end = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+
+    result = []
+    for m in sorted(meetings, key=lambda x: x.value.meeting_date_start):
+        if len(m.speeches) <= 0:
+            continue
+        meeting_data: dict[str, Any] = {
+            "會議名稱": m.value.meeting_name,
+            "會議日期": m.value.meeting_date_desc,
+            "委員會": m.value.meeting_unit,
+            "委員發言": [],
+        }
+        for s in m.speeches:
+            if not start <= s.value.start_time <= end:
+                continue
+            speech_data = {
+                "立法委員": s.value.member,
+                "開始時間": s.value.start_time.isoformat(),
+                "影片連結": s.value.hd_url,
+                "逐字稿": s.value.transcript,
+            }
+            meeting_data["委員發言"].append(speech_data)
+        result.append(meeting_data)
+
+    return json.dumps(result, ensure_ascii=False, indent=2)
 
 
 def _get_unique_and_not_empty_attachments(

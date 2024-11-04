@@ -32,22 +32,20 @@ class WeeklyNews:
     content: str
 
 
-@utils.retry(backoff_in_seconds=5)
+@utils.retry(max_retries=5, backoff_in_seconds=5)
 def generate_weekly_news_titles(
-    content: str, gen_model: GenerativeModel = GenerativeModel("gemini-1.5-pro-001")
+    content: str, gen_model: GenerativeModel = GenerativeModel("gemini-1.5-flash-002")
 ) -> list[str]:
     response = gen_model.generate_content(
         [
             content,
-            (
-                "根據本週的討論，總結出幾個新聞標題。注意:\n"
-                "1. 總合考慮多個議題。\n"
-                "2. 不要超過 20 個字。\n"
-                "3. 標題要讓後續的內容能夠總結本週的討論。\n"
-                "4. 最多列出 5 個標題。\n"
-                "5. 不要使用人名。\n"
-            ),
+            ("請依照討論度最高的幾個議題，撰寫新聞標題。注意不要提及人名。"),
         ],
+        safety_settings=NON_BLOCKING_SAFE_SETTINGS,
+    )
+    new_titles = response.text
+    response = gen_model.generate_content(
+        [new_titles, "整理出前文提到的新聞標題，並移除太相似的標題。"],
         generation_config=GenerationConfig(
             response_mime_type="application/json",
             response_schema={
@@ -59,7 +57,7 @@ def generate_weekly_news_titles(
         ),
         safety_settings=NON_BLOCKING_SAFE_SETTINGS,
     )
-    return json.loads(response.text)[0:5]
+    return json.loads(response.text)[0:10]
 
 
 @utils.retry(backoff_in_seconds=5)
@@ -80,7 +78,6 @@ def generate_weekly_news_with_title(
                 "1. 使用繁體中文。\n"
                 "2. 開頭不需要日期和出處。\n"
                 "3. 不需要有標題。\n"
-                "4. 會議紀錄中，### [姓名]: 換行之後的內容才是該立委的發言，不要搞錯。\n"
             ),
         ],
         generation_config=GenerationConfig(
@@ -97,7 +94,7 @@ def generate_weekly_news_with_title(
     return WeeklyNews(news_title, data["body"])
 
 
-@utils.retry(backoff_in_seconds=5)
+@utils.retry(max_retries=3, backoff_in_seconds=5)
 def search_news_stakeholders(
     content: str,
     news: WeeklyNews,
@@ -105,13 +102,10 @@ def search_news_stakeholders(
 ) -> list[str]:
     response = gen_model.generate_content(
         [
-            f"# 會議紀錄\n\n{content}\n\n",
+            content,
             (
                 "參考下篇新聞報導，找出有討論到這則報導的委員。\n"
                 f"{news.title}: {news.content}\n\n"
-                "注意:\n"
-                "1. 僅列出委員姓名。\n"
-                "2. 會議紀錄中，### [姓名]: 換行之後的內容才是該立委的發言，不要搞錯。\n"
             ),
         ],
         generation_config=GenerationConfig(
@@ -121,6 +115,7 @@ def search_news_stakeholders(
                 "items": {"type": "string"},
                 "description": "立法委員姓名",
             },
+            temperature=0.5,
         ),
     )
     names = json.loads(response.text)[0:10]
@@ -137,7 +132,7 @@ def search_news_stakeholders(
 @utils.retry(backoff_in_seconds=5)
 def generate_news_keywords(
     news: WeeklyNews,
-    gen_model: GenerativeModel = GenerativeModel("gemini-1.5-pro-001"),
+    gen_model: GenerativeModel = GenerativeModel("gemini-1.5-flash-001"),
 ) -> list[str]:
     response = gen_model.generate_content(
         [

@@ -779,7 +779,7 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
         all_meetings.extend(sorted(v, key=lambda x: x.value.meeting_date_start))
 
     report_txt = reports.dumps_meetings_report(all_meetings)
-    transcript_txt = reports.dumps_meeting_transcripts(
+    transcript_txt = reports.dump_meeting_transcripts_in_json(
         all_meetings, start=start, end=end
     )
 
@@ -792,9 +792,9 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
     report_uri = f"gs://{bucket.name}/{blob.name}"
 
     # transcript
-    transcript_blob = bucket.blob(f"reports/weekly/w{week_number}_transcripts.md")
+    transcript_blob = bucket.blob(f"reports/weekly/w{week_number}_transcripts.txt")
     transcript_blob.upload_from_string(
-        transcript_txt, content_type="text/markdown; charset=utf-8"
+        transcript_txt, content_type="text/plain; charset=utf-8"
     )
     transcript_uri = f"gs://{bucket.name}/{transcript_blob.name}"
 
