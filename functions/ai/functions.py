@@ -2,6 +2,7 @@
 
 import uuid
 import io
+import datetime as dt
 
 from ai import gemini
 from ai import models as aimodels
@@ -99,6 +100,7 @@ def update_topics_summary(_: https_fn.Request) -> https_fn.Response:
     uid = uuid.uuid4().hex
     job = gemini.GeminiHashTagsTopicSummaryJob(uid)
     queries = []
+    past_three_month = dt.datetime.now(tz=models.MODEL_TIMEZONE) - dt.timedelta(days=90)
     for topic_doc in topics:
         topic = aimodels.Topic.from_dict(topic_doc.to_dict())
         buf = io.StringIO()
@@ -106,6 +108,7 @@ def update_topics_summary(_: https_fn.Request) -> https_fn.Response:
             models.Video.from_dict(v.to_dict())
             for v in db.collection_group(models.SPEECH_COLLECT)
             .where(filter=FieldFilter("hash_tags", "array_contains_any", topic.tags))
+            .where(filter=FieldFilter("start_time", ">=", past_three_month))
             .order_by("start_time", "DESCENDING")
             .limit(1000)
             .stream()

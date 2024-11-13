@@ -31,7 +31,7 @@ def simple_retry(func):
     return wrapper
 
 
-def retry(max_retries=3, backoff_in_seconds=1):
+def retry(max_retries=3, backoff_in_seconds=1, max_backoff_in_seconds=300):
     """
     A retry decorator with exponential backoff and maximum retries.
 
@@ -54,7 +54,12 @@ def retry(max_retries=3, backoff_in_seconds=1):
                     retries += 1
                     if retries >= max_retries:
                         raise
-                    time.sleep(backoff_in_seconds * (2 ** (retries - 1)))
+                    time.sleep(
+                        min(
+                            backoff_in_seconds * (2 ** (retries - 1)),
+                            max_backoff_in_seconds,
+                        )
+                    )
 
         return wrapper_retry
 

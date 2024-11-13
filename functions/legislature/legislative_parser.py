@@ -582,7 +582,9 @@ def on_meeting_ivod_create(
 
 @tasks_fn.on_task_dispatched(
     retry_config=RetryConfig(
-        max_attempts=5, max_backoff_seconds=3600, min_backoff_seconds=600
+        max_attempts=6,
+        max_backoff_seconds=28800,  # 8 hours
+        min_backoff_seconds=1800,  # 30 minutes
     ),
     rate_limits=RateLimits(max_concurrent_dispatches=20),
     cpu=4,

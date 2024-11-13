@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"time"
 
 	aiplatform "cloud.google.com/go/aiplatform/apiv1"
 	"cloud.google.com/go/aiplatform/apiv1/aiplatformpb"
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go/v4"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
-	"github.com/apache/beam/sdks/v2/go/pkg/beam/io/textio"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/register"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/x/beamx"
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/models"
@@ -27,9 +27,9 @@ import (
 const (
 	speechesCollection = "speeches"
 	dimensionality     = 768
-	distanceThreshold  = 0.8
+	distanceThreshold  = 0.85
 	tagCountThreshold  = 5
-	documentThreshold  = 20
+	documentThreshold  = 10
 	teardownTaskName   = "update_topics_summary"
 )
 
@@ -42,6 +42,7 @@ func init() {
 	register.Combiner3[HashTagGroupAccumulator, HashtagCount, []HashTagGroup](&clusterFn{})
 	register.Function2x0(flattenGroupsFn)
 	register.DoFn3x1(&summaryHashTagsFn{})
+	register.DoFn3x1(&teardownFn{})
 }
 
 type getHashtagsFn struct {
@@ -59,7 +60,8 @@ func (f *getHashtagsFn) StartBundle(ctx context.Context, emit func(string)) erro
 
 func (f *getHashtagsFn) ProcessElement(ctx context.Context, _ []byte, emit func(string)) error {
 	log.Println("Processing hashtags")
-	iter := f.client.CollectionGroup(speechesCollection).Documents(ctx)
+	pastThreeMonth := time.Now().AddDate(0, -3, 0)
+	iter := f.client.CollectionGroup(speechesCollection).Where("start_time", ">=", pastThreeMonth).Documents(ctx)
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
@@ -341,6 +343,22 @@ func runTeardownTask(ctx context.Context) error {
 	return nil
 }
 
+type teardownFn struct{}
+
+func (fn *teardownFn) ProcessElement(ctx context.Context, _ int, lines func(*string) bool) error {
+	var line string
+	for lines(&line) {
+		log.Println(line)
+	}
+	return runTeardownTask(ctx)
+}
+
+func Teardown(s beam.Scope, col beam.PCollection) {
+	pre := beam.AddFixedKey(s, col)
+	post := beam.GroupByKey(s, pre)
+	beam.ParDo0(s, &teardownFn{}, post)
+}
+
 func main() {
 	flag.Parse()
 	beam.Init()
@@ -355,15 +373,11 @@ func main() {
 	groups := beam.ParDo(s, flattenGroupsFn, clusterred)
 	summarized := beam.ParDo(s, &summaryHashTagsFn{}, groups)
 	formatted := beam.ParDo(s, formatFn, summarized)
-	textio.Write(s, "output.txt", formatted)
+	Teardown(s, formatted)
 
 	ctx := context.Background()
 
 	if err := beamx.Run(ctx, p); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := runTeardownTask(ctx); err != nil {
 		log.Fatal(err)
 	}
 }
