@@ -29,6 +29,33 @@
       ]
     },
     {
+      "collectionGroup": "attachments",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "has_hash_tags",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_tags_summary_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "directors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "embedding",
+          "vectorConfig": {
+            "dimension": 768,
+            "flat": {}
+          }
+        }
+      ]
+    },
+    {
       "collectionGroup": "files",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -52,6 +79,20 @@
         },
         {
           "fieldPath": "last_update_time",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "files",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "has_hash_tags",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_tags_summary_attempts",
           "order": "ASCENDING"
         }
       ]
@@ -97,11 +138,85 @@
       ]
     },
     {
+      "collectionGroup": "meetings",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "ai_summarized_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ai_summary_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "news_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "is_ready",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "report_date",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "ai_summarized",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ai_summary_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "ai_summarized_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ai_summary_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "speeches",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "has_hash_tags",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_tags_summary_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "has_hash_tags",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_transcript",
           "order": "ASCENDING"
         },
         {
@@ -151,8 +266,64 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "start_time",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "has_transcript",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "transcript_attempts",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "has_transcript",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "transcript_updated_at",
           "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "hash_tags",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "start_time",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "hash_tags",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "start_time",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -199,21 +370,39 @@
       ]
     },
     {
-      "collectionGroup": "files",
+      "collectionGroup": "speeches",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "has_hash_tags",
+          "fieldPath": "transcript_updated_at",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "has_tags_summary_attempts",
+          "fieldPath": "transcript_attempts",
           "order": "ASCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "attachments",
+      "collectionGroup": "topics",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tags",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "summarized",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "videos",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
@@ -232,6 +421,10 @@
       "fields": [
         {
           "fieldPath": "has_hash_tags",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_transcript",
           "order": "ASCENDING"
         },
         {
@@ -686,6 +879,29 @@
     },
     {
       "collectionGroup": "speeches",
+      "fieldPath": "has_hash_tags",
+      "ttl": false,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
       "fieldPath": "has_transcript",
       "ttl": false,
       "indexes": [
@@ -709,7 +925,53 @@
     },
     {
       "collectionGroup": "speeches",
+      "fieldPath": "hash_tags",
+      "ttl": false,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
       "fieldPath": "member",
+      "ttl": false,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "speeches",
+      "fieldPath": "start_time",
       "ttl": false,
       "indexes": [
         {
