@@ -175,6 +175,7 @@ def on_receive_bigquery_batch_hashtags_summary(event: CloudEvent):
     job.mark_as_done()
 
 
+# TODO: Remove this function once we have a proper handler for news reports.
 @firestore_fn.on_document_created(
     document="news_reports/{documentId}",
     region=_REGION,
@@ -184,5 +185,6 @@ def on_news_report_created(
     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
 ):
     doc_id = event.params["documentId"]
-    q = tasks.CloudRunQueue("generateNewsReport", region=gemini.GEMINI_REGION)
-    q.run(doc=doc_id)
+    logger.warn(f"Received news report {doc_id}, but no handler is implemented.")
+    # q = tasks.CloudRunQueue("generateNewsReport", region=gemini.GEMINI_REGION)
+    # q.run(doc=doc_id)

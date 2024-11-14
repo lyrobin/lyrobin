@@ -341,7 +341,7 @@ class DocumentSearchEngine:
                 _doc = self._db.document("/".join(ref.path.split("/")[0:2])).get()
                 if not _doc.exists:
                     return dt.datetime.min
-                return models.Proceeding.from_dict(_doc.to_dict()).created_date
+                return models.Proceeding.from_dict(_doc.to_dict()).derive_created_date()
             else:
                 return dt.datetime.min
 

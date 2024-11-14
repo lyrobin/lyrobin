@@ -1,26 +1,25 @@
 """Module for crons jobs."""
 
 import base64
+import collections
+import dataclasses
 import datetime as dt
 import io
 import urllib.parse
 import uuid
-import requests
-import dataclasses
-import collections
 
-from ai import context, gemini
-from ai import langchain
 import firebase_admin  # type: ignore
+import requests
+import utils
+from ai import context, gemini
+from ai.batch import weekly_news
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
-from firebase_functions.options import MemoryOption, Timezone, SupportedRegion
+from firebase_functions.options import MemoryOption, SupportedRegion, Timezone
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
-from legislature import models
-from legislature import reports
+from legislature import models, reports
 from utils import tasks
-import utils
 
 _TZ = Timezone("Asia/Taipei")
 
@@ -616,17 +615,20 @@ def _attach_legislator_context_to_summary_queries(
     db: Client,
     queries: list[gemini.DocumentSummaryQuery] | list[gemini.TranscriptSummaryQuery],
 ):
-    create_date = _get_create_date(db, queries[0].doc_path)
-    term = utils.get_legislative_yuan_term(create_date)
-    if not term:
-        logger.error(
-            "Can't determine the term for the document: " + queries[0].doc_path
-        )
-        raise ValueError("Can't determine the term for the document.")
+    current_term = utils.get_legislative_yuan_term(dt.datetime.now(tz=_TZ))
+    if not current_term:
+        raise ValueError("Can't determine the current term.")
+    context_cache: dict[int, str] = {}
     for q in queries:
-        ctx = io.StringIO()
-        context.attach_legislators_background(ctx, [term])
-        q.context += ctx.getvalue()
+        term = (
+            utils.get_legislative_yuan_term(_get_create_date(db, q.doc_path))
+            or current_term
+        )
+        if term not in context_cache:
+            buffer = io.StringIO()
+            context.attach_legislators_background(buffer, [term])
+            context_cache[term] = buffer.getvalue()
+        q.context += context_cache[term]
 
 
 def _attach_director_context_to_summary_queries(
@@ -765,9 +767,6 @@ def _get_meetings_in_range(
 
 
 def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
-    # get datetime object of this week's monday
-    # today = dt.datetime.now(tz=_TZ)
-    # monday = today - dt.timedelta(days=today.weekday())
     db = firestore.client()
 
     meetings_by_unit = collections.defaultdict(list)
@@ -798,27 +797,12 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
     )
     transcript_uri = f"gs://{bucket.name}/{transcript_blob.name}"
 
-    titles = langchain.generate_weekly_news_titles(transcript_txt)
-    if len(set(titles)) != len(titles):
-        logger.error("Duplicated titles generated: " + str(titles))
-        raise ValueError("Duplicated titles generated")
-    weekly_report = models.WeeklyReport(
-        report_date=end,
-        all_report_uri=report_uri,
-        transcript_uri=transcript_uri,
-        titles=titles,
+    weekly_news.start_generate_weekly_news(
+        weekly_news.GenerateWeeklyNewsContext(
+            report_uri=report_uri,
+            transcript_uri=transcript_uri,
+            start=start,
+            end=end,
+        ),
+        transcript_txt,
     )
-    db.collection(models.WEEKLY_COLLECT).document(str(weekly_report.week)).set(
-        weekly_report.asdict(), merge=True
-    )
-
-    for title in titles:
-        doc = db.collection(models.NEWS_REPORT_COLLECT).document()
-        doc.set(
-            models.NewsReport(
-                title=title,
-                source_uri=report_uri,
-                transcript_uri=transcript_uri,
-                report_date=end,
-            ).asdict()
-        )

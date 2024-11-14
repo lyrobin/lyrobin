@@ -1,0 +1,22 @@
+steps:
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: "bash"
+  waitFor: ['-']
+  args:
+    - "-c"
+    - |
+      gcloud functions deploy on_receive_gembatch_bigquery_batch_updates \
+      --gen2 \
+      --region=${LOCATION} \
+      --source=. \
+      --runtime=python312 \
+      --trigger-event-filters="type=google.cloud.audit.log.v1.written" \
+      --trigger-event-filters="serviceName=bigquery.googleapis.com" \
+      --trigger-event-filters="methodName=google.cloud.bigquery.v2.JobService.InsertJob" \
+      --trigger-event-filters-path-pattern="resourceName=projects/${PROJECT_ID}/datasets/gembatch_prediction/tables/gembatch-prediction-destination-*" \
+      --timeout=540 \
+      --memory="4096M" \
+      --max-instances=10 \
+      --concurrency=10 \
+      --set-env-vars='^@^FIREBASE_CONFIG={"projectId":"${PROJECT_ID}","storageBucket":"${PROJECT_ID}.appspot.com","locationId":"${LOCATION}"}' \
+      --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"

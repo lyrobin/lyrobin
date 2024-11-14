@@ -432,6 +432,78 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "gembatch_batch_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "gembatch_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "model",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "gembatch_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "model",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "retries",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "gembatch_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "model",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "retries",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -1014,6 +1086,24 @@
           "queryScope": "COLLECTION_GROUP"
         }
       ]
+    },
+    {
+      "collectionGroup": "gembatch_batch_queue",
+      "fieldPath": "ttl",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "gembatch_queue",
+      "fieldPath": "ttl",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "gembatch_requests",
+      "fieldPath": "ttl",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }
