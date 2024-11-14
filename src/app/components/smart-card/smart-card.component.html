@@ -1,18 +1,36 @@
 @if (showTopic && isUserLoggedIn$()) {
   <div class="px-2">
-    <p-card [header]="topic?.title" styleClass="smart-card">
-      <div>
-        @for (tag of topic?.tags; track $index) {
-          <p-tag
-            severity="secondary"
-            styleClass="my-1 mx-1 cursor-pointer"
-            [value]="'#' + tag"
-            (click)="search('#' + tag)"></p-tag>
-        }
-      </div>
-      <p-scrollPanel [style]="{ width: '100%', height: '150px' }">
-        <markdown class="m-0" [data]="topic?.summary"></markdown>
-      </p-scrollPanel>
+    <p-card styleClass="smart-card">
+      <ng-template pTemplate="title">
+        <div class="flex justify-content-between align-content-center">
+          {{ topic?.title }}
+          <fa-icon
+            [icon]="expanded ? iconCompress : iconExpand"
+            class="cursor-pointer ml-2"
+            size="xs"
+            (click)="gotoExpand()"></fa-icon>
+        </div>
+      </ng-template>
+      <ng-template pTemplate="content">
+        <div>
+          @for (tag of topic?.tags; track $index) {
+            <p-tag
+              severity="secondary"
+              styleClass="my-1 mx-1 cursor-pointer"
+              [value]="'#' + tag"
+              (click)="search('#' + tag)"></p-tag>
+          }
+        </div>
+        <div [@aiTopicExpand]="expanded ? 'true' : 'false'">
+          <p-scrollPanel
+            [style]="{
+              width: '100%',
+              height: '100%',
+            }">
+            <markdown class="m-0" [data]="topic?.summary"></markdown>
+          </p-scrollPanel>
+        </div>
+      </ng-template>
     </p-card>
   </div>
 } @else if (showLegislator) {

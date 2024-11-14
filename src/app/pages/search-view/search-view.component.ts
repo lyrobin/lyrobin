@@ -96,6 +96,15 @@ export class SearchViewComponent {
         }
       });
     }
+    let queries = this.query?.split(' ');
+    if (queries?.length == 1) {
+      queries = [queries[0]];
+      this.searchService.topic(queries).then(topic => {
+        if (topic && topic.summary.length > 0) {
+          this.aiTopic = topic;
+        }
+      });
+    }
   }
 
   get showSmartCard(): boolean {

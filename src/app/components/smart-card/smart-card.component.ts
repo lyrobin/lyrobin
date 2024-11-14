@@ -1,3 +1,10 @@
+import {
+  animate,
+  state,
+  style,
+  transition,
+  trigger,
+} from '@angular/animations';
 import { DecimalPipe, NgIf } from '@angular/common';
 import {
   Component,
@@ -12,6 +19,8 @@ import {
   faAngleDoubleDown,
   faAngleDoubleUp,
   IconDefinition,
+  faExpand,
+  faCompress,
 } from '@fortawesome/free-solid-svg-icons';
 import { Store } from '@ngrx/store';
 import { MarkdownModule } from 'ngx-markdown';
@@ -45,6 +54,23 @@ import { isUserLoggedIn } from '../../state/selectors';
   ],
   templateUrl: './smart-card.component.html',
   styleUrl: './smart-card.component.scss',
+  animations: [
+    trigger('aiTopicExpand', [
+      state(
+        'true',
+        style({
+          height: '300px',
+        })
+      ),
+      state(
+        'false',
+        style({
+          height: '150px',
+        })
+      ),
+      transition('false <=> true', [animate(300)]),
+    ]),
+  ],
 })
 export class SmartCardComponent implements OnChanges {
   @Input() show: boolean = false;
@@ -54,6 +80,8 @@ export class SmartCardComponent implements OnChanges {
   readonly isUserLoggedIn$ = this.store.selectSignal(isUserLoggedIn);
 
   expanded: boolean = false;
+  iconExpand: IconDefinition = faExpand;
+  iconCompress: IconDefinition = faCompress;
 
   constructor(private store: Store) {}
 

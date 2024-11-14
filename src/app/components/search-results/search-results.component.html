@@ -110,6 +110,11 @@
             </div>
           }
         </ng-template>
+        <ng-template pTemplate="empty" let-hits>
+          @if (!loading) {
+            沒有符合條件的資料。
+          }
+        </ng-template>
       </p-dataView>
     </div>
     <div class="flex-none hidden lg:block lg:col-3 sticky top-0">
