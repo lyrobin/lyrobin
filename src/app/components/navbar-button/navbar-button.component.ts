@@ -68,4 +68,10 @@ export class NavbarButtonComponent {
       relativeTo: this.route,
     });
   }
+
+  gotoChat() {
+    this.router.navigate(['/chat'], {
+      relativeTo: this.route,
+    });
+  }
 }

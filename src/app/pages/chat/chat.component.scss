@@ -1,0 +1,37 @@
+:host {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+:host::ng-deep {
+    .dark-card {
+        background-color: var(--surface);
+    }
+    .dark-card.p-card {
+        color: var(--surface-300);
+    }
+
+    .dark-background {
+        background-color: var(--surface);
+    }
+
+    .chat-scroll {
+        overflow-y: auto;
+    }
+    
+    .chat-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .chat-scroll::-webkit-scrollbar-track {
+        background: var(--surface);
+        border-radius: 8px;
+    }
+
+    .chat-scroll::-webkit-scrollbar-thumb {
+        background-color: var(--surface-300);
+        border-radius: 99px;
+    }
+}

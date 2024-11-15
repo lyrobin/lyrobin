@@ -11,3 +11,15 @@ export const isLoadingAuth = createSelector(
   selectAppState,
   state => state.loadingAuth
 );
+export const selectGeminiKey = createSelector(
+  selectAppState,
+  state => state.geminiKey
+);
+export const selectChatHistory = createSelector(
+  selectAppState,
+  state => state.chatHistory
+);
+export const selectChatContext = createSelector(
+  selectAppState,
+  state => state.chatContext
+);

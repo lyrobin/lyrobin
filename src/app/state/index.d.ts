@@ -4,3 +4,15 @@ export interface User {
   photoURL?: string;
   email?: string;
 }
+
+export interface HistoryMessage {
+  role: string;
+  message: string;
+}
+
+export interface ChatContext {
+  content: string;
+  query: string;
+  filter: string;
+  loaded: boolean;
+}

@@ -19,7 +19,7 @@
       shape="circle"
       (click)="goHome()" />
     <span class="spacer"></span>
-    <div class="flex align-items-center w-11 lg:w-8">
+    <div class="flex align-items-center ml-2 w-11 lg:w-8">
       <p-iconField iconPosition="right" class="w-full">
         <p-inputIcon
           styleClass="pi pi-search cursor-pointer"
@@ -32,8 +32,14 @@
           (keydown.enter)="onSearchClick()"
           (ngModelChange)="queryChange.emit($event)" />
       </p-iconField>
-      <span class="spacer"></span>
     </div>
+    @if (showGemini) {
+      <p-avatar
+        image="/assets/gemini-icon.png"
+        class="ml-2 cursor-pointer"
+        styleClass="flex justify-content-center"
+        (click)="onGeminiClick()"></p-avatar>
+    }
     <span class="spacer"></span>
     <app-user-button class="hidden lg:block"></app-user-button>
     <app-navbar-button class="hidden lg:block"></app-navbar-button>

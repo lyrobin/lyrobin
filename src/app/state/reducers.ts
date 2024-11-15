@@ -15,5 +15,21 @@ export const appStateReducer = createReducer(
   on(AppStateActions.toggleLoadingAuth, (state, { loadingAuth }) => ({
     ...state,
     loadingAuth,
+  })),
+  on(AppStateActions.setGeminiKey, (state, { geminiKey }) => ({
+    ...state,
+    geminiKey,
+  })),
+  on(AppStateActions.addChatHistory, (state, { message }) => ({
+    ...state,
+    chatHistory: [...(state.chatHistory || []), message],
+  })),
+  on(AppStateActions.clearChatHistory, (state, {}) => ({
+    ...state,
+    chatHistory: [],
+  })),
+  on(AppStateActions.setChatContext, (state, { context }) => ({
+    ...state,
+    chatContext: context,
   }))
 );

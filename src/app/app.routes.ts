@@ -32,6 +32,11 @@ export const routes: Routes = [
     canActivate: [requireLoginGuard],
   },
   {
+    path: 'chat',
+    loadComponent: () =>
+      import('./pages/chat/chat.component').then(c => c.ChatComponent),
+  },
+  {
     path: '**',
     redirectTo: 'search',
   },

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   FacetChange,
@@ -16,6 +16,9 @@ import {
 } from '../../providers/search';
 import { SearchService } from '../../providers/search.service';
 import { translate } from '../../utils/facet-value.pipe';
+import { LoginDialogComponent } from '../../components/login-dialog/login-dialog.component';
+import { Store } from '@ngrx/store';
+import { isUserLoggedIn } from '../../state/selectors';
 
 @Component({
   selector: 'app-search-view',
@@ -25,6 +28,7 @@ import { translate } from '../../utils/facet-value.pipe';
     SearchResultsComponent,
     SmartCardComponent,
     SmartSummaryCardDirective,
+    LoginDialogComponent,
   ],
   templateUrl: './search-view.component.html',
   styleUrl: './search-view.component.scss',
@@ -33,16 +37,21 @@ export class SearchViewComponent {
   @Input() query?: string;
   @Input() page?: number;
   @Input() filter?: string;
+  @ViewChild('loginDialog') loginDialog!: LoginDialogComponent;
   result?: SearchResult;
   loading: boolean = true;
   legislatorRemark?: LegislatorRemark;
   aiTopic?: Topic;
+  isUserLoggedIn = this.store.selectSignal(isUserLoggedIn);
+  loginDialogMessage: string =
+    '透過 Gemini 來深度分析目前搜尋到的資料，快加入我們來探索立院大小事！';
 
   constructor(
     private searchService: SearchService,
     private router: Router,
     private route: ActivatedRoute,
-    private logger: EventLoggerService
+    private logger: EventLoggerService,
+    private store: Store
   ) {
     this.route.queryParams.subscribe(params => {
       this.query = params['query'];
@@ -209,5 +218,19 @@ export class SearchViewComponent {
 
   onGotoHashTag(tag: string) {
     this.onSearch('#' + tag);
+  }
+
+  gotoGeminiChat() {
+    if (!this.isUserLoggedIn()) {
+      this.loginDialog.toggle();
+      return;
+    }
+    this.router.navigate(['/chat'], {
+      relativeTo: this.route,
+      queryParams: {
+        query: this.query,
+        filter: this.filter,
+      },
+    });
   }
 }

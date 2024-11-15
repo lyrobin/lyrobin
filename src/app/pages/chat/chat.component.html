@@ -1,0 +1,93 @@
+<app-search-bar (onSearch)="onSearch($event)" [showFacets]="false">
+</app-search-bar>
+
+<div
+  class="flex flex-column h-full w-full align-items-center justify-content-center overflow-hidden">
+  @if (isUserLoading() || loading) {
+    <p-progressSpinner
+      ariaLabel="loading"
+      styleClass="w-2rem h-2rem"
+      strokeWidth="8" />
+  } @else if (errorTitle) {
+    <p-card
+      [header]="errorTitle"
+      class="col-11 lg:col-6"
+      styleClass="dark-card">
+      <markdown class="m-0" [data]="errorMessage"></markdown>
+      <ng-template pTemplate="footer">
+        <div class="flex justify-content-end">
+          @if (isLogin() && !geminiKey()) {
+            <p-button
+              label="設定金鑰"
+              styleClass="p-2"
+              size="small"
+              (onClick)="gotoUser()"></p-button>
+          }
+        </div>
+      </ng-template>
+    </p-card>
+  } @else {
+    <div class="col-12 lg:col-8 flex flex-column h-full">
+      <div
+        #chatscroll
+        class="chat-scroll dark-background flex-grow-1 overflow-x-hidden border-round pl-3">
+        <div class="p-2">
+          <p class="font-semibold mr-2 mt-3">您好! 您可以針對以下資料提問：</p>
+          <div class="flex align-items-center mt-1 flex-wrap">
+            <p-tag
+              [value]="chatContext()?.query"
+              styleClass="mr-2 my-1 cursor-pointer"
+              (click)="gotoSearch()"></p-tag>
+            <p-tag [value]="words" styleClass="mr-2 my-1"></p-tag>
+            @for (item of tags; track $index) {
+              <p-tag
+                [value]="item"
+                severity="secondary"
+                styleClass="mr-2 my-1"></p-tag>
+            }
+          </div>
+          <p-divider />
+          @for (item of history; track $index) {
+            <div class="grid mt-1">
+              <div
+                class="col-12 lg:col-1 flex align-items-start justify-content-start pt-0 pb-0">
+                <div class="flex align-items-center mt-2">
+                  @if (item.role == 'user') {
+                    <p-avatar
+                      styleClass="mr-2"
+                      shape="circle"
+                      [image]="user()?.photoURL"></p-avatar>
+                  } @else {
+                    <p-avatar
+                      styleClass="mr-2"
+                      shape="circle"
+                      image="/assets/logo.png"></p-avatar>
+                  }
+                  @if (item.loading) {
+                    <p-progressSpinner
+                      styleClass="w-1rem h-1rem"
+                      strokeWidth="8"></p-progressSpinner>
+                  }
+                </div>
+              </div>
+              <markdown
+                class="col-12 lg:col-11 pt-0 pb-0 pr-4"
+                [data]="item.message"></markdown>
+            </div>
+          }
+        </div>
+      </div>
+      <p-iconField iconPosition="right">
+        <p-inputIcon
+          styleClass="pi pi-send cursor-pointer"
+          (click)="sendMessage()" />
+        <input
+          type="text"
+          class="shadow-1 w-full"
+          pInputText
+          [(ngModel)]="message"
+          (keydown.enter)="sendMessage()" />
+      </p-iconField>
+    </div>
+  }
+</div>

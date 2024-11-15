@@ -70,9 +70,11 @@ export class SearchBarComponent {
   @Input() filters: FacetChange[] = [];
   @Input() loading: boolean = false;
   @Input() showFacets: boolean = true;
+  @Input() showGemini: boolean = false;
   @Output() queryChange = new EventEmitter<string>();
   @Output() onSearch = new EventEmitter<string>();
   @Output() onFacetChange = new EventEmitter<FacetChange>();
+  @Output() onGemini = new EventEmitter<void>();
   @ViewChild('calendar') calendar!: OverlayPanel;
 
   dateRange: Date[] | undefined;
@@ -129,6 +131,10 @@ export class SearchBarComponent {
       facet: event.facet,
       value: '',
     });
+  }
+
+  onGeminiClick() {
+    this.onGemini.emit();
   }
 }
 

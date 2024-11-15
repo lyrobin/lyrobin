@@ -4,6 +4,7 @@ import { parse } from 'date-fns';
 import { lastValueFrom } from 'rxjs';
 import { environment } from './../../environments/environment';
 import { Facet, LegislatorRemark, SearchResult, Topic } from './search';
+import { Auth } from '@angular/fire/auth';
 
 @Injectable({
   providedIn: 'root',
@@ -18,7 +19,10 @@ export class SearchService {
     'member',
   ];
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private auth: Auth
+  ) {}
 
   search(
     q: string,
@@ -40,7 +44,7 @@ export class SearchService {
     });
   }
 
-  private toFilterString(filters: { [name: string]: string }): string {
+  toFilterString(filters: { [name: string]: string }): string {
     let queries: string[] = [];
     for (let facet in filters) {
       if (facet === 'legislator' && filters[facet]) {
@@ -104,6 +108,28 @@ export class SearchService {
           tags,
         },
       })
+    );
+  }
+
+  fetchContext(q?: string, filter?: string): Promise<string> {
+    if (!q) {
+      return Promise.reject('No query provided');
+    }
+    return (
+      this.auth.currentUser?.getIdToken().then(token =>
+        lastValueFrom(
+          this.http.get(`${this.apiUrl}/search/context`, {
+            params: {
+              q,
+              filter: filter || '',
+            },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            responseType: 'text',
+          })
+        )
+      ) || Promise.reject('User not logged in')
     );
   }
 }

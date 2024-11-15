@@ -3,8 +3,10 @@
   [facets]="facets"
   [filters]="filterArray"
   [loading]="loading"
+  [showGemini]="true"
   (onSearch)="onSearch($event)"
-  (onFacetChange)="onFacetChange($event)">
+  (onFacetChange)="onFacetChange($event)"
+  (onGemini)="gotoGeminiChat()">
 </app-search-bar>
 
 <app-search-results
@@ -23,3 +25,7 @@
       (onSearch)="onSearch($event)"></app-smart-card>
   </ng-template>
 </app-search-results>
+
+<app-login-dialog
+  #loginDialog
+  [message]="loginDialogMessage"></app-login-dialog>

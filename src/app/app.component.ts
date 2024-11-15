@@ -20,6 +20,7 @@ import { AngularIconComponent } from './components/icons/angular-icon.component'
 import { ArrowBackIconComponent } from './components/icons/arrow-back-icon.component';
 import { FirebaseIconComponent } from './components/icons/firebase-icon.component';
 import { AppStateActions } from './state/actions';
+import { UserService } from './providers/user.service';
 
 @Component({
   selector: 'app-root',
@@ -54,7 +55,8 @@ export class AppComponent implements OnInit {
 
   constructor(
     @Inject(DOCUMENT) private document: Document,
-    @Inject(PLATFORM_ID) platformId: any
+    @Inject(PLATFORM_ID) platformId: any,
+    private userService: UserService
   ) {
     config.autoAddCss = false;
     let head = this.document.getElementsByTagName('head')[0];
@@ -95,6 +97,13 @@ export class AppComponent implements OnInit {
             },
           })
         );
+        this.userService.getUserGeminiKey().then(key => {
+          this.store.dispatch(
+            AppStateActions.setGeminiKey({
+              geminiKey: key,
+            })
+          );
+        });
       } else {
         this.store.dispatch(AppStateActions.logoutUser({}));
       }
