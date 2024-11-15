@@ -53,4 +53,10 @@ export class NavbarButtonComponent {
       relativeTo: this.route,
     });
   }
+
+  gotoPrivacy() {
+    this.router.navigate(['/privacy'], {
+      relativeTo: this.route,
+    });
+  }
 }

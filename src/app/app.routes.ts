@@ -20,6 +20,11 @@ export const routes: Routes = [
       import('./pages/news/news.component').then(c => c.NewsComponent),
   },
   {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./pages/privacy/privacy.component').then(c => c.PrivacyComponent),
+  },
+  {
     path: '**',
     redirectTo: 'search',
   },
