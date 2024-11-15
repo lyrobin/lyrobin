@@ -28,9 +28,9 @@ func main() {
 	}
 	se := modules.NewTypesenseEngine(cfg.TypeSense, store)
 	router := routers.Router{
-		SearchEngine: se,
-		StoreReader:  store,
-		App:          app,
+		SearchEngine:      se,
+		StoreReaderWriter: store,
+		App:               app,
 	}
 	r := gin.Default()
 	router.Register(r)

@@ -16,7 +16,7 @@ import (
 
 type Router struct {
 	modules.SearchEngine
-	models.StoreReader
+	models.StoreReaderWriter
 	App *firebase.App
 }
 
@@ -48,9 +48,9 @@ func (r Router) Register(e *gin.Engine) {
 	e.GET("/search", HandleSearch(r.SearchEngine))
 	{
 		g := e.Group("/ai")
-		g.GET("/summary", HandleAISummary(r.StoreReader))
+		g.GET("/summary", HandleAISummary(r.StoreReaderWriter))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
-		g.GET("/topic", HandleSearchTopic(r.StoreReader))
+		g.GET("/topic", HandleSearchTopic(r.StoreReaderWriter))
 	}
 	{
 		g := e.Group("/meetings/:meetID")
@@ -59,14 +59,20 @@ func (r Router) Register(e *gin.Engine) {
 			g := g.Group("/ivods/:ivodID")
 			{
 				g := g.Group("/speeches/:speechID")
-				g.GET(("/video"), HandleGetSpeechVideo(r.StoreReader))
+				g.GET(("/video"), HandleGetSpeechVideo(r.StoreReaderWriter))
 			}
-			g.GET("/:collection/:videoID/playlist", HandleGetVideoPlaylist(r.StoreReader))
+			g.GET("/:collection/:videoID/playlist", HandleGetVideoPlaylist(r.StoreReaderWriter))
 		}
 	}
 	{
 		g := e.Group("/news")
-		g.GET("", HandleListNewsReports(r.StoreReader))
+		g.GET("", HandleListNewsReports(r.StoreReaderWriter))
+	}
+	{
+		g := e.Group("/users")
+		g.Use(FirebaseAuth(r.App))
+		g.POST("/gemini-key", HandleUpdateUserGeminiKey(r.StoreReaderWriter))
+		g.GET("/gemini-key", HandleGetUserGeminiKey(r.StoreReaderWriter))
 	}
 
 	// V1 APIs
@@ -74,7 +80,7 @@ func (r Router) Register(e *gin.Engine) {
 	v1.GET("/search", HandleSearch(r.SearchEngine))
 	{
 		g := v1.Group("/ai")
-		g.GET("/summary", HandleAISummary(r.StoreReader))
+		g.GET("/summary", HandleAISummary(r.StoreReaderWriter))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))
 	}
 

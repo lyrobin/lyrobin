@@ -24,6 +24,16 @@ type StoreReader interface {
 	GetLegislator(ctx context.Context, path string) (Legislator, error)
 	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
 	ListNewsReports(ctx context.Context, startAt string, limit int) ([]NewsReport, error)
+	GetUser(ctx context.Context, uid string) (User, error)
+}
+
+type StoreWriter interface {
+	UpdateUser(ctx context.Context, user User) error
+}
+
+type StoreReaderWriter interface {
+	StoreReader
+	StoreWriter
 }
 
 type Document struct {
@@ -100,7 +110,17 @@ type NewsReport struct {
 	ID            string    `json:"id,omitempty"`
 }
 
+type User struct {
+	ID           string    `firestore:"uid,omitempty"`
+	AccessToken  string    `firestore:"google_access_token,omitempty"`
+	RefreshToken string    `firestore:"google_refresh_token,omitempty"`
+	Expiry       time.Time `firestore:"google_expiration_time,omitempty"`
+	GeminiKey    string    `firestore:"gemini_key,omitempty"`
+}
+
 var _ StoreReader = &FireStore{}
+var _ StoreWriter = &FireStore{}
+var _ StoreReaderWriter = &FireStore{}
 
 type FireStore struct {
 	App *firebase.App
@@ -319,4 +339,37 @@ func (s *FireStore) ListNewsReports(ctx context.Context, startAfter string, limi
 		reports = append(reports, report)
 	}
 	return reports, nil
+}
+
+func (s *FireStore) GetUser(ctx context.Context, uid string) (User, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return User{}, err
+	}
+	defer client.Close()
+	doc, err := client.Collection("users").Doc(uid).Get(ctx)
+	if err != nil || !doc.Exists() {
+		return User{}, errors.New(uid + " not found")
+	}
+	var user User
+	doc.DataTo(&user)
+	return user, nil
+}
+
+func (s *FireStore) UpdateUser(ctx context.Context, user User) error {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	doc := client.Collection("users").Doc(user.ID)
+	_, err = doc.Update(
+		ctx, []firestore.Update{
+			{
+				Path:  "gemini_key",
+				Value: user.GeminiKey,
+			},
+		},
+	)
+	return err
 }
