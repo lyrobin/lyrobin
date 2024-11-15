@@ -1,7 +1,8 @@
 <app-search-bar (onSearch)="onSearch($event)" [showFacets]="false">
 </app-search-bar>
 
-<div class="flex flex-column h-full w-full align-items-center">
+<div
+  class="flex flex-column h-full w-full align-items-center overflow-y-scroll overflow-x-hidden">
   <p-card header="隱私權政策" class="lg:col-8 p-4" styleClass="policy-card">
     <markdown class="m-0" [data]="privacy | markdownSanitize"></markdown>
   </p-card>
