@@ -102,3 +102,34 @@ func getSearchRequest(ctx *gin.Context) (modules.SearchRequest, error) {
 	err := ctx.BindJSON(&query)
 	return query, err
 }
+
+func HandleSearchFullContext(se modules.SearchEngine, store models.StoreReaderWriter) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		query, err := getSearchRequest(ctx)
+		if err != nil {
+			ctx.String(400, err.Error())
+			return
+		}
+		limitQuery, ok := ctx.GetQuery("limit")
+		limit := 5
+		if ok {
+			limit, err = strconv.Atoi(limitQuery)
+			if err != nil {
+				ctx.String(400, "bad limit")
+				return
+			}
+		}
+
+		var results []modules.DocumentHit
+		for query.Page = 0; query.Page < limit; query.Page++ {
+			hits, err := se.SearchDocumentHits(ctx.Request.Context(), query)
+			if err != nil {
+				ctx.String(500, err.Error())
+				return
+			}
+			results = append(results, hits...)
+		}
+		dumper := modules.NewContextDumper(store)
+		ctx.String(200, dumper.Dump(ctx.Request.Context(), results...))
+	}
+}

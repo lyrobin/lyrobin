@@ -47,6 +47,12 @@ func (r Router) Register(e *gin.Engine) {
 	e.Use(cors.New(corsConfig))
 	e.GET("/search", HandleSearch(r.SearchEngine))
 	{
+		// Privileged Search APIs
+		g := e.Group("/search")
+		// g.Use(FirebaseAuth(r.App))
+		g.GET("/context", HandleSearchFullContext(r.SearchEngine, r.StoreReaderWriter))
+	}
+	{
 		g := e.Group("/ai")
 		g.GET("/summary", HandleAISummary(r.StoreReaderWriter))
 		g.GET(("/legislator"), HandleSearchLegislator(r.SearchEngine))

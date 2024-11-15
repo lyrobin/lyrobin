@@ -1,3 +1,4 @@
+// Package modules define modules.
 package modules
 
 import (
@@ -61,6 +62,12 @@ type Document struct {
 	HashTags    []string `json:"hashtags,omitempty"`
 }
 
+// DocumentHit is a simplified version of Document
+type DocumentHit struct {
+	Path    string `json:"path,omitempty"`
+	DocType string `json:"doc_type,omitempty"`
+}
+
 type SpeechRemark struct {
 	Topic   string   `json:"topic,omitempty"`
 	Details []string `json:"details,omitempty"`
@@ -77,6 +84,7 @@ type Legislator struct {
 
 type SearchEngine interface {
 	Search(ctx context.Context, req SearchRequest) (SearchResult, error)
+	SearchDocumentHits(ctx context.Context, req SearchRequest) ([]DocumentHit, error)
 	SearchLegislator(ctx context.Context, name string) (Legislator, error)
 }
 
@@ -101,7 +109,7 @@ func NewTypesenseEngine(cfg config.TypeSense, store models.StoreReader) SearchEn
 	}
 }
 
-func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchResult, error) {
+func (e typesenseEngine) search(ctx context.Context, req SearchRequest) (*api.SearchResult, error) {
 	filter := "doc_type:!legislator"
 	if req.Filter != "" {
 		filter += "&&" + req.Filter
@@ -128,10 +136,26 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 		PerPage:                 pointer.Int(20),
 		Page:                    pointer.Int((req.Page)),
 	}
-	result, err := e.client.Collection(collection).Documents().Search(ctx, params)
+	return e.client.Collection(collection).Documents().Search(ctx, params)
+}
+
+func (e typesenseEngine) SearchDocumentHits(ctx context.Context, req SearchRequest) ([]DocumentHit, error) {
+	results, err := e.search(ctx, req)
 	if err != nil {
-		return SearchResult{}, err
+		return nil, err
 	}
+	var hits []DocumentHit
+	for _, h := range *results.Hits {
+		hit, err := e.convertHitToDocumentHit(h)
+		if err != nil {
+			return nil, err
+		}
+		hits = append(hits, hit)
+	}
+	return hits, nil
+}
+
+func (e typesenseEngine) fetchFacets(result *api.SearchResult) []Facet {
 	var facets []Facet
 	for _, f := range *result.FacetCounts {
 		var counts []FacetCount
@@ -146,6 +170,15 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 			Counts: counts,
 		})
 	}
+	return facets
+}
+
+func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchResult, error) {
+	result, err := e.search(ctx, req)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	facets := e.fetchFacets(result)
 	var hits []Document
 	for _, h := range *result.Hits {
 		doc, err := e.convertHitToDocument(ctx, h)
@@ -197,6 +230,22 @@ func (e typesenseEngine) SearchLegislator(ctx context.Context, name string) (Leg
 		Area:    legislator.Area,
 		Avatar:  legislator.Avatar,
 		Remarks: remarks,
+	}, nil
+}
+
+func (e typesenseEngine) convertHitToDocumentHit(h api.SearchResultHit) (DocumentHit, error) {
+	doc := *h.Document
+	docType, ok := doc["doc_type"].(string)
+	if !ok {
+		return DocumentHit{}, errors.New("can't find `doc_type` in hit")
+	}
+	path, ok := doc["path"].(string)
+	if !ok {
+		return DocumentHit{}, errors.New("can't find `path` in hit")
+	}
+	return DocumentHit{
+		Path:    path,
+		DocType: docType,
 	}, nil
 }
 

@@ -25,6 +25,7 @@ type StoreReader interface {
 	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
 	ListNewsReports(ctx context.Context, startAt string, limit int) ([]NewsReport, error)
 	GetUser(ctx context.Context, uid string) (User, error)
+	FindMeeting(ctx context.Context, path string) (Meeting, error)
 }
 
 type StoreWriter interface {
@@ -45,6 +46,7 @@ type Meeting struct {
 	Name    string `firestore:"meeting_name,omitempty"`
 	Content string `firestore:"meeting_content,omitempty"`
 	Summary string `firestore:"ai_summary,omitempty"`
+	Unit    string `firestore:"meeting_unit,omitempty"`
 	DateDes string `firestore:"meeting_date_desc,omitempty"`
 }
 
@@ -372,4 +374,21 @@ func (s *FireStore) UpdateUser(ctx context.Context, user User) error {
 		},
 	)
 	return err
+}
+
+func (s *FireStore) FindMeeting(ctx context.Context, path string) (Meeting, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return Meeting{}, err
+	}
+	defer client.Close()
+	if !strings.HasPrefix(path, "meetings/") {
+		return Meeting{}, fmt.Errorf("invalid path: %s", path)
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return Meeting{}, fmt.Errorf("invalid path: %s", path)
+	}
+	meetingPath := strings.Join(parts[:2], "/")
+	return s.GetMeeting(ctx, meetingPath)
 }
