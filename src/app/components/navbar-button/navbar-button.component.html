@@ -38,13 +38,20 @@
   <ng-template pTemplate="footer">
     <div class="flex flex-column">
       @if (isUserLoggedIn()) {
-        <div class="flex align-items-center">
-          <p-avatar
-            [label]="userPhoto() ? '' : userLabel"
-            [image]="userPhoto()"
-            styleClass="block"
-            shape="circle"></p-avatar>
-          <span class="ml-2 font-semibold">{{ userName() }}</span>
+        <div class="flex align-items-center justify-content-between">
+          <div class="flex align-items-center">
+            <p-avatar
+              [label]="userPhoto() ? '' : userLabel"
+              [image]="userPhoto()"
+              styleClass="block"
+              shape="circle"></p-avatar>
+            <span class="ml-2 font-semibold">{{ userName() }}</span>
+          </div>
+          <fa-icon
+            [icon]="gearIcon"
+            class="cursor-pointer"
+            size="lg"
+            routerLink="/user"></fa-icon>
         </div>
       } @else {
         <ul class="list-none p-0 m-1">

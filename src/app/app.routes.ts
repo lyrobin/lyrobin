@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { requireLoginGuard } from './require-login.guard';
 
 export const routes: Routes = [
   {
@@ -23,6 +24,12 @@ export const routes: Routes = [
     path: 'privacy',
     loadComponent: () =>
       import('./pages/privacy/privacy.component').then(c => c.PrivacyComponent),
+  },
+  {
+    path: 'user',
+    loadComponent: () =>
+      import('./pages/user/user.component').then(c => c.UserComponent),
+    canActivate: [requireLoginGuard],
   },
   {
     path: '**',

@@ -91,6 +91,7 @@ export class AppComponent implements OnInit {
               uid: user.uid,
               displayName: user.displayName || undefined,
               photoURL: user.photoURL || undefined,
+              email: user.email || undefined,
             },
           })
         );

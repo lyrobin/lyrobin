@@ -1,0 +1,39 @@
+<app-search-bar (onSearch)="onSearch($event)" [showFacets]="false">
+</app-search-bar>
+
+<div
+  class="h-full w-full flex flex-column overflow-y-scroll overflow-x-hidden align-items-center p-2">
+  <p-card header="帳戶管理" class="col-12 md:col-5" styleClass="dark-card">
+    <div class="flex align-items-center">
+      <p-avatar [image]="photo()" shape="circle" size="xlarge"></p-avatar>
+      <div
+        class="ml-5 overflow-x-scroll md:overflow-x-hidden lg:overflow-x-hidden">
+        <p><b>用戶名稱：</b> {{ user()?.displayName }}</p>
+        <p-divider></p-divider>
+        <p><b>電子郵件：</b> {{ user()?.email }}</p>
+      </div>
+    </div>
+  </p-card>
+
+  <p-card header="金鑰管理" class="col-12 md:col-5" styleClass="dark-card">
+    <div class="flex align-items-center">
+      <p class="font-bold mr-4">Gemini API Key</p>
+      <input
+        type="text"
+        pInputText
+        [(ngModel)]="geminiKey"
+        class="col-6 lg:col-7 h-2rem" />
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="flex justify-content-end">
+        <p-button
+          [icon]="updateGeminiKeyIcon"
+          label="更新金鑰"
+          size="small"
+          styleClass="p-2"
+          [loading]="updating"
+          (onClick)="updateGeminiKey()"></p-button>
+      </div>
+    </ng-template>
+  </p-card>
+</div>

@@ -13,11 +13,19 @@ import { MenuModule } from 'primeng/menu';
 import { SidebarModule } from 'primeng/sidebar';
 import { environment } from '../../../environments/environment';
 import { isUserLoggedIn, selectUser } from '../../state/selectors';
+import { FaIconComponent } from '@fortawesome/angular-fontawesome';
+import { faGear } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
   selector: 'app-navbar-button',
   standalone: true,
-  imports: [ButtonModule, SidebarModule, MenuModule, AvatarModule],
+  imports: [
+    ButtonModule,
+    SidebarModule,
+    MenuModule,
+    AvatarModule,
+    FaIconComponent,
+  ],
   templateUrl: './navbar-button.component.html',
   styleUrl: './navbar-button.component.scss',
 })
@@ -26,6 +34,7 @@ export class NavbarButtonComponent {
   readonly user = this.store.selectSignal(selectUser);
   readonly userPhoto = computed(() => this.user()?.photoURL);
   readonly userName = computed(() => this.user()?.displayName);
+  readonly gearIcon = faGear;
   navbarVisible = false;
 
   constructor(
