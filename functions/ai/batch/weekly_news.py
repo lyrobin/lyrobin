@@ -56,7 +56,6 @@ class GenerateWeeklyNewsContext:
 
 def start_generate_weekly_news(
     ctx: GenerateWeeklyNewsContext,
-    content: str,
     model: str = "publishers/google/models/gemini-1.5-pro-001",
 ):
     """Generate weekly news titles."""
@@ -66,7 +65,15 @@ def start_generate_weekly_news(
                 {
                     "role": "user",
                     "parts": [
-                        {"text": content},
+                        {
+                            "fileData": {
+                                "fileUri": ctx.transcript_uri,
+                                "mimeType": "text/plain",
+                            },
+                        },
+                        {
+                            "text": "這是本週的立法院的會議紀錄。",
+                        },
                         {
                             "text": "請依照討論度最高的幾個議題，撰寫新聞標題。注意不要提及人名。"
                         },
@@ -157,7 +164,15 @@ def start_generate_weekly_news_content(
                 {
                     "role": "user",
                     "parts": [
-                        {"text": f"# 會議紀錄\n\n{report.get_transcript_text()}\n\n"},
+                        {
+                            "fileData": {
+                                "fileUri": report.transcript_uri,
+                                "mimeType": "text/plain",
+                            },
+                        },
+                        {
+                            "text": "這是本週的立法院的會議紀錄。",
+                        },
                         {
                             "text": (
                                 f"以 {report.title} 為標題，撰寫一篇新聞報導的內文。注意:\n"
@@ -219,7 +234,15 @@ def start_search_news_stakeholders(
                 {
                     "role": "user",
                     "parts": [
-                        {"text": report.get_transcript_text()},
+                        {
+                            "fileData": {
+                                "fileUri": report.transcript_uri,
+                                "mimeType": "text/plain",
+                            },
+                        },
+                        {
+                            "text": "這是本週的立法院的會議紀錄。",
+                        },
                         {
                             "text": (
                                 f"參考下篇新聞報導，找出有討論到這則報導的委員。\n"

@@ -194,6 +194,8 @@ export class ChatComponent {
           }) ?? [])
       );
       return;
+    } else {
+      this.history.splice(0, this.history.length);
     }
 
     this.store.dispatch(

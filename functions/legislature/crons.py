@@ -804,5 +804,4 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
             start=start,
             end=end,
         ),
-        transcript_txt,
     )
