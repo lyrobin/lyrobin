@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SearchService } from '../../providers/search.service';
 import { MatChipsModule } from '@angular/material/chips';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-keywords',
@@ -12,15 +13,22 @@ import { MatChipsModule } from '@angular/material/chips';
   host: { ngSkipHydration: 'true' },
 })
 export class KeywordsComponent implements OnInit {
+  private isBrowser: boolean;
   hints: string[] = [];
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private searchService: SearchService
-  ) {}
+    private searchService: SearchService,
+    @Inject(PLATFORM_ID) platformId: any
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
 
   ngOnInit(): void {
+    if (!this.isBrowser) {
+      return;
+    }
     this.searchService
       .hotKeywords()
       .then(keywords => {
