@@ -19,7 +19,10 @@ import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
 import { getStorage, provideStorage } from '@angular/fire/storage';
-import { provideClientHydration } from '@angular/platform-browser';
+import {
+  provideClientHydration,
+  withHttpTransferCacheOptions,
+} from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideStore } from '@ngrx/store';
@@ -62,7 +65,11 @@ export const appConfig: ApplicationConfig = {
         scrollPositionRestoration: 'enabled',
       })
     ),
-    provideClientHydration(),
+    provideClientHydration(
+      withHttpTransferCacheOptions({
+        filter: req => !req.url.includes('/search/keywords'),
+      })
+    ),
     {
       provide: WINDOW,
       useFactory: (document: Document) => windowProvider(document),
