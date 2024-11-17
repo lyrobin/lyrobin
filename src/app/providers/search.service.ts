@@ -44,6 +44,12 @@ export class SearchService {
     });
   }
 
+  hotKeywords(): Promise<string[]> {
+    return lastValueFrom(
+      this.http.get<string[]>(`${this.apiUrl}/search/keywords`)
+    );
+  }
+
   toFilterString(filters: { [name: string]: string }): string {
     let queries: string[] = [];
     for (let facet in filters) {

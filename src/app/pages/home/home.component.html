@@ -25,10 +25,17 @@
     </div>
     <div
       class="hints mt-4 mb-3 text-xl flex flex-row flex-wrap align-items-center">
-      <span class="mr-1"><b>試試:</b></span>
-      @for (hint of hints; track hint) {
+      <span class="mr-2"><b>試試:</b></span>
+      @for (hint of hints.slice(0, 3); track hint) {
         <mat-chip
-          class="hint-chip text-lg cursor-pointe mx-2"
+          class="hint-chip text-lg cursor-pointe mr-1 md:mr-2"
+          (click)="goto(hint)">
+          <b>{{ hint }}</b>
+        </mat-chip>
+      }
+      @for (hint of hints.slice(3); track hint) {
+        <mat-chip
+          class="hint-chip text-lg cursor-pointe hidden md:block mr-1 md:mr-2"
           (click)="goto(hint)">
           <b>{{ hint }}</b>
         </mat-chip>

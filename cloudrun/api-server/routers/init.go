@@ -49,8 +49,13 @@ func (r Router) Register(e *gin.Engine) {
 	{
 		// Privileged Search APIs
 		g := e.Group("/search")
-		// g.Use(FirebaseAuth(r.App))
+		g.Use(FirebaseAuth(r.App))
 		g.GET("/context", HandleSearchFullContext(r.SearchEngine, r.StoreReaderWriter))
+	}
+	{
+		// Public search APIs
+		g := e.Group("/search")
+		g.GET("/keywords", HandleGetHotKeywords(r.StoreReaderWriter))
 	}
 	{
 		g := e.Group("/ai")

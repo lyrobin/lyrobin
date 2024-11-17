@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatChipsModule } from '@angular/material/chips';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -14,6 +14,7 @@ import { EventLoggerService } from '../../providers/event-logger.service';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { UserButtonComponent } from '../../components/user-button/user-button.component';
 import { NavbarButtonComponent } from '../../components/navbar-button/navbar-button.component';
+import { SearchService } from '../../providers/search.service';
 
 @Component({
   selector: 'app-home',
@@ -39,18 +40,34 @@ import { NavbarButtonComponent } from '../../components/navbar-button/navbar-but
     class: 'home-container w-full',
   },
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
   @Input({ transform: trimString }) query = '';
   @ViewChild('secondPage') secondPage!: ElementRef<HTMLDivElement>;
 
-  hints: string[] = ['綠能', '國會改革', '健保', '食安'];
+  hints: string[] = [];
   faAngleDoubleDown = faAngleDoubleDown;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private logger: EventLoggerService
+    private logger: EventLoggerService,
+    private searchService: SearchService
   ) {}
+
+  ngOnInit() {
+    this.searchService
+      .hotKeywords()
+      .then(keywords => {
+        this.hints.splice(0, this.hints.length, ...keywords);
+      })
+      .catch(err => {
+        this.hints.splice(
+          0,
+          this.hints.length,
+          ...['綠能', '國會改革', '健保', '食安']
+        );
+      });
+  }
 
   onSearchClick() {
     this.goto(this.query);

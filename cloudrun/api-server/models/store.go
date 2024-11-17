@@ -26,6 +26,7 @@ type StoreReader interface {
 	ListNewsReports(ctx context.Context, startAt string, limit int) ([]NewsReport, error)
 	GetUser(ctx context.Context, uid string) (User, error)
 	FindMeeting(ctx context.Context, path string) (Meeting, error)
+	GetHotKeywords(ctx context.Context) ([]string, error)
 }
 
 type StoreWriter interface {
@@ -392,4 +393,21 @@ func (s *FireStore) FindMeeting(ctx context.Context, path string) (Meeting, erro
 	}
 	meetingPath := strings.Join(parts[:2], "/")
 	return s.GetMeeting(ctx, meetingPath)
+}
+
+func (s *FireStore) GetHotKeywords(ctx context.Context) ([]string, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	doc, err := client.Collection("hot_keywords").OrderBy("timestamp", firestore.Desc).Limit(1).Documents(ctx).Next()
+	if err != nil || !doc.Exists() {
+		return nil, errors.New("hot keywords not found")
+	}
+	var hotKeywords struct {
+		Keywords []string `firestore:"keywords,omitempty"`
+	}
+	doc.DataTo(&hotKeywords)
+	return hotKeywords.Keywords, nil
 }

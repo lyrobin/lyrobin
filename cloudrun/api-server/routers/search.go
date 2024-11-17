@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"math/rand/v2"
 	"strconv"
 
 	"github.com/blueworrybear/taiwan-legislative-search/cloudrun/api-server/models"
@@ -131,5 +132,26 @@ func HandleSearchFullContext(se modules.SearchEngine, store models.StoreReaderWr
 		}
 		dumper := modules.NewContextDumper(store)
 		ctx.String(200, dumper.Dump(ctx.Request.Context(), results...))
+	}
+}
+
+func HandleGetHotKeywords(store models.StoreReader) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		keywords, err := store.GetHotKeywords(ctx.Request.Context())
+		if err != nil {
+			ctx.String(500, err.Error())
+			return
+		}
+		var filteredKeywords []string
+		for _, keyword := range keywords {
+
+			if len([]rune(keyword)) <= 5 {
+				filteredKeywords = append(filteredKeywords, keyword)
+			}
+		}
+		rand.Shuffle(len(filteredKeywords), func(i, j int) {
+			filteredKeywords[i], filteredKeywords[j] = filteredKeywords[j], filteredKeywords[i]
+		})
+		ctx.JSON(200, filteredKeywords[:5])
 	}
 }
