@@ -1,6 +1,14 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatToolbarModule } from '@angular/material/toolbar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { faAngleDoubleDown } from '@fortawesome/free-solid-svg-icons';
@@ -9,11 +17,10 @@ import { CardModule } from 'primeng/card';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
+import { NavbarButtonComponent } from '../../components/navbar-button/navbar-button.component';
+import { UserButtonComponent } from '../../components/user-button/user-button.component';
 import { ExternalLinkDirective } from '../../directives/external-link.directive';
 import { EventLoggerService } from '../../providers/event-logger.service';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { UserButtonComponent } from '../../components/user-button/user-button.component';
-import { NavbarButtonComponent } from '../../components/navbar-button/navbar-button.component';
 import { SearchService } from '../../providers/search.service';
 
 @Component({
@@ -40,7 +47,7 @@ import { SearchService } from '../../providers/search.service';
     class: 'home-container w-full',
   },
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent implements OnChanges {
   @Input({ transform: trimString }) query = '';
   @ViewChild('secondPage') secondPage!: ElementRef<HTMLDivElement>;
 
@@ -54,7 +61,7 @@ export class HomeComponent implements OnInit {
     private searchService: SearchService
   ) {}
 
-  ngOnInit() {
+  ngOnChanges(changes: SimpleChanges): void {
     this.searchService
       .hotKeywords()
       .then(keywords => {
