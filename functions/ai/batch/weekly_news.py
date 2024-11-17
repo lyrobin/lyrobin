@@ -140,7 +140,7 @@ def on_receive_weekly_news_cleanup_titles(
     db.collection(models.WEEKLY_COLLECT).document(str(weekly_report.week)).set(
         weekly_report.asdict(), merge=True
     )
-    for title in titles[0:2]:  # TODO: Remove the limit
+    for title in titles:
         ref = db.collection(models.NEWS_REPORT_COLLECT).document()
         report = models.NewsReport(
             title=title,
@@ -179,6 +179,7 @@ def start_generate_weekly_news_content(
                                 "1. 使用繁體中文。\n"
                                 "2. 開頭不需要日期和出處。\n"
                                 "3. 不需要有標題。\n"
+                                "4. 不要直接使用姓名，用職稱來代替。\n"
                             )
                         },
                     ],
