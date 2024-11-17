@@ -1,11 +1,4 @@
-import {
-  Component,
-  ElementRef,
-  Input,
-  OnChanges,
-  SimpleChanges,
-  ViewChild,
-} from '@angular/core';
+import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -17,11 +10,11 @@ import { CardModule } from 'primeng/card';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
+import { KeywordsComponent } from '../../components/keywords/keywords.component';
 import { NavbarButtonComponent } from '../../components/navbar-button/navbar-button.component';
 import { UserButtonComponent } from '../../components/user-button/user-button.component';
 import { ExternalLinkDirective } from '../../directives/external-link.directive';
 import { EventLoggerService } from '../../providers/event-logger.service';
-import { SearchService } from '../../providers/search.service';
 
 @Component({
   selector: 'app-home',
@@ -40,6 +33,7 @@ import { SearchService } from '../../providers/search.service';
     MatToolbarModule,
     UserButtonComponent,
     NavbarButtonComponent,
+    KeywordsComponent,
   ],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',
@@ -47,34 +41,17 @@ import { SearchService } from '../../providers/search.service';
     class: 'home-container w-full',
   },
 })
-export class HomeComponent implements OnChanges {
+export class HomeComponent {
   @Input({ transform: trimString }) query = '';
   @ViewChild('secondPage') secondPage!: ElementRef<HTMLDivElement>;
 
-  hints: string[] = [];
   faAngleDoubleDown = faAngleDoubleDown;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private logger: EventLoggerService,
-    private searchService: SearchService
+    private logger: EventLoggerService
   ) {}
-
-  ngOnChanges(changes: SimpleChanges): void {
-    this.searchService
-      .hotKeywords()
-      .then(keywords => {
-        this.hints.splice(0, this.hints.length, ...keywords);
-      })
-      .catch(err => {
-        this.hints.splice(
-          0,
-          this.hints.length,
-          ...['綠能', '國會改革', '健保', '食安']
-        );
-      });
-  }
 
   onSearchClick() {
     this.goto(this.query);
