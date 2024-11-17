@@ -42,4 +42,5 @@ export interface Topic {
   title: string;
   tags: string[];
   summary: string;
+  timestamp: number;
 }

@@ -11,6 +11,11 @@
             (click)="gotoExpand()"></fa-icon>
         </div>
       </ng-template>
+      <ng-template pTemplate="subtitle">
+        <span class="text-sm">
+          更新日期： {{ topic?.timestamp | date: 'yyyy年MM月dd日' }}
+        </span>
+      </ng-template>
       <ng-template pTemplate="content">
         <div>
           @for (tag of topic?.tags; track $index) {

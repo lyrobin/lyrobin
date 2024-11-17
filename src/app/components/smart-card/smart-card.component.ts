@@ -5,7 +5,7 @@ import {
   transition,
   trigger,
 } from '@angular/animations';
-import { DecimalPipe, NgIf } from '@angular/common';
+import { DatePipe, DecimalPipe, NgIf } from '@angular/common';
 import {
   Component,
   EventEmitter,
@@ -51,6 +51,7 @@ import { isUserLoggedIn } from '../../state/selectors';
     MarkdownModule,
     ScrollPanelModule,
     TagModule,
+    DatePipe,
   ],
   templateUrl: './smart-card.component.html',
   styleUrl: './smart-card.component.scss',

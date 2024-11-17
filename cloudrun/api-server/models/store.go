@@ -96,9 +96,10 @@ type Legislator struct {
 }
 
 type Topic struct {
-	Title   string   `firestore:"title,omitempty" json:"title,omitempty"`
-	Summary string   `firestore:"summary,omitempty" json:"summary,omitempty"`
-	Tags    []string `firestore:"tags,omitempty" json:"tags,omitempty"`
+	Title     string    `firestore:"title,omitempty" json:"title,omitempty"`
+	Summary   string    `firestore:"summary,omitempty" json:"summary,omitempty"`
+	Tags      []string  `firestore:"tags,omitempty" json:"tags,omitempty"`
+	Timestamp time.Time `firestore:"timestamp,omitempty" json:"timestamp,omitempty"`
 }
 
 type NewsReport struct {
