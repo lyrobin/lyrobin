@@ -16,6 +16,8 @@ import {
   selectGeminiKey,
   selectUser,
 } from '../../state/selectors';
+import { DialogModule } from 'primeng/dialog';
+import { MarkdownModule } from 'ngx-markdown';
 
 @Component({
   selector: 'app-user',
@@ -28,6 +30,8 @@ import {
     InputTextModule,
     FormsModule,
     ButtonModule,
+    DialogModule,
+    MarkdownModule,
   ],
   templateUrl: './user.component.html',
   styleUrl: './user.component.scss',
@@ -43,6 +47,19 @@ export class UserComponent implements OnInit {
   updateGeminiKeyIcon: string = '';
   clearIcon: ReturnType<typeof setTimeout> | null = null;
   buffer: string = '';
+  showKeyDialog: boolean = false;
+  keyMessage: string = `
+  ## 如何如得 Gemini 金鑰？
+
+  你可以在 Google AI Studio 取得 Gemini 金鑰，來啟用 AI 功能。可以參考以下步驟：
+
+  1. 打開左側選單，點選「Get API Key」。
+  2. 在中間主畫面點選「Create API Key」。
+  3. 點選「Copy」按鈕，將金鑰複製到剪貼簿。
+  4. 若是先前已經取得過金鑰，選擇任一個 Google Cloud Project，再點選「Create API key in existing project」。 
+  
+  你也可以查看 <a href="http://www.youtube.com/" target="_blank">影片教學</a>，來了解如何取得 Gemini 金鑰。
+  `;
 
   constructor(
     private readonly store: Store,
@@ -90,5 +107,13 @@ export class UserComponent implements OnInit {
           this.updateGeminiKeyIcon = '';
         }, 1000);
       });
+  }
+
+  toggleKeyDialog() {
+    this.showKeyDialog = !this.showKeyDialog;
+  }
+
+  gotoAiStudio() {
+    window.open('https://aistudio.google.com/apikey', '_blank');
   }
 }

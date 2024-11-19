@@ -27,6 +27,11 @@
     <ng-template pTemplate="footer">
       <div class="flex justify-content-end">
         <p-button
+          label="取得金鑰"
+          size="small"
+          styleClass="p-2 mr-2"
+          (onClick)="toggleKeyDialog()"></p-button>
+        <p-button
           [icon]="updateGeminiKeyIcon"
           label="更新金鑰"
           size="small"
@@ -37,3 +42,16 @@
     </ng-template>
   </p-card>
 </div>
+
+<p-dialog header="即將前往 Google AI Studio" [(visible)]="showKeyDialog">
+  <markdown class="p-text-secondary block mb-5" [data]="keyMessage"></markdown>
+  <p-divider />
+  <div class="w-full flex justify-content-end">
+    <p-button
+      class="p-2"
+      size="small"
+      (onClick)="gotoAiStudio()"
+      label="前往 Google AI Studio">
+    </p-button>
+  </div>
+</p-dialog>
