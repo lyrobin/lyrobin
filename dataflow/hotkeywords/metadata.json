@@ -1,0 +1,5 @@
+{
+    "name": "Get Hot Keywords",
+    "description": "An Apache Beam batch pipeline that determines the most popular keywords in a dataset.",
+    "parameters": []
+}

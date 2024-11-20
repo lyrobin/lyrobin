@@ -60,4 +60,4 @@
 
 ## 八、聯繫管道
 
-對於本站之隱私權政策有任何疑問，或者想提出變更、移除個人資料之請求，請 Email 至：blueworrybear@gmail.com
+對於本站之隱私權政策有任何疑問，或者想提出變更、移除個人資料之請求，請 Email 至：lyrobintw@gmail.com

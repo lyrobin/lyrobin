@@ -1,5 +1,8 @@
 steps:
+  # Dataflow: Hashtags 
   - name: "gcr.io/cloud-builders/docker"
+    waitFor: ["-"]
+    id: "build_docker_hashtags_go"
     args:
       [
         "build",
@@ -10,6 +13,9 @@ steps:
         ".",
       ]
   - name: "gcr.io/cloud-builders/docker"
+    id: "push_docker_hashtags_go"
+    waitFor:
+      - "build_docker_hashtags_go"
     args:
       [
         "push",
@@ -17,6 +23,8 @@ steps:
       ]
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
+    waitFor:
+      - "push_docker_hashtags_go"
     args: [
       "dataflow",
       "flex-template",
@@ -28,5 +36,43 @@ steps:
       "GO",
       "--metadata-file",
       "dataflow/hashtags/metadata.json",
+    ]
+  # Dataflow: Hot Keywords 
+  - name: "gcr.io/cloud-builders/docker"
+    waitFor: ["-"]
+    id: "build_docker_hotkeywords_go"
+    args:
+      [
+        "build",
+        "-t",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hotkeywords-go",
+        "--file",
+        "dataflow/hotkeywords/Dockerfile",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push_docker_hotkeywords_go"
+    waitFor:
+      - "build_docker_hotkeywords_go"
+    args:
+      [
+        "push",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hotkeywords-go",
+      ]
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    waitFor:
+      - "push_docker_hotkeywords_go"
+    args: [
+      "dataflow",
+      "flex-template",
+      "build",
+      "gs://${PROJECT_ID}_dataflow/templates/hotkeywords-go.json",
+      "--image",
+      "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/dataflow/hotkeywords-go:latest",
+      "--sdk-language",
+      "GO",
+      "--metadata-file",
+      "dataflow/hotkeywords/metadata.json",
     ]
  
