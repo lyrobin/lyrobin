@@ -104,7 +104,12 @@ export class SearchService {
           name,
         },
       })
-    );
+    ).then(result => {
+      if (result.remarks.length <= 0) {
+        return Promise.reject('No remarks found');
+      }
+      return result;
+    });
   }
 
   topic(tags: string[]): Promise<Topic | null> {

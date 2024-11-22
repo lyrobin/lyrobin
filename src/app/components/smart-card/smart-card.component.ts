@@ -106,7 +106,7 @@ export class SmartCardComponent implements OnChanges {
   }
 
   get showTopic(): boolean {
-    return this.show && this.topic !== undefined;
+    return this.show && this.topic !== undefined && !this.showLegislator;
   }
 
   gotoExternal(url: string) {

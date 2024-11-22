@@ -3,7 +3,6 @@ package modules
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -69,9 +68,10 @@ type DocumentHit struct {
 }
 
 type SpeechRemark struct {
-	Topic   string   `json:"topic,omitempty"`
-	Details []string `json:"details,omitempty"`
-	Video   []string `json:"video_urls,omitempty"`
+	Topic     string    `json:"topic,omitempty"`
+	Details   []string  `json:"details,omitempty"`
+	Video     []string  `json:"video_urls,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 type Legislator struct {
@@ -195,13 +195,19 @@ func (e typesenseEngine) Search(ctx context.Context, req SearchRequest) (SearchR
 }
 
 func (e typesenseEngine) SearchLegislator(ctx context.Context, name string) (Legislator, error) {
+	if len([]rune(name)) < 2 {
+		return Legislator{}, errors.New("name too short")
+	}
 	params := &api.SearchCollectionParams{
-		Q:             name,
-		QueryBy:       "name",
-		FilterBy:      pointer.String("doc_type:=legislator"),
-		ExcludeFields: pointer.String("vector"),
-		PerPage:       pointer.Int(1),
-		Page:          pointer.Int(1),
+		Q:                   "*",
+		QueryBy:             "name",
+		FilterBy:            pointer.String("doc_type:=legislator && name:" + name),
+		ExcludeFields:       pointer.String("vector"),
+		PerPage:             pointer.Int(1),
+		Page:                pointer.Int(1),
+		SplitJoinTokens:     pointer.String("off"),
+		NumTypos:            pointer.String("0"),
+		TypoTokensThreshold: pointer.Int(0),
 	}
 	result, err := e.client.Collection(collection).Documents().Search(ctx, params)
 	if err != nil {
@@ -220,17 +226,28 @@ func (e typesenseEngine) SearchLegislator(ctx context.Context, name string) (Leg
 	if err != nil {
 		return Legislator{}, err
 	}
-	var remarks []SpeechRemark
-	if err := json.Unmarshal([]byte(legislator.Remarks), &remarks); err != nil {
-		return Legislator{}, err
-	}
-	return Legislator{
+	response := Legislator{
 		Name:    legislator.Name,
 		Party:   legislator.Party,
 		Area:    legislator.Area,
 		Avatar:  legislator.Avatar,
-		Remarks: remarks,
-	}, nil
+		Remarks: []SpeechRemark{},
+	}
+	topics, err := e.store.FindLegislatorSpeechesTopics(ctx, path)
+	var remarks []SpeechRemark
+	if err != nil {
+		return response, nil
+	}
+	for _, t := range topics {
+		remarks = append(remarks, SpeechRemark{
+			Topic:     t.Title,
+			Details:   t.Remarks,
+			Video:     t.Videos,
+			CreatedAt: t.CreatedAt,
+		})
+	}
+	response.Remarks = remarks
+	return response, nil
 }
 
 func (e typesenseEngine) convertHitToDocumentHit(h api.SearchResultHit) (DocumentHit, error) {

@@ -28,6 +28,7 @@ export interface SpeechRemark {
   topic: string;
   details: string[];
   video_urls: string[];
+  created_at: Date;
 }
 
 export interface LegislatorRemark {

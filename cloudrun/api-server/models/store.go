@@ -22,6 +22,7 @@ type StoreReader interface {
 	GetProceeding(ctx context.Context, path string) (Proceeding, error)
 	GetVideo(ctx context.Context, path string) (Video, error)
 	GetLegislator(ctx context.Context, path string) (Legislator, error)
+	FindLegislatorSpeechesTopics(ctx context.Context, path string) ([]SpeechTopic, error)
 	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
 	ListNewsReports(ctx context.Context, startAt string, limit int) ([]NewsReport, error)
 	GetUser(ctx context.Context, uid string) (User, error)
@@ -89,11 +90,18 @@ type Video struct {
 }
 
 type Legislator struct {
-	Name    string `firestore:"name,omitempty"`
-	Party   string `firestore:"party,omitempty"`
-	Area    string `firestore:"area,omitempty"`
-	Avatar  string `firestore:"avatar,omitempty"`
-	Remarks string `firestore:"ai_summary,omitempty"`
+	Name   string `firestore:"name,omitempty"`
+	Party  string `firestore:"party,omitempty"`
+	Area   string `firestore:"area,omitempty"`
+	Avatar string `firestore:"avatar,omitempty"`
+}
+
+type SpeechTopic struct {
+	Title     string    `firestore:"title,omitempty"`
+	Remarks   []string  `firestore:"remarks,omitempty"`
+	Videos    []string  `firestore:"videos,omitempty"`
+	Ready     bool      `firestore:"ready,omitempty"`
+	CreatedAt time.Time `firestore:"created_at,omitempty"`
 }
 
 type Topic struct {
@@ -215,15 +223,84 @@ func (s *FireStore) GetLegislator(ctx context.Context, path string) (Legislator,
 		return Legislator{}, err
 	}
 	defer client.Close()
-	doc, err := client.Doc(path).Get(ctx)
-	if err != nil || !doc.Exists() {
-		return Legislator{}, errors.New(path + " not found")
+	doc, err := s.getLegislator(ctx, client, path)
+	if err != nil {
+		return Legislator{}, err
 	}
 	var legislator Legislator
 	if err := doc.DataTo(&legislator); err != nil {
 		return Legislator{}, err
 	}
 	return legislator, nil
+}
+
+func (s *FireStore) getLegislator(ctx context.Context, client *firestore.Client, path string) (*firestore.DocumentSnapshot, error) {
+	doc, err := client.Doc(path).Get(ctx)
+	if err != nil || !doc.Exists() {
+		return nil, errors.New(path + " not found")
+	}
+	return doc, nil
+}
+
+func (s *FireStore) FindLegislatorSpeechesTopics(ctx context.Context, path string) ([]SpeechTopic, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	l, err := s.getLegislator(ctx, client, path)
+	if err != nil {
+		return nil, err
+	}
+	iter := l.Ref.Collection("summary").OrderBy("created_at", firestore.Desc).Limit(5).Documents(ctx)
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		topics, err := s.listLegislatorSummaryTopics(ctx, client, doc)
+		if err != nil {
+			continue
+		}
+		if len(topics) <= 0 {
+			continue
+		}
+		ready := true
+		for _, topic := range topics {
+			if !topic.Ready {
+				ready = false
+				break
+			}
+		}
+		if ready {
+			return topics, nil
+		}
+	}
+	return nil, errors.New("no ready topics found")
+}
+
+// listLegislatorSummaryTopics lists the topics of a legislator's speeches.
+// the path is the path to the member's summary collection.
+func (s *FireStore) listLegislatorSummaryTopics(ctx context.Context, client *firestore.Client, doc *firestore.DocumentSnapshot) ([]SpeechTopic, error) {
+	iter := doc.Ref.Collection("topics").Documents(ctx)
+	var result []SpeechTopic
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		var topic SpeechTopic
+		doc.DataTo(&topic)
+		result = append(result, topic)
+	}
+	return result, nil
 }
 
 func (m Meeting) GetURL() string {

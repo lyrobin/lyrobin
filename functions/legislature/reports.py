@@ -105,6 +105,22 @@ def dump_meeting_transcripts_in_json(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
+def dump_speeches(speeches: Sequence[models.SpeechModel]) -> str:
+    """Dump speeches to string."""
+    result = []
+    for speech in speeches:
+        speech_data = {
+            "會議名稱": speech.meeting.value.meeting_name,
+            "委員會": speech.meeting.value.meeting_unit,
+            "立法委員": speech.value.member,
+            "開始時間": speech.value.start_time.isoformat(),
+            "影片連結": speech.value.hd_url,
+            "逐字稿": speech.value.transcript,
+        }
+        result.append(speech_data)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
 def _get_unique_and_not_empty_attachments(
     attachments: Sequence[models.Attachment],
 ) -> list[models.Attachment]:

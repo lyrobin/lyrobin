@@ -65,6 +65,9 @@
           [toggleable]="true"
           [collapsed]="true"
           styleClass="my-2">
+          <span class="text-sm text-gray-400">
+            更新日期：{{ remark.created_at | date: 'yyyy年MM月dd日' }}
+          </span>
           <div>
             @for (video of remark.video_urls; track $index) {
               <p-button

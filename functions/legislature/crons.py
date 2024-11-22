@@ -12,6 +12,7 @@ import firebase_admin  # type: ignore
 import requests
 import utils
 from ai import context, gemini
+from ai.batch import legislators_recent_speeches_summary
 from ai.batch import weekly_news
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
@@ -454,6 +455,7 @@ def _update_speech_transcripts():
     region=gemini.GEMINI_REGION,
     max_instances=2,
     concurrency=2,
+    cpu=2,
     memory=MemoryOption.GB_4,
     timeout_sec=1800,
 )
@@ -467,49 +469,13 @@ def update_legislator_speeches_summary(_):
 
 def _update_legislator_speeches_summary():
     # TODO: update search engine index when we update the legislator's info
-    today = dt.datetime.now(tz=_TZ)
     db = firestore.client()
-    queries = []
+    # TODO: make sure the member is still in the current term
     for row in db.collection(models.MEMBER_COLLECT).stream():
         m = models.Legislator.from_dict(row.to_dict())
-        if today - m.ai_summarized_at < dt.timedelta(days=7):
-            logger.warn(f"{m.name} just updated, skip it")
-            continue
-        speeches = _get_legislator_speeches(db, m.name)
-        if not speeches:
-            logger.warn(f"{m.name} has no speeches")
-            continue
-        queries.append(gemini.SpeechesSummaryQuery(speeches, row.reference.path))
-
-    uid = uuid.uuid4().hex
-    job = gemini.GeminiBatchSpeechesSummaryJob(uid).set_caller(
-        "update_legislator_speeches_summary"
-    )
-    job.write_queries(queries)
-    job.submit()
-
-
-def _get_legislator_speeches(db: Client, name: str) -> list[gemini.MeetSpeech]:
-    docs = (
-        db.collection_group(models.SPEECH_COLLECT)
-        .where(filter=FieldFilter("member", "==", name))
-        .order_by("start_time", "DESCENDING")
-        .limit(100)
-        .stream()
-    )
-    speeches = []
-    for doc in docs:
-        p: str = doc.reference.path
-        if not p.startswith(models.MEETING_COLLECT):
-            continue
-        meet_path = "/".join(p.split("/")[0:2])
-        meet_doc = db.document(meet_path).get()
-        if not meet_doc.exists:
-            continue
-        meet: models.Meeting = models.Meeting.from_dict(meet_doc.to_dict())
-        video = models.Video.from_dict(doc.to_dict())
-        speeches.append(gemini.MeetSpeech(meet, video))
-    return speeches
+        legislators_recent_speeches_summary.start_summary_legislator_recent_speeches(
+            m.name
+        )
 
 
 @scheduler_fn.on_schedule(

@@ -4,8 +4,8 @@
 import functools
 import os
 import re
-from typing import TypeVar, Generic, Callable
 import time
+from typing import Callable, Generic, TypeVar
 
 import firebase_admin  # type: ignore
 import google.auth  # type: ignore
@@ -13,6 +13,7 @@ import google.auth.transport.requests  # type: ignore
 from firebase_functions.options import SupportedRegion
 from google.auth import credentials
 from google.auth.transport.requests import AuthorizedSession
+from google.cloud import storage  # type: ignore
 from utils import testings
 from utils.timeutil import get_legislative_yuan_term
 
@@ -172,3 +173,11 @@ def parse_gsutil_uri(uri: str) -> tuple[str, str]:
     if len(parts) == 1:
         return parts[0], ""
     return parts
+
+
+def to_gsutil_uri(blob: storage.Blob) -> str:
+    """
+    Convert a bucket and path into a gsutil URI.
+    """
+    bucket: storage.Bucket = blob.bucket
+    return f"gs://{bucket.name}/{blob.name}"

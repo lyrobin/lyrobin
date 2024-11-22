@@ -12,7 +12,7 @@ import datetime as dt
 import functools
 import json
 import uuid
-from typing import Any, Sequence, Type, TypeVar
+from typing import Any, Sequence, Type, TypeVar, Optional
 from urllib import parse
 
 import deepdiff  # type: ignore
@@ -37,6 +37,9 @@ EMBEDDINGS_COLLECT = "embeddings"
 VIDEO_COLLECT = "videos"
 SPEECH_COLLECT = "speeches"
 MEMBER_COLLECT = "members"
+# Sub-collection - legislator
+SUMMARY_COLLECT = "summary"
+SUMMARY_TOPIC_COLLECT = "topics"
 
 T = TypeVar("T", bound="FireStoreDocument")
 K = TypeVar("K", bound="BaseDocument")
@@ -441,6 +444,22 @@ class Legislator(FireStoreDocument):
 
 
 @dataclasses.dataclass
+class LegislatorSummary(FireStoreDocument):
+    topics: list[str] = dataclasses.field(default_factory=list)
+    context_uri: str = ""
+    created_at: DateTimeField = DateTimeField()
+
+
+@dataclasses.dataclass
+class LegislatorSummaryTopic(FireStoreDocument):
+    title: str = ""
+    remarks: list[str] = dataclasses.field(default_factory=list)
+    ready: bool = False
+    videos: list[str] = dataclasses.field(default_factory=list)
+    created_at: DateTimeField = DateTimeField()
+
+
+@dataclasses.dataclass
 class Embedding:
     idx: int
     embedding: list[float] = dataclasses.field(default_factory=list)
@@ -725,3 +744,86 @@ class IVODModel:
         if not ref.path.startswith(MEETING_COLLECT):
             raise ValueError(f"Invalid collection: {ref.path}")
         return cls(ref)
+
+
+class LegislatorModel:
+
+    @functools.cached_property
+    def value(self) -> Legislator:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return Legislator.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @functools.cached_property
+    def latest_summary(self) -> Optional["LegislatorSummaryModel"]:
+        """Get the latest summary of the legislator."""
+        collect: firestore.CollectionReference = self.ref.collection(SUMMARY_COLLECT)
+        docs = (
+            collect.order_by("created_at", direction=firestore.Query.DESCENDING)
+            .limit(1)
+            .get()
+        )
+        if not docs:
+            return None
+        return LegislatorSummaryModel(docs[0].reference)
+
+    def add_summary(self, summary: LegislatorSummary) -> "LegislatorSummaryModel":
+        """Add a summary to the legislator."""
+        collect: firestore.CollectionReference = self.ref.collection(SUMMARY_COLLECT)
+        _, ref = collect.add(summary.asdict())
+        return LegislatorSummaryModel(ref)
+
+
+class LegislatorSummaryModel:
+
+    @functools.cached_property
+    def value(self) -> LegislatorSummary:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return LegislatorSummary.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    @functools.cached_property
+    def topics(self) -> list["LegislatorSummaryTopicModel"]:
+        """Get the topics of the summary."""
+        collect: firestore.CollectionReference = self.ref.collection(
+            SUMMARY_TOPIC_COLLECT
+        )
+        docs = collect.stream()
+        return [LegislatorSummaryTopicModel(doc.reference) for doc in docs]
+
+    @property
+    def ready(self) -> bool:
+        return all(topic.value.ready for topic in self.topics)
+
+    def add_topic(self, topic: LegislatorSummaryTopic) -> "LegislatorSummaryTopicModel":
+        """Add a topic to the summary."""
+        collect: firestore.CollectionReference = self.ref.collection(
+            SUMMARY_TOPIC_COLLECT
+        )
+        _, ref = collect.add(topic.asdict())
+        return LegislatorSummaryTopicModel(ref)
+
+
+class LegislatorSummaryTopicModel:
+
+    @functools.cached_property
+    def value(self) -> LegislatorSummaryTopic:
+        doc = self.ref.get()
+        if not doc.exists:
+            raise ValueError(f"Document {self.ref.path} does not exist")
+        return LegislatorSummaryTopic.from_dict(doc.to_dict())
+
+    def __init__(self, ref: firestore.DocumentReference):
+        self.ref = ref
+
+    def save(self):
+        """Save the topic."""
+        self.ref.update(self.value.asdict())
