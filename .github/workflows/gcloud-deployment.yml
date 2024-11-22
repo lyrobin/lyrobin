@@ -1,0 +1,49 @@
+name: Deploy Services to Google Cloud
+on:
+  push:
+    branches:
+      - main
+env:
+  LOCATION: asia-east1
+  # Service that requires access to Gemini needs to be deployed in this location
+  GEMINI_LOCATION: us-central1
+jobs:
+  build_and_deploy_api_server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: 'auth'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+      - uses: 'google-github-actions/setup-gcloud@v2'
+      - run: gcloud builds submit --region=$LOCATION
+        working-directory: ./cloudrun/api-server
+
+  buid_and_deploy_dataflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: 'auth'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+      - uses: 'google-github-actions/setup-gcloud@v2'
+      - run: gcloud builds submit --region=$GEMINI_LOCATION --config=./dataflow/cloudbuild.yml
+
+  build_and_deploy_eventarc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: 'auth'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+      - uses: 'google-github-actions/setup-gcloud@v2'
+      - run: gcloud builds submit --region=$GEMINI_LOCATION
+        working-directory: ./functions
+  
+  
