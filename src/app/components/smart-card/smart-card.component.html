@@ -69,7 +69,7 @@
             更新日期：{{ remark.created_at | date: 'yyyy年MM月dd日' }}
           </span>
           <div>
-            @for (video of remark.video_urls; track $index) {
+            @for (video of remark.video_urls.slice(0, 5); track $index) {
               <p-button
                 icon="pi pi-video"
                 [badge]="($index + 1 | number) || '0'"

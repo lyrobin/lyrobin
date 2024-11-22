@@ -801,6 +801,8 @@ class LegislatorSummaryModel:
 
     @property
     def ready(self) -> bool:
+        if not self.topics:
+            return False
         return all(topic.value.ready for topic in self.topics)
 
     def add_topic(self, topic: LegislatorSummaryTopic) -> "LegislatorSummaryTopicModel":
