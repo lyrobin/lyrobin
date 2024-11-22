@@ -435,7 +435,7 @@ class Legislator(FireStoreDocument):
     degree: str = ""
     avatar: str = ""
     leave: bool = False
-    terms: list[int] = dataclasses.field(default_factory=list)
+    terms: list[str] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         self.document_id = uuid.uuid3(

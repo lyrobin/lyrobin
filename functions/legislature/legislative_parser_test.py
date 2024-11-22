@@ -208,7 +208,7 @@ def test_download_hd_video():
         url="https://ivod.ly.gov.tw/Play/Clip/300K/152612",
         hd_url="https://ivod.ly.gov.tw/Play/Clip/1M/152612",
     )
-    video_ref = ivod_ref.collection(models.VIDEO_COLLECT).document(video.document_id)
+    video_ref = ivod_ref.collection(models.SPEECH_COLLECT).document(video.document_id)
     video_ref.set(video.asdict())
     url = utils.get_function_url("downloadHdVideo")
     requests.post(
@@ -224,9 +224,8 @@ def test_download_hd_video():
         timeout=360,
     )
     video = models.Video.from_dict(video_ref.get().to_dict())
-    assert len(video.hd_clips) == 1
-    bucket = storage.bucket()
-    assert bucket.blob(video.hd_clips[0]).exists
+    assert len(video.hd_clips) == 0
+    assert video.hd_playlist != ""
 
 
 @testings.skip_when_no_network

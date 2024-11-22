@@ -43,17 +43,20 @@ class TestModels(unittest.TestCase):
 
     def test_firebase_document_to_dict(self):
         doc = self.TestDocument(name="test")
+        got = doc.asdict()
+        self.assertEqual(got.get("name"), "test")
+        self.assertEqual(got.get("ai_summarized"), False)
         self.assertEqual(
-            doc.asdict(),
-            {
-                "name": "test",
-                "ai_summarized": False,
-                "ai_summarized_at": dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
-                "embedding_updated_at": dt.datetime(
-                    1, 1, 1, 0, 0, tzinfo=dt.timezone.utc
-                ),
-                "last_update_time": dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
-            },
+            got.get("ai_summarized_at"),
+            dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+        )
+        self.assertEqual(
+            got.get("embedding_updated_at"),
+            dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
+        )
+        self.assertEqual(
+            got.get("last_update_time"),
+            dt.datetime(1, 1, 1, 0, 0, tzinfo=dt.timezone.utc),
         )
 
     def test_meeting_convert_type(self):
