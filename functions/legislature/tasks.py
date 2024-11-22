@@ -6,6 +6,7 @@ import tempfile
 import opencc  # type: ignore
 from ai import gemini
 from ai import langchain
+from ai.batch import legislators_recent_speeches_summary
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, tasks_fn
 from firebase_functions.options import (
@@ -151,3 +152,27 @@ def generateNewsReport(request: tasks_fn.CallableRequest):
     news_report.is_ready = True
 
     ref.update(news_report.asdict())
+
+
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(max_attempts=3, max_backoff_seconds=600),
+    rate_limits=RateLimits(max_concurrent_dispatches=5),
+    max_instances=5,
+    cpu=1,
+    memory=MemoryOption.GB_1,
+    timeout_sec=1800,
+    region=gemini.GEMINI_REGION,
+    concurrency=1,
+)
+def updateLegislatorSpeechesSummary(request: tasks_fn.CallableRequest):
+    name = request.data["name"]
+    logger.info(f"update legislator speeches summary: {name}")
+    db = firestore.client()
+    docs = db.collection(models.MEMBER_COLLECT).limit(1).get()
+    if not docs:
+        raise RuntimeError(f"no member found: {name}")
+    today = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+    m = models.LegislatorModel(docs[0].reference)
+    if (s := m.latest_summary) and s.value.created_at > today - dt.timedelta(days=6):
+        raise RuntimeError(f"recent speeches summary is up-to-date: {name}")
+    legislators_recent_speeches_summary.start_summary_legislator_recent_speeches(name)

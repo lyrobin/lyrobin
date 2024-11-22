@@ -455,8 +455,8 @@ def _update_speech_transcripts():
     region=gemini.GEMINI_REGION,
     max_instances=2,
     concurrency=2,
-    cpu=2,
-    memory=MemoryOption.GB_4,
+    cpu=1,
+    memory=MemoryOption.GB_1,
     timeout_sec=1800,
 )
 def update_legislator_speeches_summary(_):
@@ -470,12 +470,13 @@ def update_legislator_speeches_summary(_):
 def _update_legislator_speeches_summary():
     # TODO: update search engine index when we update the legislator's info
     db = firestore.client()
+    q = tasks.CloudRunQueue.open(
+        "updateLegislatorSpeechesSummary", region=gemini.GEMINI_REGION
+    )
     # TODO: make sure the member is still in the current term
     for row in db.collection(models.MEMBER_COLLECT).stream():
         m = models.Legislator.from_dict(row.to_dict())
-        legislators_recent_speeches_summary.start_summary_legislator_recent_speeches(
-            m.name
-        )
+        q.run(name=m.name)
 
 
 @scheduler_fn.on_schedule(
