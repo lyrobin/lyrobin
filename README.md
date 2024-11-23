@@ -52,7 +52,7 @@ docker-compose up -d --build
 我們歡迎每一個對公眾議題有熱情的公民貢獻自己的力量！
 我們會在近期更新社群守則和開發規範，幫助你了解如何開始。
 
-在此之前，你可以[預約訪談](https://calendar.app.google/YrNrYZLWvxmT4VvT9)來和主要的開發分享你的想法！
+在此之前，你可以[預約訪談](https://calendar.app.google/YrNrYZLWvxmT4VvT9)來和主要的開發者分享你的想法！
 
 ## 📣 加入我們
 
