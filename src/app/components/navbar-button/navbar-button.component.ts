@@ -74,4 +74,8 @@ export class NavbarButtonComponent {
       relativeTo: this.route,
     });
   }
+
+  gotoGithub() {
+    window.open('https://github.com/lyrobin/lyrobin', '_blank');
+  }
 }

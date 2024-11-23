@@ -58,7 +58,7 @@ export class UserComponent implements OnInit {
   3. 點選「Copy」按鈕，將金鑰複製到剪貼簿。
   4. 若是先前已經取得過金鑰，選擇任一個 Google Cloud Project，再點選「Create API key in existing project」。 
   
-  你也可以查看 <a href="https://www.youtube.com/shorts/A1OPySsTKn0" target="_blank">影片教學</a>，來了解如何取得 Gemini 金鑰。
+  你也可以查看 <a href="https://www.youtube.com/shorts/misebtyVPRA" target="_blank">影片教學</a>，來了解如何取得 Gemini 金鑰。
   `;
 
   constructor(
