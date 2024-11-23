@@ -6,7 +6,7 @@
 在這樣的情況下，立院知更希望透過科技的方式，建立更加直覺且便利的立院搜尋引擎。
 期待透過這樣的方式，幫助每一個人用自己的方式理解並深度參與公眾議題。
 
-🌐 現在就前往[立院知更](https://lyrobin.com) (https://lyrobin.com)，
+🌐 現在就前往[立院知更](https://lyrobin.com) ([https://lyrobin.com](https://lyrobin.com))，
 開始探索立院大小事！
 
 ## 快速開始
