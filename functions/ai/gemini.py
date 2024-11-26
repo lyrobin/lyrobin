@@ -26,6 +26,7 @@ from ai import (
 )
 from cloudevents.http.event import CloudEvent
 from firebase_admin import firestore, storage
+from firebase_functions import logger
 from firebase_functions.options import SupportedRegion
 from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud import aiplatform, bigquery
@@ -804,7 +805,8 @@ class GeminiBatchAudioTranscriptJob(GeminiBatchPredictionJob[AudioTranscriptResu
     def parse_row(self, row: bigquery.Row) -> AudioTranscriptResult | None:
         doc_path = row.get("doc_path", None)
         if doc_path is None:
-            raise ValueError(f"Can't find doc_path in row {row}")
+            logger.warn(f"Can't find doc_path in row {row}")
+            return None
         response = row.get("response", None)
         if not response:
             return None
