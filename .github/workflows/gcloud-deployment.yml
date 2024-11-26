@@ -11,7 +11,9 @@ env:
   LOCATION: asia-east1
   # Service that requires access to Gemini needs to be deployed in this location
   GEMINI_LOCATION: us-central1
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build_and_deploy_api_server:
     runs-on: ubuntu-latest
