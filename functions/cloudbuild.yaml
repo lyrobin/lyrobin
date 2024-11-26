@@ -104,3 +104,5 @@ steps:
       --concurrency=10 \
       --set-env-vars='^@^FIREBASE_CONFIG={"projectId":"${PROJECT_ID}","storageBucket":"${PROJECT_ID}.appspot.com","locationId":"asia-east1"}' \
       --set-env-vars="GCLOUD_PROJECT=${PROJECT_ID}"
+options:
+  logging: CLOUD_LOGGING_ONLY

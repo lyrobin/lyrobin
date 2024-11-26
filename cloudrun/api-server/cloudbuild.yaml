@@ -46,3 +46,5 @@ steps:
       ]
 images:
   - ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/api-server
+options:
+  logging: CLOUD_LOGGING_ONLY
