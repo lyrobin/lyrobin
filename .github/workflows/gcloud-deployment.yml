@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 env:
   LOCATION: asia-east1
   # Service that requires access to Gemini needs to be deployed in this location

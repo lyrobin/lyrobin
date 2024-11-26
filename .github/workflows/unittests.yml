@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 env:
   FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
   FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
