@@ -64,7 +64,7 @@ docker-compose up -d --build
 - X (原 twitter): [@lyrobintw](https://x.com/lyrobintw)
 - Discord: https://discord.gg/xRgpmV4z
 - YoTube: [立院知更](https://www.youtube.com/channel/UC-ZDaiyWzJRLLB0pklIEoOQ)
-- Gmail: lyrobin@gmail.com
+- Gmail: lyrobintw@gmail.com
 
 ## 支持我們
 
