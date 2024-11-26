@@ -1,6 +1,9 @@
 name: Deploy Services to Google Cloud
 on:
-  push:
+  workflow_run:
+    workflows: ["Unit Tests on Push"]
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:

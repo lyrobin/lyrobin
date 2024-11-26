@@ -3,7 +3,10 @@
 
 name: Deploy to Firebase Hosting on merge
 on:
-  push:
+  workflow_run:
+    workflows: ["Unit Tests on Push"]
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
