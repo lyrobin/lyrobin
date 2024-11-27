@@ -26,6 +26,10 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
       - uses: 'google-github-actions/setup-gcloud@v2'
+      - env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: |
+          echo $GITHUB_CONTEXT
       - run: gcloud builds submit --region=$LOCATION
         working-directory: ./cloudrun/api-server
 
