@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   detect_changes:
-    runs-on: ununtu-latest
+    runs-on: ubuntu-latest
     name: Detect Changes
     outputs:
       any_changes_api: ${{ steps.changed-api-files.outputs.any_changed }}
