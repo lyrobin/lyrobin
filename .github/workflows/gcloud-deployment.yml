@@ -1,7 +1,7 @@
 name: Deploy Services to Google Cloud
 on:
   workflow_run:
-    workflows: ["Unit Tests on Push"]
+    workflows: ['Unit Tests on Push']
     types:
       - completed
     branches:
@@ -15,9 +15,34 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  detect_changes:
+    runs-on: ununtu-latest
+    name: Detect Changes
+    outputs:
+      any_changes_api: ${{ steps.changed-api-files.outputs.any_changed }}
+      any_changes_dataflow: ${{ steps.changed-dataflow-files.outputs.any_changed }}
+      any_changes_eventarc: ${{ steps.changed-eventarc-files.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get changed API files
+        id: changed-api-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: 'cloudrun/api-server/**'
+      - name: Get changed Dataflow files
+        id: changed-dataflow-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: 'dataflow/**'
+      - name: Get changed Eventarc files
+        id: changed-eventarc-files
+        uses: tj-actions/changed-files@v45
+        with:
+          files: 'functions/**'
   build_and_deploy_api_server:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: detect_changes
+    if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect_changes.outputs.any_changes_api == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +60,8 @@ jobs:
 
   buid_and_deploy_dataflow:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: detect_changes
+    if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect_changes.outputs.any_changes_dataflow == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +74,8 @@ jobs:
 
   build_and_deploy_eventarc:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: detect_changes
+    if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect_changes.outputs.any_changes_eventarc == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,5 +86,3 @@ jobs:
       - uses: 'google-github-actions/setup-gcloud@v2'
       - run: gcloud builds submit --region=$GEMINI_LOCATION
         working-directory: ./functions
-  
-  
