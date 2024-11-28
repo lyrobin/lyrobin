@@ -973,7 +973,7 @@ def update_legislators(request: https_fn.Request) -> https_fn.Response:
             degree=member.get("degree", ""),
             avatar=member.get("picUrl", ""),
             leave=member.get("leaveFlag", "") == "是",
-            terms=[term] if term is not None else [],
+            terms=[str(term)] if term is not None else [],
         )
         doc_ref = db.collection(models.MEMBER_COLLECT).document(m.document_id)
         doc = doc_ref.get()
