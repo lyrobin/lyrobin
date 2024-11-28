@@ -45,6 +45,9 @@ where MM:SS represents the start and end time of each sentence in the video. Pri
                 }
             ],
             "safetySettings": ai.NON_BLOCKING_SAFE_SETTINGS,
+            "generationConfig": {
+                "audioTimestamp": True,
+            },
         },
         _MODEL,
         on_receive_audio_transcript,

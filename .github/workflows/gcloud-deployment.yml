@@ -79,7 +79,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-deploy-functions
       cancel-in-progress: true
-    # if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect_changes.outputs.any_changes_functions == 'true' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect_changes.outputs.any_changes_functions == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - id: 'auth'
