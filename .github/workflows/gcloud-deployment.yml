@@ -85,8 +85,13 @@ jobs:
       - id: 'auth'
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TAIWAN_LEGISLATIVE_SEARCH }}'
       - uses: 'google-github-actions/setup-gcloud@v2'
+      # Setup Node.js
+      - name: Use Node.js 14.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
       # Setup Python and virtual environment
       - uses: actions/setup-python@v5
         with:
@@ -97,11 +102,11 @@ jobs:
       - run: source ./venv/bin/activate && python3.12 -m pip install -r requirements.txt
         working-directory: functions
       - run: pip install -r functions/requirements.txt
-      - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only=functions
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TAIWAN_LEGISLATIVE_SEARCH }}
+      - run: |
+          cat << EOF > .env
+            GCLOUD_PROJECT=$GCLOUD_PROJECT
+            GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+          EOF
+      - run: firebase deploy --only=functions
       - run: gcloud builds submit --region=$GEMINI_LOCATION
         working-directory: ./functions
