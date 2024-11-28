@@ -306,11 +306,12 @@ def _update_attachments_summaries():
     timeout_sec=1800,
 )
 def update_speeches_summaries(_):
-    try:
-        _update_speeches_summaries()
-    except Exception as e:
-        logger.error(f"Fail to update speeches summaries, {e}")
-        raise RuntimeError("Fail to update speeches summaries.") from e
+    pass  # TODO: remove this function after new approach is ready.
+    # try:
+    #     _update_speeches_summaries()
+    # except Exception as e:
+    #     logger.error(f"Fail to update speeches summaries, {e}")
+    #     raise RuntimeError("Fail to update speeches summaries.") from e
 
 
 def _update_speeches_summaries(query_limit: int = 200):
@@ -374,11 +375,12 @@ def _update_speeches_summaries(query_limit: int = 200):
     timeout_sec=1800,
 )
 def update_speech_transcripts(_):
-    try:
-        _update_speech_transcripts()
-    except Exception as e:
-        logger.error(f"Fail to update videos transcripts, {e}")
-        raise RuntimeError("Fail to update videos transcripts.") from e
+    pass  # TODO: remove this function after new approach is ready.
+    # try:
+    #     _update_speech_transcripts()
+    # except Exception as e:
+    #     logger.error(f"Fail to update videos transcripts, {e}")
+    #     raise RuntimeError("Fail to update videos transcripts.") from e
 
 
 def _update_speech_transcripts():
@@ -491,7 +493,7 @@ def _update_legislator_speeches_summary():
 def update_document_hash_tags(_):
     try:
         for collection in [
-            models.SPEECH_COLLECT,
+            # models.SPEECH_COLLECT, # TODO: remove this line after new approach is ready.
             models.FILE_COLLECT,
             models.ATTACH_COLLECT,
             models.VIDEO_COLLECT,

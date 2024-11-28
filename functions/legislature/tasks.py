@@ -1,12 +1,11 @@
 import datetime as dt
-from urllib import parse
 import pathlib
 import tempfile
+from urllib import parse
 
 import opencc  # type: ignore
-from ai import gemini
-from ai import langchain
-from ai.batch import legislators_recent_speeches_summary
+from ai import gemini, langchain
+from ai.batch import audio_transcribe, legislators_recent_speeches_summary
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, tasks_fn
 from firebase_functions.options import (
@@ -76,13 +75,14 @@ def extractAudio(request: tasks_fn.CallableRequest):
     try:
         doc_path = request.data["path"]
         logger.info(f"extract audio: {doc_path}")
-        _extractAudio(doc_path)
+        speech = _extractAudio(doc_path)
+        audio_transcribe.start_transcribe(speech)
     except Exception as e:
         logger.error(e)
         raise RuntimeError("fail to extract audio") from e
 
 
-def _extractAudio(doc_path: str):
+def _extractAudio(doc_path: str) -> models.SpeechModel:
     db = firestore.client()
     ref = db.document(doc_path)
     doc = ref.get()
@@ -121,6 +121,7 @@ def _extractAudio(doc_path: str):
         audios.append(gs_audio_path)
         v.audios = audios
     ref.update(v.asdict())
+    return models.SpeechModel(ref)
 
 
 @tasks_fn.on_task_dispatched(

@@ -37,6 +37,7 @@ EMBEDDINGS_COLLECT = "embeddings"
 VIDEO_COLLECT = "videos"
 SPEECH_COLLECT = "speeches"
 MEMBER_COLLECT = "members"
+SPEECH_SEGMENT_COLLECT = "segments"
 # Sub-collection - legislator
 SUMMARY_COLLECT = "summary"
 SUMMARY_TOPIC_COLLECT = "topics"
@@ -352,6 +353,13 @@ class Video(FireStoreDocument):
 
     def __post_init__(self):
         self.document_id = uuid.uuid3(uuid.NAMESPACE_URL, self.url).hex
+
+
+@dataclasses.dataclass
+class SpeechSegment(BaseDocument):
+    start: str
+    end: str
+    text: str
 
 
 @dataclasses.dataclass
