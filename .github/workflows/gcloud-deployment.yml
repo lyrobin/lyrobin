@@ -97,6 +97,7 @@ jobs:
         with:
          python-version: '3.12'
          cache: 'pip'
+      - run: npm install -g firebase-tools
       - run: python3.12 -m venv venv
         working-directory: functions
       - run: source ./venv/bin/activate && python3.12 -m pip install -r requirements.txt
