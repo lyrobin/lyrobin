@@ -87,6 +87,16 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
       - uses: 'google-github-actions/setup-gcloud@v2'
+      # Setup Python and virtual environment
+      - uses: actions/setup-python@v5
+        with:
+         python-version: '3.12'
+         cache: 'pip'
+      - run: python3.12 -m venv venv
+        working-directory: functions
+      - run: source ./venv/bin/activate && python3.12 -m pip install -r requirements.txt
+        working-directory: functions
+      - run: pip install -r functions/requirements.txt
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
