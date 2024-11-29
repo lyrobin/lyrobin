@@ -139,6 +139,14 @@ type FireStore struct {
 }
 
 func (s *FireStore) GetMeeting(ctx context.Context, path string) (Meeting, error) {
+	if !strings.HasPrefix(path, "meetings/") {
+		return Meeting{}, errors.New("invalid path: " + path)
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return Meeting{}, errors.New("invalid path: " + path)
+	}
+	path = strings.Join(parts[:2], "/")
 	client, err := s.App.Firestore(ctx)
 	if err != nil {
 		return Meeting{}, err

@@ -66,6 +66,10 @@ type AttachmentMeta struct {
 	Artifacts map[string]string `json:"artifacts,omitempty"`
 }
 
+type MeetingFileMeta struct {
+	Artifacts map[string]string `json:"artifacts,omitempty"`
+}
+
 // DocumentHit is a simplified version of Document
 type DocumentHit struct {
 	Path    string `json:"path,omitempty"`
@@ -303,14 +307,19 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 		if err != nil {
 			return Document{}, err
 		}
+		meeting, err := e.store.GetMeeting(ctx, path)
+		if err != nil {
+			return Document{}, err
+		}
 		return Document{
-			Name:        highlights.getSnippet("name", m.Name),
+			Name:        fmt.Sprintf("%s - %s", meeting.Name, m.Name),
 			Path:        path,
 			Content:     highlights.getSnippet("content", trimString(m.Content, 500)),
-			URL:         m.URL,
+			URL:         meeting.GetURL(),
 			DocType:     docType,
 			CreatedDate: createdDate,
 			HashTags:    m.HashTags,
+			Meta:        MeetingFileMeta{Artifacts: map[string]string{m.Name: m.URL}},
 		}, nil
 	case Attachment:
 		m, err := e.store.GetAttachment(ctx, path)
