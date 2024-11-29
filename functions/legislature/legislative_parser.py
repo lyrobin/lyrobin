@@ -455,11 +455,11 @@ def on_proceedings_attachment_create(
         proc_no = event.params["procNo"]
         attach_no = event.params["attachNo"]
         db = firestore.client()
-
         attach_ref = db.document(
             f"{models.PROCEEDING_COLLECT}/{proc_no}/{models.ATTACH_COLLECT}/{attach_no}"
         )
-        _upsert_attachment_content(attach_ref)
+        q = tasks.CloudRunQueue.open("fetchAttachmentContent")
+        q.run(doc_path=attach_ref.path)
     except Exception as e:
         logging.exception(e)
         raise RuntimeError(
@@ -467,15 +467,39 @@ def on_proceedings_attachment_create(
         ) from e
 
 
+@tasks_fn.on_task_dispatched(
+    retry_config=RetryConfig(
+        max_attempts=3,
+        min_backoff_seconds=60,
+    ),
+    rate_limits=RateLimits(max_concurrent_dispatches=60),
+    cpu=4,
+    memory=MemoryOption.GB_2,
+    region=_REGION,
+    timeout_sec=1800,
+    max_instances=30,
+    concurrency=2,
+)
+def fetchAttachmentContent(request: tasks_fn.CallableRequest):
+    try:
+        doc_path = request.data["docPath"]
+        db = firestore.client()
+        _upsert_attachment_content(db.document(doc_path))
+    except Exception as e:
+        logging.exception(e)
+        raise RuntimeError(f"Error fetching attachment content: {request.data}") from e
+
+
 def _upsert_attachment_content(ref: document.DocumentReference):
     """Upsert attachment content."""
+    logger.debug(f"Upsert attachment content: {ref.path}")
     doc = ref.get()
     if not doc.exists:
-        return
+        raise RuntimeError(f"Attachment {ref.path} does not exist.")
     attach: models.Attachment = models.Attachment.from_dict(doc.to_dict())
     r = readers.DocumentReader.open(attach.url)
     if r is None:
-        return
+        raise RuntimeError(f"Error opening attachment: {attach.url}")
 
     attach.full_text = r.content
     attach.last_update_time = dt.datetime.now(tz=models.MODEL_TIMEZONE)

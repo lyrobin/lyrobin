@@ -108,6 +108,6 @@ jobs:
             GCLOUD_PROJECT=$GCLOUD_PROJECT
             GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
           EOF
-      - run: firebase deploy --only=functions
+      - run: firebase deploy -f --only=functions
       - run: gcloud builds submit --region=$GEMINI_LOCATION
         working-directory: ./functions
