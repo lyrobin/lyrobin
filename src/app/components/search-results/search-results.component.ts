@@ -4,7 +4,12 @@ import {
   Breakpoints,
   LayoutModule,
 } from '@angular/cdk/layout';
-import { DatePipe, NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
+import {
+  DatePipe,
+  KeyValuePipe,
+  NgFor,
+  NgTemplateOutlet,
+} from '@angular/common';
 import {
   Component,
   ContentChild,
@@ -16,10 +21,11 @@ import {
   TemplateRef,
   ViewChild,
 } from '@angular/core';
-import { Storage, getBlob, ref } from '@angular/fire/storage';
+import { Storage } from '@angular/fire/storage';
 import { MatIconModule } from '@angular/material/icon';
 import { Store } from '@ngrx/store';
 import { MarkdownModule } from 'ngx-markdown';
+import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DataViewModule } from 'primeng/dataview';
@@ -28,21 +34,20 @@ import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { ScrollPanelModule } from 'primeng/scrollpanel';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TagModule } from 'primeng/tag';
+import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { SmartSummaryCardDirective } from '../../directives/smart-summary-card.directive';
 import { AicoreService } from '../../providers/aicore.service';
 import { DocumentService } from '../../providers/document.service';
 import { EventLoggerService } from '../../providers/event-logger.service';
 import { Document, SearchResult } from '../../providers/search';
+import { VideoDownloaderService } from '../../providers/video-downloader.service';
 import { isUserLoggedIn } from '../../state/selectors';
 import { DoctypeIconPipe } from '../../utils/doctype-icon.pipe';
 import { LimitTextPipe } from '../../utils/limit-text.pipe';
 import { MarkdownSanitizePipe } from '../../utils/markdown-sanitize.pipe';
 import { LoginDialogComponent } from '../login-dialog/login-dialog.component';
-import { VideoDownloaderService } from '../../providers/video-downloader.service';
-import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
-import { TagModule } from 'primeng/tag';
 
 interface Hit extends Document {
   index: number;
@@ -55,7 +60,6 @@ interface Hit extends Document {
     CardModule,
     DataViewModule,
     NgFor,
-    NgIf,
     PaginatorModule,
     ScrollPanelModule,
     SkeletonModule,
@@ -74,6 +78,7 @@ interface Hit extends Document {
     DatePipe,
     ToastModule,
     TagModule,
+    KeyValuePipe,
   ],
   providers: [MessageService],
   templateUrl: './search-results.component.html',
@@ -187,6 +192,10 @@ export class SearchResultsComponent implements OnChanges {
     });
   }
 
+  getArtifacts(hit: Hit) {
+    return hit.meta?.artifacts || new Map();
+  }
+
   downloadVideo(h: Hit) {
     if (!this.isUserLoggedIn$()) {
       this.loginDialogMessage = '只需登入即可下載，您的參與是我們最大的動力！';
@@ -217,5 +226,9 @@ export class SearchResultsComponent implements OnChanges {
 
   gotoHashtag(hashtag: string) {
     this.onGotoHashTag.emit(hashtag);
+  }
+
+  gotoLink(link: string) {
+    window.open(link, '_blank');
   }
 }

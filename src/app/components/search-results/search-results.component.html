@@ -61,6 +61,7 @@
                         [innerHTML]="hit.content"></span>
                     </div>
                   </div>
+                  <!-- Tags field -->
                   <div class="col-12 lg:col-9 my-1">
                     @for (tag of hit.hashtags; track $index) {
                       <p-tag
@@ -70,6 +71,7 @@
                         (click)="gotoHashtag(tag)"></p-tag>
                     }
                   </div>
+                  <!-- Metadata field -->
                   <div class="col-12 lg:col-9 my-1">
                     @if (hit.doctype == 'video') {
                       <p-button
@@ -80,6 +82,19 @@
                         [loading]="hit.index == downloadingItem"
                         [outlined]="true"
                         (onClick)="downloadVideo(hit)"></p-button>
+                    } @else if (hit.doctype == 'attachment') {
+                      @for (
+                        item of getArtifacts(hit) | keyvalue;
+                        track $index
+                      ) {
+                        <p-button
+                          icon="pi pi-download"
+                          size="small"
+                          [label]="item.key"
+                          styleClass="p-1 mx-1"
+                          [outlined]="true"
+                          (onClick)="gotoLink(item.value)"></p-button>
+                      }
                     }
                   </div>
                 </div>

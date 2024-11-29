@@ -52,13 +52,18 @@ type SearchResult struct {
 }
 
 type Document struct {
-	Path        string   `json:"path,omitempty"`
-	Name        string   `json:"name,omitempty"`
-	Content     string   `json:"content,omitempty"`
-	URL         string   `json:"url,omitempty"`
-	DocType     string   `json:"doctype,omitempty"`
-	CreatedDate int64    `json:"created_date,omitempty"`
-	HashTags    []string `json:"hashtags,omitempty"`
+	Path        string      `json:"path,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Content     string      `json:"content,omitempty"`
+	URL         string      `json:"url,omitempty"`
+	DocType     string      `json:"doctype,omitempty"`
+	CreatedDate int64       `json:"created_date,omitempty"`
+	HashTags    []string    `json:"hashtags,omitempty"`
+	Meta        interface{} `json:"meta,omitempty"`
+}
+
+type AttachmentMeta struct {
+	Artifacts map[string]string `json:"artifacts,omitempty"`
 }
 
 // DocumentHit is a simplified version of Document
@@ -312,14 +317,19 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 		if err != nil {
 			return Document{}, err
 		}
+		proceeding, err := e.store.GetProceeding(ctx, path)
+		if err != nil {
+			return Document{}, err
+		}
 		return Document{
-			Name:        highlights.getSnippet("name", m.Name),
+			Name:        proceeding.Name,
 			Path:        path,
 			Content:     highlights.getSnippet("content", trimString(m.Content, 500)),
-			URL:         m.URL,
+			URL:         proceeding.URL,
 			DocType:     docType,
 			CreatedDate: createdDate,
 			HashTags:    m.HashTags,
+			Meta:        AttachmentMeta{Artifacts: map[string]string{m.Name: m.URL}},
 		}, nil
 	case Proceeding:
 		m, err := e.store.GetProceeding(ctx, path)

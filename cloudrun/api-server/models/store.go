@@ -184,6 +184,14 @@ func (s *FireStore) GetAttachment(ctx context.Context, path string) (Attachment,
 }
 
 func (s *FireStore) GetProceeding(ctx context.Context, path string) (Proceeding, error) {
+	if !strings.HasPrefix(path, "proceedings/") {
+		return Proceeding{}, errors.New("invalid path: " + path)
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return Proceeding{}, errors.New("invalid path: " + path)
+	}
+	path = strings.Join(parts[:2], "/")
 	client, err := s.App.Firestore(ctx)
 	if err != nil {
 		return Proceeding{}, err

@@ -16,6 +16,11 @@ export interface Document {
   doctype: 'meeting' | 'proceeding' | 'video' | 'meetingfile' | 'attachment';
   created_date: number;
   hashtags: string[];
+  meta: AttachmentMeta | undefined;
+}
+
+export interface AttachmentMeta {
+  artifacts: Map<string, string>;
 }
 
 export interface SearchResult {
