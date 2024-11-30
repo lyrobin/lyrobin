@@ -141,6 +141,13 @@ class DateTimeField:
             )
 
 
+class EmbeddingMismatchError(Exception):
+    """Exception raised when the number of embedding vectors in Firestore does not match the expected count."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 @dataclasses.dataclass
 class BaseDocument(abc.ABC):
 
@@ -504,11 +511,15 @@ def update_embeddings(
         else:
             raise TypeError(f"Invalid embedding type at {i}: {type(e)}")
 
+    batch = firestore.Client().batch()
     for embedding in new_embeddings:
-        embeddings_collect.document(str(embedding.idx)).set(
-            embedding.asdict(), merge=True
+        batch.set(
+            embeddings_collect.document(str(embedding.idx)),
+            embedding.asdict(),
+            merge=True,
         )
-    ref.update(doc.asdict())
+    batch.update(ref, doc.asdict())
+    batch.commit()
 
 
 def get_embeddings(ref: firestore.DocumentReference) -> list[Embedding]:
@@ -525,7 +536,7 @@ def get_embeddings(ref: firestore.DocumentReference) -> list[Embedding]:
         for i in range(doc.full_text_embeddings_count)
     ]
     if not all(ref.get().exists for ref in embedding_refs):
-        raise RuntimeError("Some embeddings do not exist.")
+        raise EmbeddingMismatchError("Some embeddings do not exist.")
     return [Embedding.from_dict(ref.get().to_dict()) for ref in embedding_refs]
 
 

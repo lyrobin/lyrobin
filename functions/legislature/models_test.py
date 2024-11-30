@@ -7,7 +7,7 @@ import datetime as dt
 from legislature import models
 import pytz
 
-from google.cloud.firestore_v1.vector import Vector
+from firebase_admin import firestore  # type: ignore
 
 _TZ = pytz.timezone("Asia/Taipei")
 
@@ -84,6 +84,26 @@ class TestModels(unittest.TestCase):
             m.get_url(),
             "https://ppg.ly.gov.tw/ppg/sittings/2024013195/details?meetingDate=113/02/01",
         )
+
+
+def test_update_embeddings():
+    db = firestore.client()
+    ref = db.collection("embeddings").document()
+    ref.set(models.FireStoreDocument().asdict())
+    embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    models.update_embeddings(ref, embeddings)
+
+    doc = models.FireStoreDocument.from_dict(ref.get().to_dict())
+    got_embeddings = [
+        models.Embedding.from_dict(
+            ref.collection(models.EMBEDDINGS_COLLECT).document(str(i)).get().to_dict()
+        )
+        for i in range(2)
+    ]
+    assert doc.full_text_embeddings_count == 2
+    assert got_embeddings[0].embedding == [0.1, 0.2, 0.3]
+    assert got_embeddings[1].embedding == [0.4, 0.5, 0.6]
 
 
 if __name__ == "__main__":
