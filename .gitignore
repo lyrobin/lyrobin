@@ -44,7 +44,7 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
-**/typesense-data/
+**/cloudrun/typesense-*/
 
 # Firebase
 .firebase
@@ -52,6 +52,7 @@ Thumbs.db
 .firebase.*/**
 *-debug.log
 .runtimeconfig.json
+firebase_data/
 
 .nx/cache
 .nx/workspace-data

@@ -12,7 +12,7 @@ services:
     ports:
       - "8108:8108"
     volumes:
-      - ./typesense-data:/data
+      - ${TYPESENSE_DATA_DIR:-./typesense-data}:/data
     command: '--data-dir /data --api-key=xyz --enable-cors'
   api-server:
     build:

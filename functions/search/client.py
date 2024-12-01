@@ -379,3 +379,7 @@ class DocumentSearchEngine:
             name=m.name,
             metadata={"term": max(m.terms)},
         )
+
+    def snapshot(self, path: str) -> bool:
+        res = self._client.operations.perform("snapshot", {"snapshot_path": path})
+        return res["success"]
