@@ -65,8 +65,6 @@
     - [firebase-data.zip](https://drive.google.com/file/d/1iq27POIvPFgU-9NF6HhzGc9sAUe1pHpE/view?usp=sharing)
     - [typesense-snapshot.zip](https://drive.google.com/file/d/1yZMQ99AhNxDVlcfcPPsgqKWRF_l-l1zZ/view?usp=sharing)
 
-    > [!NOTE]
-    > Typesense 是立院知更使用的全文搜尋引擎。詳細資料可至[官網](https://typesense.org/)查詢。
 
     下載後請執行以下指令解壓縮檔案：
 
@@ -76,6 +74,10 @@
     mkdir cloudrun/typesense-data
     unzip typesense-snapshot.zip -d cloudrun/typesense-data
     ```
+
+> [!NOTE]
+> Typesense 是立院知更使用的全文搜尋引擎。詳細資料可至[官網](https://typesense.org/)查詢。
+
 ## 開始運行本地端開發環境
 
 1. 啟動 API Server
