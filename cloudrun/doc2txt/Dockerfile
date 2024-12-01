@@ -8,22 +8,21 @@ RUN apt-get update && apt-get install -y \
     libreoffice-l10n-en-us \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up Python environment
-RUN apt-get update && apt-get install -y python3 python3-pip
-
-# # (Optional) Create a virtual environment
-# RUN python3 -m venv /env
-# ENV PATH="/env/bin:$PATH"
-
 RUN apt-get update && apt-get install -y locales
 RUN sed -i -e 's/# zh_TW.UTF-8 UTF-8/zh_TW.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
 ENV LANG zh_TW.UTF-8
 ENV LANGUAGE zh_TW:en
 ENV LC_ALL zh_TW.UTF-8
 
+# Set up Python environment
+RUN apt-get update && apt-get install -y python3 python3-pip
 # Install Python dependenciesd
+RUN apt-get -y install python3-venv
+RUN python3 -m venv /opt/venv
+# Enable venv
+ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy your application code
 COPY . /app
@@ -37,4 +36,4 @@ USER appuser
 EXPOSE 8080
 
 # Start your Python application
-CMD ["python3", "app.py"]
+CMD ["/opt/venv/bin/python", "app.py"]
