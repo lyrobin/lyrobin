@@ -12,6 +12,7 @@
 ## 快速開始
 
 立院知更包含了前端和後端的程式碼，並透過 Google Cloud 佈署。
+完整的環境設置教學，可以參考[開發環境設定](docs/environment_setup.md)。
 
 ### <img src="docs/assets/angular.png" alt="angular" width="16"/> 前端開發
 
@@ -36,7 +37,7 @@ API 伺服器則是使用 Go 語言，以 Docker container 的方式佈署於 Cl
 執行以下指令啟動開發用模擬環境：
 
 ```bash
-firebase emulators:exec --only=auth,functions,firestore,storage
+firebase emulators:start --only=auth,firestore
 ```
 
 #### <img src="docs/assets/docker.png" alt="docker" width="16"/> API 開發
@@ -44,7 +45,7 @@ firebase emulators:exec --only=auth,functions,firestore,storage
 主要程式碼位於 `cloudrun` 底下。可以透過 `docker-compose` 啟動開發用環境：
 
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ## 🔰 貢獻你的力量
