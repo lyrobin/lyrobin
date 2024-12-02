@@ -26,6 +26,14 @@ export class EventLoggerService {
     this.log('click_description', { docType });
   }
 
+  logDownloadVideo(docPath: string, login: boolean) {
+    this.log('download_video', { docPath, login });
+  }
+
+  logDownloadTranscript(docPath: string, login: boolean) {
+    this.log('download_transcript', { docPath, login });
+  }
+
   logEvent(event: string) {
     this.log(event);
   }

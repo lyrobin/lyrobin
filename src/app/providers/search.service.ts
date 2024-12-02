@@ -99,12 +99,18 @@ export class SearchService {
 
   legislator(name: string): Promise<LegislatorRemark | null> {
     return lastValueFrom(
-      this.http.get<LegislatorRemark>(`${this.apiUrl}/ai/legislator`, {
-        params: {
-          name,
-        },
-      })
+      this.http.get<LegislatorRemark | undefined>(
+        `${this.apiUrl}/ai/legislator`,
+        {
+          params: {
+            name,
+          },
+        }
+      )
     ).then(result => {
+      if (!result) {
+        return Promise.reject('No remarks found');
+      }
       if (result.remarks.length <= 0) {
         return Promise.reject('No remarks found');
       }

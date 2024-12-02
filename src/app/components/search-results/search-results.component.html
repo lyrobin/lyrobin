@@ -77,11 +77,18 @@
                       <p-button
                         icon="pi pi-download"
                         size="small"
-                        label="下載"
+                        label="影片下載"
                         styleClass="p-1 mx-1"
                         [loading]="hit.index == downloadingItem"
                         [outlined]="true"
                         (onClick)="downloadVideo(hit)"></p-button>
+                      <p-button
+                        icon="pi pi-file"
+                        size="small"
+                        label="逐字稿"
+                        styleClass="p-1 mx-1"
+                        [outlined]="true"
+                        (onClick)="downloadTranscript(hit)"></p-button>
                     } @else if (
                       hit.doctype == 'attachment' ||
                       hit.doctype == 'meetingfile'

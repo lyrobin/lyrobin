@@ -51,6 +51,6 @@ export interface LegislatorRemark {
 export interface Topic {
   title: string;
   tags: string[];
-  summary: string;
+  summary: string | undefined;
   timestamp: number;
 }

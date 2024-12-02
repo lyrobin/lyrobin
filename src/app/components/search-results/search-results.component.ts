@@ -198,10 +198,12 @@ export class SearchResultsComponent implements OnChanges {
 
   downloadVideo(h: Hit) {
     if (!this.isUserLoggedIn$()) {
+      this.logger.logDownloadVideo(h.path, false);
       this.loginDialogMessage = '只需登入即可下載，您的參與是我們最大的動力！';
       this.loginDialog.toggle();
       return;
     }
+    this.logger.logDownloadVideo(h.path, true);
     if (this.downloadingItem !== undefined) {
       this.messageService.add({
         severity: 'error',
@@ -222,6 +224,19 @@ export class SearchResultsComponent implements OnChanges {
         return this.videoDownloader.downloadFromPlaylist(url);
       })
       .finally(() => (this.downloadingItem = undefined));
+  }
+
+  downloadTranscript(h: Hit) {
+    if (!this.isUserLoggedIn$()) {
+      this.logger.logDownloadTranscript(h.path, false);
+      this.loginDialogMessage = '只需登入即可下載，您的參與是我們最大的動力！';
+      this.loginDialog.toggle();
+      return;
+    }
+    this.logger.logDownloadTranscript(h.path, true);
+    this.documents.getTranscript(h.path).then(txt => {
+      this.documents.triggerDownloadText(txt, `${h.name}.txt`);
+    });
   }
 
   gotoHashtag(hashtag: string) {

@@ -67,4 +67,30 @@ export class DocumentService {
       })
     );
   }
+
+  getTranscript(docPath: string): Promise<string> {
+    docPath = docPath.replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!this.auth.currentUser) {
+      return Promise.reject('User not logged in.');
+    }
+    return this.auth.currentUser.getIdToken().then(token =>
+      fetch(`${this.apiUrl}/${docPath}/transcript`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        mode: 'cors',
+      }).then(res => res.text())
+    );
+  }
+
+  triggerDownloadText(text: string, filename: string) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }

@@ -100,7 +100,7 @@ export class SearchViewComponent {
       .map(t => t.slice(1));
     if (tags?.length) {
       this.searchService.topic(tags).then(topic => {
-        if (topic && topic.summary.length > 0) {
+        if (topic && (topic.summary?.length ?? 0) > 0) {
           this.aiTopic = topic;
         }
       });
@@ -109,7 +109,7 @@ export class SearchViewComponent {
     if (queries?.length == 1) {
       queries = [queries[0]];
       this.searchService.topic(queries).then(topic => {
-        if (topic && topic.summary.length > 0) {
+        if (topic && (topic.summary?.length ?? 0) > 0) {
           this.aiTopic = topic;
         }
       });
