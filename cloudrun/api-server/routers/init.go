@@ -71,6 +71,7 @@ func (r Router) Register(e *gin.Engine) {
 			{
 				g := g.Group("/speeches/:speechID")
 				g.GET(("/video"), HandleGetSpeechVideo(r.StoreReaderWriter))
+				g.GET("/transcript", HandleGetSpeechTranscript(r.StoreReaderWriter))
 			}
 			g.GET("/:collection/:videoID/playlist", HandleGetVideoPlaylist(r.StoreReaderWriter))
 		}

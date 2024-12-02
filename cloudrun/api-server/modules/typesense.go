@@ -319,7 +319,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			DocType:     docType,
 			CreatedDate: createdDate,
 			HashTags:    m.HashTags,
-			Meta:        MeetingFileMeta{Artifacts: map[string]string{m.Name: m.URL}},
+			Meta:        MeetingFileMeta{Artifacts: map[string]string{trimArtifactName(m.Name): m.URL}},
 		}, nil
 	case Attachment:
 		m, err := e.store.GetAttachment(ctx, path)
@@ -338,7 +338,7 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			DocType:     docType,
 			CreatedDate: createdDate,
 			HashTags:    m.HashTags,
-			Meta:        AttachmentMeta{Artifacts: map[string]string{m.Name: m.URL}},
+			Meta:        AttachmentMeta{Artifacts: map[string]string{trimArtifactName(m.Name): m.URL}},
 		}, nil
 	case Proceeding:
 		m, err := e.store.GetProceeding(ctx, path)
@@ -412,4 +412,11 @@ func (r SearchRequest) SplitHashtags() (string, []string) {
 		}
 	}
 	return strings.Join(queries, " "), hashtags
+}
+
+func trimArtifactName(name string) string {
+	if len([]rune(name)) > 10 {
+		return "下載文檔"
+	}
+	return name
 }

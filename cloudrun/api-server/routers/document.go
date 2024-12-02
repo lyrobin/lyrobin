@@ -74,3 +74,18 @@ func HandleListNewsReports(store models.StoreReader) gin.HandlerFunc {
 		ctx.JSON(200, reports)
 	}
 }
+
+func HandleGetSpeechTranscript(store models.StoreReader) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		meet := ctx.Param("meetID")
+		ivod := ctx.Param("ivodID")
+		speech := ctx.Param("speechID")
+		docPath := fmt.Sprintf("meetings/%s/ivods/%s/speeches/%s", meet, ivod, speech)
+		v, err := store.GetVideo(ctx.Request.Context(), docPath)
+		if err != nil {
+			ctx.String(404, err.Error())
+			return
+		}
+		ctx.String(200, v.Transcript)
+	}
+}
