@@ -73,6 +73,7 @@ def on_receive_hashtags(response: gm.GenerationResponse, doc_path: str = "") -> 
     document.hash_tags = [tag.strip("#") for tag in hashtags]
     document.hash_tags_summarized_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     document.has_hash_tags = True
+    document.last_update_time = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     ref.update(document.asdict())
 
 
@@ -138,4 +139,5 @@ def on_receive_summary(response: gm.GenerationResponse, doc_path: str = "") -> N
     document.ai_summary = response.text
     document.ai_summarized_at = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     document.ai_summarized = True
+    document.last_update_time = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     ref.update(document.asdict())

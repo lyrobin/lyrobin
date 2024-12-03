@@ -14,6 +14,7 @@ from typing import Any
 import google.cloud.firestore  # type: ignore
 import opencc  # type: ignore
 from ai import embeddings, gemini
+from ai.batch import common as common_batch
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import firestore_fn, https_fn, logger, tasks_fn
 from firebase_functions.options import (
@@ -505,6 +506,9 @@ def _upsert_attachment_content(ref: document.DocumentReference):
     attach.last_update_time = dt.datetime.now(tz=models.MODEL_TIMEZONE)
     ref.update(attach.asdict())
 
+    common_batch.start_generate_hashtags(r.content, ref.path)
+    common_batch.start_generate_summary(ref, r.content, attach.last_update_time)
+
 
 @firestore_fn.on_document_created(
     document="meetings/{meetNo}/files/{fileNo}",
@@ -518,12 +522,9 @@ def on_meetings_attached_file_create(
     try:
         meet_no = event.params["meetNo"]
         file_no = event.params["fileNo"]
-        db = firestore.client()
-
-        file_ref = db.document(
-            f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}"
-        )
-        _upsert_attachment_content(file_ref)
+        doc_path = f"{models.MEETING_COLLECT}/{meet_no}/{models.FILE_COLLECT}/{file_no}"
+        q = tasks.CloudRunQueue.open("fetchAttachmentContent")
+        q.run(doc_path=doc_path)
     except Exception as e:
         logging.exception(e)
         raise RuntimeError(
