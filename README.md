@@ -63,7 +63,7 @@ docker-compose up -d
 [![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:lyrobin@gmail.com)
 
 - X (原 twitter): [@lyrobintw](https://x.com/lyrobintw)
-- Discord: https://discord.gg/xRgpmV4z
+- Discord: https://discord.gg/tu8PGtPBgX
 - YoTube: [立院知更](https://www.youtube.com/channel/UC-ZDaiyWzJRLLB0pklIEoOQ)
 - Gmail: lyrobintw@gmail.com
 
