@@ -9,7 +9,6 @@ import time
 
 import requests
 from firebase_functions import logger
-from search import client as search_client
 
 
 def is_using_emulators():
@@ -135,16 +134,3 @@ def wait_until(func: Callable[[], bool], timeout: int = 60, message: str = ""):
         count_down -= 1
         time.sleep(1)
     raise AssertionError(f"Condition never met: {message} after {timeout} seconds")
-
-
-def initialize_search_engine(func):
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        se = search_client.DocumentSearchEngine.create(api_key="xyz")
-        se.drop_collection(collection="documents")
-        se.drop_collection(collection="documents_v2")
-        se.initialize_collections()
-        func(*args, **kwargs)
-
-    return wrapper
