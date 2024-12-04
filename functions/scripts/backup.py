@@ -1,3 +1,5 @@
+"""Script to backup data and export them for local development."""
+
 import argparse
 import collections
 import contextlib
