@@ -742,6 +742,18 @@ class SpeechModel:
     def meeting(self) -> MeetingModel:
         return MeetingModel.from_ref(self.ref)
 
+    @functools.cached_property
+    def has_segments(self) -> bool:
+        return bool(
+            self.ref.collection(SPEECH_SEGMENT_COLLECT).count().get()[0][0].value
+        )
+
+    @functools.cached_property
+    def segments(self) -> list[SpeechSegment]:
+        docs = self.ref.collection(SPEECH_SEGMENT_COLLECT).stream()
+        results = [SpeechSegment.from_dict(doc.to_dict()) for doc in docs]
+        return sorted(results, key=lambda x: x.start)
+
     def __init__(self, ref: firestore.DocumentReference):
         self.ref = ref
 

@@ -5,9 +5,11 @@ import datetime as dt
 from enum import Enum
 from typing import Any
 import uuid
+import pathlib
 
 import typesense  # type: ignore
 from firebase_admin import firestore  # type: ignore
+from firebase_functions import logger
 from google.cloud.firestore import DocumentReference, DocumentSnapshot  # type: ignore
 from legislature import models
 from params import TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL
@@ -102,6 +104,80 @@ DOCUMENT_SCHEMA_V4 = {
     ],
 }
 
+DOCUMENT_V2_SCHEMA_V1 = {
+    "name": "documents_v2",
+    "enable_nested_fields": True,
+    "fields": [
+        {"name": "doc_type", "type": "string", "facet": True, "optional": True},
+        {
+            "name": "embedding",
+            "type": "float[]",
+            "num_dim": 768,
+            "optional": True,
+        },
+        {"name": "name", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "summary", "type": "string", "optional": True, "locale": "zh"},
+        {"name": "content", "type": "string", "optional": True, "locale": "zh"},
+        {
+            "name": "meeting_unit",
+            "type": "string",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "chairman",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+        {
+            "name": "status",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+        {
+            "name": "proposers",
+            "type": "string[]",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "sponsors",
+            "type": "string[]",
+            "facet": True,
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "member",
+            "type": "string",
+            "optional": True,
+            "facet": True,
+            "locale": "zh",
+        },
+        {
+            "name": "hashtags",
+            "type": "string[]",
+            "optional": True,
+            "locale": "zh",
+        },
+        {
+            "name": "segments.text",
+            "type": "string[]",
+            "optional": True,
+            "locale": "zh",
+        },
+        {"name": ".*", "type": "auto"},
+    ],
+}
+
+LATEST_SCHEMA = DOCUMENT_SCHEMA_V4
+
 SUMMARY_MAX_LENGTH = 1000
 CONTENT_MAX_LENGTH = 10000
 QUERY_LIMIT = 100
@@ -132,6 +208,7 @@ class Document:
     vector: list[float] = dataclasses.field(default_factory=list)
     metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
     hashtags: list[str] = dataclasses.field(default_factory=list)
+    segments: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         self.id = uuid.uuid5(uuid.NAMESPACE_URL, self.path).hex
@@ -171,6 +248,11 @@ class SearchResult:
 class DocumentSearchEngine:
     """Document Typesense search engine client."""
 
+    @property
+    def typesense_client(self) -> typesense.Client:
+        """Typesense client."""
+        return self._client
+
     def __init__(
         self,
         host: str = "localhost",
@@ -203,14 +285,24 @@ class DocumentSearchEngine:
             api_key=api_key,
         )
 
-    def index(self, doc_path: str, doc_type: DocType):
+    def index(self, doc_path: str, doc_type: DocType, collection: str = "documents"):
         """Create a document index."""
         ref = self._db.document(doc_path)
         doc = ref.get()
         if not doc.exists:
             raise FileNotFoundError(f"Can't find {doc_path}.")
         target = self._convert_to_indexable_document(doc, doc_type)
-        self._client.collections["documents"].documents.upsert(target.to_dict())
+        self._client.collections[collection].documents.upsert(target.to_dict())
+        # TODO: Remove this after the new collection is ready
+        try:
+            if collection == "documents":
+                self._shadow_index(target.to_dict())
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warn(f"Failed to shadow index {doc_path}: {e}")
+
+    def _shadow_index(self, doc: dict[str, Any]):
+        """Create a shadow index."""
+        self._client.collections["documents_v2"].documents.upsert(doc)
 
     def query(self, query: str, query_by="*", filter_by="") -> SearchResult:
         """Query documents."""
@@ -225,30 +317,41 @@ class DocumentSearchEngine:
         )
         return SearchResult(res)
 
-    def create_collection(self, schema: dict):
+    def initialize_collections(self):
+        """Initialize the collections, only for the first time."""
+        self.create_collection(DOCUMENT_SCHEMA_V1)
+        self.update_collection(DOCUMENT_SCHEMA_V2)
+        self.update_collection(DOCUMENT_SCHEMA_V3)
+        self.update_collection(DOCUMENT_SCHEMA_V4)
+        self.create_collection(DOCUMENT_V2_SCHEMA_V1, "documents_v2")
+
+    def create_collection(self, schema: dict, collection: str = "documents"):
         """Create a collection.
         Use this function only for the first time to initialize the collection.
         """
-        assert "name" in schema and schema["name"] == "documents"
+        assert "name" in schema and schema["name"] == collection
         assert "fields" in schema
         collections = self._client.collections.retrieve()
-        if any([collect.get("name", "") == "documents" for collect in collections]):
+        if any([collect.get("name", "") == collection for collect in collections]):
             return
         self._client.collections.create(schema)
 
-    def update_collection(self, schema: dict = DOCUMENT_SCHEMA_V3):
+    def update_collection(self, schema: dict | None = None):
+        """Update the collection schema."""
+        if schema is None:
+            schema = LATEST_SCHEMA
         name = schema.get("name")
         if not name:
             return
         new_schema = {k: v for k, v in schema.items() if k != "name"}
         self._client.collections[name].update(new_schema)
 
-    def drop_collection(self):
+    def drop_collection(self, collection: str = "documents"):
         """Drop the collection."""
         collections = self._client.collections.retrieve()
-        if not any([collect.get("name", "") == "documents" for collect in collections]):
+        if not any([collect.get("name", "") == collection for collect in collections]):
             return
-        self._client.collections["documents"].delete()
+        self._client.collections[collection].delete()
 
     def _convert_to_indexable_document(
         self, doc: DocumentSnapshot, doc_type: DocType
@@ -358,6 +461,14 @@ class DocumentSearchEngine:
 
     def _video_to_doc(self, doc: DocumentSnapshot) -> Document:
         ref: DocumentReference = doc.reference
+        doc_path = pathlib.PurePath(ref.path)
+        segments: list[dict[str, Any]] = []
+        if doc_path.parent.name == models.SPEECH_COLLECT:
+            speech_model = models.SpeechModel(ref)
+            segments = [
+                {"index": i, "start": s.start, "text": s.text}
+                for i, s in enumerate(speech_model.segments)
+            ]
         m: models.Video = models.Video.from_dict(doc.to_dict())
         return Document(
             path=ref.path,
@@ -367,7 +478,11 @@ class DocumentSearchEngine:
             created_date=m.start_time,
             vector=m.embedding_vector,
             hashtags=m.hash_tags,
-            metadata={"member": m.member, "transcript": m.transcript},
+            metadata={
+                "member": m.member,
+                "transcript": m.transcript if not segments else "",
+            },
+            segments=segments,
         )
 
     def _member_to_doc(self, doc: DocumentSnapshot) -> Document:
