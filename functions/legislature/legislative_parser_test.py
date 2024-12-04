@@ -257,8 +257,8 @@ def test_on_ivod_video_create():
     )
 
 
+@testings.initialize_search_engine
 def test_on_meeting_update_create_index():
-
     db = firestore.client()
 
     @testings.disable_background_triggers
@@ -280,6 +280,7 @@ def test_on_meeting_update_create_index():
     )
 
 
+@testings.initialize_search_engine
 def test_on_meeting_file_update_index():
     db = firestore.client()
     se = search_client.DocumentSearchEngine.create("xyz")
