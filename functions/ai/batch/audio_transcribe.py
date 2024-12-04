@@ -14,7 +14,14 @@ import json
 _MODEL = "publishers/google/models/gemini-1.5-flash-002"
 
 
-def start_transcribe(speech: models.SpeechModel):
+def start_transcribe(speech: models.SpeechModel, parse_meta: bool = True):
+    """Start the transcription process for the given speech model.
+
+    Args:
+        speech (models.SpeechModel): The speech model to transcribe.
+        parse_meta (bool, optional): Whether to parse the metadata (AI Summary and HashtagsF).
+            Defaults to True.
+    """
     if not speech.value.audios:
         raise ValueError("No audio files to transcribe.")
     elif len(speech.value.audios) > 1:
@@ -53,11 +60,14 @@ where MM:SS represents the start and end time of each sentence in the video. Pri
         on_receive_audio_transcript,
         {
             "doc_path": speech.ref.path,
+            "parse_meta": parse_meta,
         },
     )
 
 
-def on_receive_audio_transcript(response: gm.GenerationResponse, doc_path: str = ""):
+def on_receive_audio_transcript(
+    response: gm.GenerationResponse, doc_path: str = "", parse_meta: bool = True
+):
     if not doc_path:
         raise ValueError("No document path provided.")
     if not response.text:
@@ -90,6 +100,8 @@ def on_receive_audio_transcript(response: gm.GenerationResponse, doc_path: str =
     video.has_transcript = True
     ref.update(video.asdict())
 
+    if not parse_meta:
+        return
     start_summarize_transcript(models.SpeechModel(ref))
     start_generate_hashtags(models.SpeechModel(ref))
 
