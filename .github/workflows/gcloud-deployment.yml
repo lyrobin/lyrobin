@@ -111,6 +111,9 @@ jobs:
             GCLOUD_PROJECT=$GCLOUD_PROJECT
             GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
           EOF
-      - run: firebase deploy -f --only=functions
+      - env:
+          GEMBATCH_SMALL_JOB_MEMORY: 1024
+          GEMBATCH_LARGE_JOB_MEMORY: 4096
+        run: firebase deploy -f --only=functions
       - run: gcloud builds submit --region=$GEMINI_LOCATION
         working-directory: ./functions
