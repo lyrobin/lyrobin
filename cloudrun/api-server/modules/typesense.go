@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/typesense/typesense-go/typesense/api/pointer"
 )
 
-const collection = "documents"
+const collection = "documents_v2"
 
 type DocType string
 
@@ -70,6 +71,15 @@ type MeetingFileMeta struct {
 	Artifacts map[string]string `json:"artifacts,omitempty"`
 }
 
+type VideoMeta struct {
+	Segments []TranscriptSegment `json:"segments,omitempty"`
+}
+
+type TranscriptSegment struct {
+	Start string `json:"start,omitempty"`
+	Text  string `json:"text,omitempty"`
+}
+
 // DocumentHit is a simplified version of Document
 type DocumentHit struct {
 	Path    string `json:"path,omitempty"`
@@ -95,6 +105,66 @@ type SearchEngine interface {
 	Search(ctx context.Context, req SearchRequest) (SearchResult, error)
 	SearchDocumentHits(ctx context.Context, req SearchRequest) ([]DocumentHit, error)
 	SearchLegislator(ctx context.Context, name string) (Legislator, error)
+}
+
+type nestedSearchHighlight map[string]interface{}
+
+type documentSearchResultHit struct {
+	api.SearchResultHit
+}
+
+func (h nestedSearchHighlight) getChildren(field string) []nestedSearchHighlight {
+	children, ok := h[field].([]interface{})
+	if !ok {
+		return nil
+	}
+	var results []nestedSearchHighlight
+	for _, c := range children {
+		child, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		results = append(results, child)
+	}
+	return results
+}
+
+func (h nestedSearchHighlight) getField(field string) nestedSearchHighlightField {
+	c, ok := h[field].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return nestedSearchHighlightField(c)
+}
+
+type nestedSearchHighlightField map[string]interface{}
+
+func (h nestedSearchHighlightField) getSnippet() string {
+	s, ok := h["snippet"].(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+func (h nestedSearchHighlightField) getMatchedTokens() []string {
+	m, ok := h["matched_tokens"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var tokens []string
+	for _, t := range m {
+		token, ok := t.(string)
+		if !ok {
+			continue
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens
+}
+
+func (h nestedSearchHighlightField) isMatched() bool {
+	return len(h.getMatchedTokens()) > 0
 }
 
 var _ SearchEngine = typesenseEngine{}
@@ -139,7 +209,7 @@ func (e typesenseEngine) search(ctx context.Context, req SearchRequest) (*api.Se
 		FacetBy:                 pointer.String("*"),
 		FilterBy:                pointer.String(filter),
 		ExcludeFields:           pointer.String("vector"),
-		HighlightFields:         pointer.String("name,content,summary,transcript"),
+		HighlightFields:         pointer.String("name,content,summary,segments.text"),
 		SnippetThreshold:        pointer.Int(200),
 		HighlightAffixNumTokens: pointer.Int(60),
 		PerPage:                 pointer.Int(20),
@@ -276,17 +346,13 @@ func (e typesenseEngine) convertHitToDocumentHit(h api.SearchResultHit) (Documen
 }
 
 func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchResultHit) (Document, error) {
-	doc := *h.Document
-	docType, ok := doc["doc_type"].(string)
-	if !ok {
-		return Document{}, errors.New("can't find `doc_type` in hit")
+	doc := documentSearchResultHit{h}
+	if !doc.validate() {
+		return Document{}, errors.New("invalid document hit")
 	}
-	path, ok := doc["path"].(string)
-	if !ok {
-		return Document{}, errors.New("can't find `path` in hit")
-	}
-	createdDateFloat, _ := doc["created_date"].(float64)
-	createdDate := int64(createdDateFloat)
+	docType := doc.mustGetDocType()
+	path := doc.mustGetPath()
+	createdDate := doc.mustGetCreatedDate()
 	highlights := Highlights(*h.Highlights)
 	switch DocType(docType) {
 	case Meeting:
@@ -354,31 +420,67 @@ func (e typesenseEngine) convertHitToDocument(ctx context.Context, h api.SearchR
 			CreatedDate: createdDate,
 		}, nil
 	case Video:
-		meetPath := strings.Join(strings.Split(path, "/")[0:2], "/")
-		meet, err := e.store.GetMeeting(ctx, meetPath)
-		if err != nil {
-			return Document{}, err
-		}
-		m, err := e.store.GetVideo(ctx, path)
-		if err != nil {
-			return Document{}, err
-		}
-		content := highlights.getSnippet("transcript", trimString(m.Transcript, 200))
-		if content == "" {
-			content = trimString(m.Summary, 30)
-		}
-		return Document{
-			Name:        meet.Name + " - " + m.Member,
-			Path:        path,
-			Content:     content,
-			URL:         m.URL,
-			DocType:     docType,
-			CreatedDate: createdDate,
-			HashTags:    m.HashTags,
-		}, nil
+		return e.convertHitToVideoDocument(ctx, h, false)
 	default:
 		return Document{}, errors.New("invalid document type " + docType)
 	}
+}
+
+func (e typesenseEngine) convertHitToVideoDocument(ctx context.Context, h api.SearchResultHit, highlightSegment bool) (Document, error) {
+	doc := documentSearchResultHit{h}
+	if !doc.validate() {
+		return Document{}, errors.New("invalid document hit")
+	}
+	if DocType(doc.mustGetDocType()) != Video {
+		return Document{}, errors.New("invalid document type")
+	}
+	path := doc.mustGetPath()
+	meetPath := strings.Join(strings.Split(path, "/")[0:2], "/")
+	meet, err := e.store.GetMeeting(ctx, meetPath)
+	if err != nil {
+		return Document{}, err
+	}
+	m, err := e.store.GetVideo(ctx, path)
+	if err != nil {
+		return Document{}, err
+	}
+	nestedHighlights := nestedSearchHighlight(*h.Highlight)
+	content := getTranscriptSnippet(nestedHighlights)
+	if content == "" {
+		content = trimString(m.Transcript, 200)
+	}
+	result := Document{
+		Name:        meet.Name + " - " + m.Member,
+		Path:        path,
+		Content:     content,
+		URL:         m.URL,
+		DocType:     doc.mustGetDocType(),
+		CreatedDate: doc.mustGetCreatedDate(),
+		HashTags:    m.HashTags,
+	}
+	if !highlightSegment {
+		return result, nil
+	}
+	fields := getTranscriptSegmentHits(nestedHighlights)
+	segments := doc.getTranscriptSegments()
+	if len(fields) == 0 || len(segments) == 0 {
+		return result, nil
+	}
+	var transcriptSegments []TranscriptSegment
+	for i, f := range fields {
+		if !f.isMatched() {
+			continue
+		}
+		if i >= len(segments) {
+			break
+		}
+		transcriptSegments = append(transcriptSegments, TranscriptSegment{
+			Start: segments[i].Start,
+			Text:  f.getSnippet(),
+		})
+	}
+	result.Meta = VideoMeta{Segments: transcriptSegments}
+	return result, nil
 }
 
 type Highlights []api.SearchHighlight
@@ -419,4 +521,116 @@ func trimArtifactName(name string) string {
 		return "下載文檔"
 	}
 	return name
+}
+
+func getTranscriptSnippet(h nestedSearchHighlight) string {
+	fields := getTranscriptSegmentHits(h)
+	index := slices.IndexFunc(fields, func(f nestedSearchHighlightField) bool {
+		return f.isMatched()
+	})
+	if index < 0 {
+		return ""
+	}
+	snippets := []string{fields[index].getSnippet()}
+	count := len([]rune(snippets[0]))
+	start := index - 1
+	end := index + 1
+	for count < 200 && (start >= 0 || end < len(fields)) {
+		if start >= 0 {
+			snippets = append([]string{fields[start].getSnippet()}, snippets...)
+			count += len([]rune(snippets[0]))
+			start--
+		}
+		if count < 200 && end < len(fields) {
+			snippets = append(snippets, fields[end].getSnippet())
+			count += len([]rune(snippets[len(snippets)-1]))
+			end++
+		}
+	}
+	result := strings.Join(snippets, "")
+	if end < len(fields) {
+		result += "…"
+	}
+	return result
+}
+
+func getTranscriptSegmentHits(h nestedSearchHighlight) []nestedSearchHighlightField {
+	segments := h.getChildren("segments")
+	if len(segments) == 0 {
+		return nil
+	}
+	var fields []nestedSearchHighlightField
+	for _, s := range segments {
+		fields = append(fields, s.getField("text"))
+	}
+	return fields
+}
+
+func (h documentSearchResultHit) validate() bool {
+	doc := *h.Document
+	if _, ok := doc["doc_type"]; !ok {
+		return false
+	}
+	if _, ok := doc["path"]; !ok {
+		return false
+	}
+	if _, ok := doc["created_date"]; !ok {
+		return false
+	}
+	return true
+}
+
+func (h documentSearchResultHit) mustGetDocType() string {
+	doc := *h.Document
+	docType, ok := doc["doc_type"].(string)
+	if !ok {
+		return ""
+	}
+	return docType
+}
+
+func (h documentSearchResultHit) mustGetPath() string {
+	doc := *h.Document
+	path, ok := doc["path"].(string)
+	if !ok {
+		return ""
+	}
+	return path
+}
+
+func (h documentSearchResultHit) mustGetCreatedDate() int64 {
+	doc := *h.Document
+	createdDate, ok := doc["created_date"].(float64)
+	if !ok {
+		return 0
+	}
+	return int64(createdDate)
+}
+
+func (h documentSearchResultHit) getTranscriptSegments() []TranscriptSegment {
+	doc := *h.Document
+	segments, ok := doc["segments"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var result []TranscriptSegment
+	for _, s := range segments {
+		segment, ok := s.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		start, ok := segment["start"].(string)
+		if !ok {
+			continue
+		}
+		text, ok := segment["text"].(string)
+		if !ok {
+			continue
+		}
+		result = append(result, TranscriptSegment{
+			Start: start,
+			Text:  text,
+		})
+	}
+	return result
 }

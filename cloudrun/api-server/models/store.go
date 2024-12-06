@@ -21,6 +21,7 @@ type StoreReader interface {
 	GetAttachment(ctx context.Context, path string) (Attachment, error)
 	GetProceeding(ctx context.Context, path string) (Proceeding, error)
 	GetVideo(ctx context.Context, path string) (Video, error)
+	GetTranscriptSegments(ctx context.Context, path string) ([]TranscriptSegment, error)
 	GetLegislator(ctx context.Context, path string) (Legislator, error)
 	FindLegislatorSpeechesTopics(ctx context.Context, path string) ([]SpeechTopic, error)
 	GetTopicByTags(ctx context.Context, tags []string) (Topic, error)
@@ -87,6 +88,12 @@ type Video struct {
 	HdPlaylist string    `firestore:"hd_playlist,omitempty"`
 	HashTags   []string  `firestore:"hash_tags,omitempty"`
 	StartTime  time.Time `firestore:"start_time,omitempty"`
+}
+
+type TranscriptSegment struct {
+	Start string `firestore:"start,omitempty"`
+	End   string `firestore:"end,omitempty"`
+	Text  string `firestore:"text,omitempty"`
 }
 
 type Legislator struct {
@@ -278,7 +285,7 @@ func (s *FireStore) FindLegislatorSpeechesTopics(ctx context.Context, path strin
 		if err != nil {
 			return nil, err
 		}
-		topics, err := s.listLegislatorSummaryTopics(ctx, client, doc)
+		topics, err := s.listLegislatorSummaryTopics(ctx, doc)
 		if err != nil {
 			continue
 		}
@@ -301,7 +308,7 @@ func (s *FireStore) FindLegislatorSpeechesTopics(ctx context.Context, path strin
 
 // listLegislatorSummaryTopics lists the topics of a legislator's speeches.
 // the path is the path to the member's summary collection.
-func (s *FireStore) listLegislatorSummaryTopics(ctx context.Context, client *firestore.Client, doc *firestore.DocumentSnapshot) ([]SpeechTopic, error) {
+func (s *FireStore) listLegislatorSummaryTopics(ctx context.Context, doc *firestore.DocumentSnapshot) ([]SpeechTopic, error) {
 	iter := doc.Ref.Collection("topics").Documents(ctx)
 	var result []SpeechTopic
 	for {
@@ -503,4 +510,32 @@ func (s *FireStore) GetHotKeywords(ctx context.Context) ([]string, error) {
 	}
 	doc.DataTo(&hotKeywords)
 	return hotKeywords.Keywords, nil
+}
+
+func (s *FireStore) GetTranscriptSegments(ctx context.Context, path string) ([]TranscriptSegment, error) {
+	client, err := s.App.Firestore(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	ref := client.Doc(path)
+	doc, err := ref.Get(ctx)
+	if err != nil || !doc.Exists() {
+		return nil, errors.New(path + " not found")
+	}
+	iter := ref.Collection("segments").OrderBy("start", firestore.Asc).Documents(ctx)
+	var segments []TranscriptSegment
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		var segment TranscriptSegment
+		doc.DataTo(&segment)
+		segments = append(segments, segment)
+	}
+	return segments, nil
 }
