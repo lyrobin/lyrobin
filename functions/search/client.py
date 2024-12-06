@@ -9,100 +9,9 @@ import pathlib
 
 import typesense  # type: ignore
 from firebase_admin import firestore  # type: ignore
-from firebase_functions import logger
 from google.cloud.firestore import DocumentReference, DocumentSnapshot  # type: ignore
 from legislature import models
 from params import TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL
-
-DOCUMENT_SCHEMA_V1 = {
-    "name": "documents",
-    "fields": [
-        # TODO: Correct the name to doc_type and update the indexes
-        {"name": "doc_type", "type": "string", "facet": True, "optional": True},
-        {
-            "name": "embedding",
-            "type": "float[]",
-            "num_dim": 768,
-            "optional": True,
-        },
-        {"name": "name", "type": "string", "optional": True, "locale": "zh"},
-        {"name": "summary", "type": "string", "optional": True, "locale": "zh"},
-        {"name": "content", "type": "string", "optional": True, "locale": "zh"},
-        {
-            "name": "meeting_unit",
-            "type": "string",
-            "facet": True,
-            "optional": True,
-            "locale": "zh",
-        },
-        {
-            "name": "chairman",
-            "type": "string",
-            "optional": True,
-            "facet": True,
-            "locale": "zh",
-        },
-        {
-            "name": "status",
-            "type": "string",
-            "optional": True,
-            "facet": True,
-            "locale": "zh",
-        },
-        {
-            "name": "proposers",
-            "type": "string[]",
-            "facet": True,
-            "optional": True,
-            "locale": "zh",
-        },
-        {
-            "name": "sponsors",
-            "type": "string[]",
-            "facet": True,
-            "optional": True,
-            "locale": "zh",
-        },
-        {"name": ".*", "type": "auto"},
-    ],
-}
-
-DOCUMENT_SCHEMA_V2 = {
-    "name": "documents",
-    "fields": [
-        {
-            "name": "member",
-            "type": "string",
-            "optional": True,
-            "facet": True,
-            "locale": "zh",
-        },
-    ],
-}
-
-DOCUMENT_SCHEMA_V3 = {
-    "name": "documents",
-    "fields": [
-        {
-            "name": "transcript",
-            "type": "string",
-            "optional": True,
-            "locale": "zh",
-        },
-    ],
-}
-
-DOCUMENT_SCHEMA_V4 = {
-    "name": "documents",
-    "fields": [
-        {
-            "name": "hashtags",
-            "type": "string[]",
-            "optional": True,
-            "locale": "zh",
-        },
-    ],
-}
 
 DOCUMENT_V2_SCHEMA_V1 = {
     "name": "documents_v2",
@@ -176,7 +85,7 @@ DOCUMENT_V2_SCHEMA_V1 = {
     ],
 }
 
-LATEST_SCHEMA = DOCUMENT_SCHEMA_V4
+LATEST_SCHEMA = None
 
 SUMMARY_MAX_LENGTH = 1000
 CONTENT_MAX_LENGTH = 10000
@@ -285,7 +194,7 @@ class DocumentSearchEngine:
             api_key=api_key,
         )
 
-    def index(self, doc_path: str, doc_type: DocType, collection: str = "documents"):
+    def index(self, doc_path: str, doc_type: DocType, collection: str = "documents_v2"):
         """Create a document index."""
         ref = self._db.document(doc_path)
         doc = ref.get()
@@ -293,20 +202,12 @@ class DocumentSearchEngine:
             raise FileNotFoundError(f"Can't find {doc_path}.")
         target = self._convert_to_indexable_document(doc, doc_type)
         self._client.collections[collection].documents.upsert(target.to_dict())
-        # TODO: Remove this after the new collection is ready
-        try:
-            if collection == "documents":
-                self._shadow_index(target.to_dict())
-        except Exception as e:  # pylint: disable=broad-except
-            logger.warn(f"Failed to shadow index {doc_path}: {e}")
 
-    def _shadow_index(self, doc: dict[str, Any]):
-        """Create a shadow index."""
-        self._client.collections["documents_v2"].documents.upsert(doc)
-
-    def query(self, query: str, query_by="*", filter_by="") -> SearchResult:
+    def query(
+        self, query: str, query_by="*", filter_by="", collection: str = "documents_v2"
+    ) -> SearchResult:
         """Query documents."""
-        res = self._client.collections["documents"].documents.search(
+        res = self._client.collections[collection].documents.search(
             {
                 "q": query,
                 "query_by": query_by,
@@ -319,13 +220,9 @@ class DocumentSearchEngine:
 
     def initialize_collections(self):
         """Initialize the collections, only for the first time."""
-        self.create_collection(DOCUMENT_SCHEMA_V1)
-        self.update_collection(DOCUMENT_SCHEMA_V2)
-        self.update_collection(DOCUMENT_SCHEMA_V3)
-        self.update_collection(DOCUMENT_SCHEMA_V4)
         self.create_collection(DOCUMENT_V2_SCHEMA_V1, "documents_v2")
 
-    def create_collection(self, schema: dict, collection: str = "documents"):
+    def create_collection(self, schema: dict, collection: str = "documents_v2"):
         """Create a collection.
         Use this function only for the first time to initialize the collection.
         """
@@ -340,13 +237,15 @@ class DocumentSearchEngine:
         """Update the collection schema."""
         if schema is None:
             schema = LATEST_SCHEMA
+        if not schema:
+            raise ValueError("No schema provided.")
         name = schema.get("name")
         if not name:
             return
         new_schema = {k: v for k, v in schema.items() if k != "name"}
         self._client.collections[name].update(new_schema)
 
-    def drop_collection(self, collection: str = "documents"):
+    def drop_collection(self, collection: str = "documents_v2"):
         """Drop the collection."""
         collections = self._client.collections.retrieve()
         if not any([collect.get("name", "") == collection for collect in collections]):
