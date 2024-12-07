@@ -4,6 +4,7 @@ Test for legislative_parser.py
 
 # pylint: disable=missing-function-docstring
 import unittest
+from unittest import mock
 
 import requests  # type: ignore
 import search.client as search_client
@@ -13,6 +14,7 @@ from google.cloud.firestore import DocumentReference  # type: ignore
 from legislature import models
 from search import testing as search_testing
 from utils import tasks, testings
+from legislature import legislative_parser
 
 
 # fetch_meeting_from_web
@@ -314,7 +316,46 @@ def test_update_legislators():
 def test_update_meetings_by_date():
     url = utils.get_function_url("update_meetings_by_date")
     res = requests.get(url, params={"date": "113/04/24"}, timeout=30)
+    # TODO: check the result
     assert res.ok
+
+
+class TestGetMeetingAtDate(unittest.TestCase):
+
+    @mock.patch.object(legislative_parser.session, "new_legacy_session")
+    def test_get_meeting_at_date(self, mock_new_legacy_session: mock.Mock):
+        mock_response = mock.MagicMock(spec=requests.Response)
+        mock_session = mock_new_legacy_session.return_value
+        mock_session.get.return_value = mock_response
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "totalItems": 1,
+            "totalPages": 1,
+            "currentPage": 0,
+            "items": [
+                {
+                    "id": "2024112922",
+                    "title": "title",
+                    "content": "內政 09:00-17:30",
+                    "content2": "召集人：徐欣瑩委員",
+                    "location": "紅樓202會議室",
+                    "tags": ["113年12月05日"],
+                    "tags2": [],
+                    "attachments": [],
+                    "meetingDate": "113/12/05",
+                    "meetingName": "立法院第11屆第2會期內政委員會第14次全體委員會議",
+                    "meetingUnit": "內政",
+                    "meetingTime": "09:00-17:30",
+                },
+            ],
+        }
+
+        meetings = legislative_parser.get_meetings_at_date("113/12/05")
+
+        self.assertEqual(len(meetings), 1)
+        self.assertEqual(meetings[0].meeting_no, "2024112922")
+        self.assertEqual(meetings[0].meeting_date_desc, "113/12/05 09:00-17:30")
+        self.assertEqual(meetings[0].term, 11)
 
 
 @testings.require_firestore_emulator

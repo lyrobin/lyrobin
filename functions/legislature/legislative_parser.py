@@ -23,6 +23,7 @@ from firebase_functions.options import (
     RetryConfig,
     SupportedRegion,
 )
+from google.cloud import storage as gcs
 from google.cloud.firestore_v1 import document
 from legislature import (
     LEGISLATURE_LEGISLATOR_INFO_API,
@@ -33,7 +34,7 @@ from legislature import (
 )
 from params import DEFAULT_TIMEOUT_SEC, TYPESENSE_API_KEY
 from search import client as search_client
-from utils import session, tasks
+from utils import session, tasks, timeutil
 
 _DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_SEC.value
 _REGION = SupportedRegion.ASIA_EAST1
@@ -699,6 +700,35 @@ def _download_video(
         return None
 
     video: models.Video = models.Video.from_dict(video_ref.get().to_dict())
+    video = export_video_to_gcs(video, download_hd=download_hd, dry_run=download_hd)
+
+    update_keys: list[str] = (
+        ["hd_playlist", "hd_clips"]
+        if download_hd
+        else ["playlist", "clips", "start_time"]
+    )
+    video_ref.update({k: v for k, v in video.asdict().items() if k in update_keys})
+    return video_ref.path
+
+
+def export_video_to_gcs(
+    video: models.Video,
+    download_hd: bool = False,
+    bucket: gcs.Bucket | None = None,
+    max_hours: int = 3,
+    max_clips: int = 10,  # Safe guarded, prevent downloading too many chunks.
+    dry_run: bool = False,
+) -> models.Video:
+    """Export video to GCS and update video object.
+
+    Args:
+        video (models.Video): The video object.
+        download_hd (bool): Download HD video.
+        bucket (gcs.Bucket): The GCS bucket.
+        max_hours (int): The max hours of video.
+        max_clips (int): The max clips of video. Each clip is 30 minutes.
+        dry_run (bool): Dry run mode, don't export to GCS but update video object.
+    """
 
     url = video.hd_url if download_hd else video.url
 
@@ -708,20 +738,23 @@ def _download_video(
     logger.debug(f"Open video: {url}")
     r = readers.VideoReader.open(url)
 
-    if r.meta.duration > dt.timedelta(hours=3):
-        logger.warn("Video %s is too long. (> 3 hours)", url)
-        return None
+    if r.meta.duration > dt.timedelta(hours=max_hours):
+        logger.warn("Video %s is too long. (> %s hours)", url, max_hours)
+        return video
     elif r.meta.duration <= dt.timedelta.min:
         logger.warn("Video %s doesn't have duration info, skip it.", url)
-        return None
+        return video
     logger.debug(f"Prepare to download video: {url}")
 
     clips = []
-    temp_mp4 = []
-    bucket = storage.bucket()
     folder = "hd_clips" if download_hd else "clips"
 
+    bucket = bucket or storage.bucket()
+    temp_mp4 = []
+
     def _upload_clip(i: int) -> str:
+        if not bucket:
+            raise RuntimeError("Bucket is required.")
         blob = bucket.blob(f"videos/{video.document_id}/{folder}/{i}.mp4")
         gs_path = f"gs://{bucket.name}/{blob.name}"
         if blob.exists():
@@ -740,30 +773,29 @@ def _download_video(
             logger.error(e)
         return gs_path
 
-    if not download_hd:
-        for i in range(min(r.clips_count, 10)):
+    if not dry_run:
+        for i in range(min(r.clips_count, max_clips)):
             # Safe guarded, prevent downloading too many chunks.
             clips.append(_upload_clip(i))
     else:
-        logger.warn("Skip download HD videos.")
+        logger.warn("Skip download videos because it's dry run.")
 
-    update_keys: list[str]
+    new_video = models.Video.from_dict(video.asdict())
+    new_video.start_time = r.meta.start_time
+
     if download_hd:
-        video.hd_playlist = r.playlist_url or ""
+        new_video.hd_playlist = r.playlist_url or ""
         if clips:
-            video.hd_clips = clips
-        update_keys = ["hd_playlist", "hd_clips"]
+            new_video.hd_clips = clips
     else:
-        video.playlist = r.playlist_url or ""
-        video.start_time = r.meta.start_time
+        new_video.playlist = r.playlist_url or ""
         if clips:
-            video.clips = clips
-        update_keys = ["playlist", "clips", "start_time"]
+            new_video.clips = clips
 
-    video_ref.update({k: v for k, v in video.asdict().items() if k in update_keys})
     for mp4 in temp_mp4:
         os.remove(mp4)
-    return video_ref.path
+
+    return new_video
 
 
 def _find_video_in_ivod(
@@ -1006,8 +1038,8 @@ def update_legislators(request: https_fn.Request) -> https_fn.Response:
             old_m = models.Legislator.from_dict(doc.to_dict())
             m.terms = sorted(list(set(m.terms + old_m.terms)))
             batch.update(doc_ref, m.asdict())
-            continue
-        batch.set(doc_ref, m.asdict())
+        else:
+            batch.set(doc_ref, m.asdict())
     batch.commit()
 
     return https_fn.Response(
@@ -1050,9 +1082,17 @@ def _guess_meeting_time_from_tags(tags: list[str]) -> str:
     return ""
 
 
-def _update_meeting_by_date(
-    meet_date: str, term: int = 0, period: int = 0
-) -> list[str]:
+def get_meetings_at_date(meet_date: str | dt.datetime) -> list[models.Meeting]:
+    """Get all meetings at date by using the PPG API.
+
+    Args:
+        meet_date (str | dt.datetime): The date of the meeting, in the format of "Y/M/D" or a datetime object.
+
+    Returns:
+        list[models.Meeting]: The list of meetings.
+    """
+    if isinstance(meet_date, dt.datetime):
+        meet_date = timeutil.format_tw_year_date(meet_date, fmt="SLASH")
     res = session.new_legacy_session().get(
         LEGISLATURE_PPG_API.value + "/v1/all-sittings",
         params={"size": -1, "page": 1, "meetingDate": meet_date},  # type: ignore
@@ -1062,39 +1102,55 @@ def _update_meeting_by_date(
     if not res.ok:
         raise RuntimeError(f"Fail to get meeting by {meet_date}: {res.text}")
 
-    db = firestore.client()
-    batch = db.batch()
-    items = res.json().get("items", [])
-    item: dict[str, Any]
-    new_meetings = []
-    q = tasks.CloudRunQueue.open("fetchMeetingFromWeb")
-    for item in items:
+    term = timeutil.get_legislative_yuan_term(
+        meet_date
+        if isinstance(meet_date, dt.datetime)
+        else timeutil.transform_tw_year_date_to_datetime(meet_date)
+    )
+
+    def _transform_to_meeting(item: dict[str, Any]) -> models.Meeting | None:
         meeting_no = item.get("id", "")
         meeting_date = item.get("meetingDate", "")
         meeting_time = item.get("meetingTime", "")
         if not meeting_no or not meeting_date:
             logger.warn(f"Can't find meeting no or date for meeting {meeting_no}")
-            continue
+            return None
         if not meeting_time:
             meeting_time = _guess_meeting_time_from_tags(item.get("tags", []))
         if not meeting_time:
             logger.warn(f"Can't find meeting time for meeting {meeting_no}")
-            continue
-        m = models.Meeting(
+            return None
+        return models.Meeting(
             meeting_no=meeting_no,
             meeting_name=item.get("meetingName", ""),
             meeting_content=item.get("title", ""),
             meeting_date_desc=f"{meet_date} {meeting_time}",
             meeting_unit=item.get("meetingUnit", ""),
             term=term,
-            session_period=period,
         )
-        ref = db.collection(models.MEETING_COLLECT).document(m.document_id)
+
+    items = res.json().get("items", [])
+    return [meet for item in items if (meet := _transform_to_meeting(item))]
+
+
+def _update_meeting_by_date(
+    meet_date: str, term: int = 0, period: int = 0
+) -> list[str]:
+    q = tasks.CloudRunQueue.open("fetchMeetingFromWeb")
+    db = firestore.client()
+    batch = db.batch()
+    new_meetings = []
+    for meeting in get_meetings_at_date(meet_date):
+        if term > 0 and meeting.term != term:
+            meeting.term = term
+        if period > 0 and meeting.session_period != period:
+            meeting.session_period = period
+        ref = db.collection(models.MEETING_COLLECT).document(meeting.document_id)
         if ref.get().exists:
-            q.run(meet_no=m.meeting_no, url=m.get_url())
-            continue
-        new_meetings.append(m.meeting_no)
-        batch.set(ref, m.asdict())
+            q.run(meet_no=meeting.meeting_no, url=meeting.get_url())
+        else:
+            new_meetings.append(meeting.meeting_no)
+            batch.set(ref, meeting.asdict())
     batch.commit()
     return new_meetings
 
