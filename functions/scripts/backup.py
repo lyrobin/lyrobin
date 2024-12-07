@@ -206,10 +206,7 @@ def backup_all():
 
 def build_search_index():
     se = search_client.DocumentSearchEngine(api_key="xyz")
-    se.create_collection(search_client.DOCUMENT_SCHEMA_V1)
-    se.update_collection(search_client.DOCUMENT_SCHEMA_V2)
-    se.update_collection(search_client.DOCUMENT_SCHEMA_V3)
-    se.update_collection(search_client.DOCUMENT_SCHEMA_V4)
+    se.initialize_collections()
     for doc_type, collection in INDEX_TARGETS.items():
         print(f"Indexing {doc_type} from {collection}")
         index_documents(se, doc_type, collection)
