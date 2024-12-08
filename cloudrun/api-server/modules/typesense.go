@@ -206,6 +206,7 @@ func (e typesenseEngine) search(ctx context.Context, req SearchRequest) (*api.Se
 	params := &api.SearchCollectionParams{
 		Q:                       req.Query,
 		QueryBy:                 "name,content,summary,*",
+		SortBy:                  pointer.String("_text_match:desc,created_date:desc"),
 		FacetBy:                 pointer.String("*"),
 		FilterBy:                pointer.String(filter),
 		ExcludeFields:           pointer.String("vector"),
