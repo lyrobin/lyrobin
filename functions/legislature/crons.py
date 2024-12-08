@@ -12,7 +12,6 @@ import firebase_admin  # type: ignore
 import requests
 import utils
 from ai import context, gemini
-from ai.batch import legislators_recent_speeches_summary
 from ai.batch import weekly_news
 from firebase_admin import firestore, storage  # type: ignore
 from firebase_functions import logger, scheduler_fn
@@ -20,7 +19,7 @@ from firebase_functions.options import MemoryOption, SupportedRegion, Timezone
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models, reports
-from utils import tasks
+from utils import tasks, timeutil
 
 _TZ = Timezone("Asia/Taipei")
 
@@ -475,9 +474,15 @@ def _update_legislator_speeches_summary():
     q = tasks.CloudRunQueue.open(
         "updateLegislatorSpeechesSummary", region=gemini.GEMINI_REGION
     )
-    # TODO: make sure the member is still in the current term
-    for row in db.collection(models.MEMBER_COLLECT).stream():
-        m = models.Legislator.from_dict(row.to_dict())
+    today = dt.datetime.now(tz=models.MODEL_TIMEZONE)
+    term = timeutil.get_legislative_yuan_term(today)
+    docs = (
+        db.collection(models.MEMBER_COLLECT)
+        .where(filter=FieldFilter("terms", "array_contains", str(term)))
+        .stream()
+    )
+    for doc in docs:
+        m = models.Legislator.from_dict(doc.to_dict())
         q.run(name=m.name)
 
 
