@@ -119,7 +119,9 @@ def _extractAudio(doc_path: str) -> models.SpeechModel:
                 bucket.blob(audio_path.as_posix()).upload_from_file(f)
 
         audios.append(gs_audio_path)
-        v.audios = audios
+    if not audios:
+        raise RuntimeError(f"no audio extracted: {doc_path}")
+    v.audios = audios
     ref.update(v.asdict())
     return models.SpeechModel(ref)
 

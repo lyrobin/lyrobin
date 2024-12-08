@@ -718,6 +718,7 @@ def export_video_to_gcs(
     max_hours: int = 3,
     max_clips: int = 10,  # Safe guarded, prevent downloading too many chunks.
     dry_run: bool = False,
+    extract_audio: bool = False,
 ) -> models.Video:
     """Export video to GCS and update video object.
 
@@ -728,6 +729,7 @@ def export_video_to_gcs(
         max_hours (int): The max hours of video.
         max_clips (int): The max clips of video. Each clip is 30 minutes.
         dry_run (bool): Dry run mode, don't export to GCS but update video object.
+        extract_audio (bool): Extract audio from video.
     """
 
     url = video.hd_url if download_hd else video.url
@@ -750,7 +752,7 @@ def export_video_to_gcs(
     folder = "hd_clips" if download_hd else "clips"
 
     bucket = bucket or storage.bucket()
-    temp_mp4 = []
+    temp_files: list[str] = []
 
     def _upload_clip(i: int) -> str:
         if not bucket:
@@ -766,10 +768,22 @@ def export_video_to_gcs(
         logger.debug("download mp4: %s", mp4)
         with open(mp4, "rb") as f:
             blob.upload_from_file(f, content_type="video/mp4")
+        if extract_audio and not download_hd:
+            logger.debug("Extract audio from %s", mp4)
+            mp3 = readers.AudioReader(mp4).to_mp3()
+            with open(mp3, "rb") as f:
+                bucket.blob(
+                    f"videos/{video.document_id}/audio/{i}.mp3"
+                ).upload_from_file(f, content_type="audio/mp3")
+            try:
+                os.remove(mp3)
+            except (OSError, FileNotFoundError, IOError) as e:
+                temp_files.append(mp3.as_posix())
+                logger.warn(e)
         try:
             os.remove(mp4)
         except (OSError, FileNotFoundError, IOError) as e:
-            temp_mp4.append(mp4)
+            temp_files.append(mp4)
             logger.error(e)
         return gs_path
 
@@ -792,8 +806,8 @@ def export_video_to_gcs(
         if clips:
             new_video.clips = clips
 
-    for mp4 in temp_mp4:
-        os.remove(mp4)
+    for f in temp_files:
+        os.remove(f)
 
     return new_video
 
@@ -1073,7 +1087,8 @@ def _guess_meeting_time_from_tags(tags: list[str]) -> str:
     """Guess the meeting time from tags.
 
     The tags are usually in the format of "09:00-12:00".
-    See https://ppg.ly.gov.tw/ppg/api/v1/all-sittings?size=-1&page=1&meetingDate=113/9/20 for an example.
+    See https://ppg.ly.gov.tw/ppg/api/v1/all-sittings?size=-1&page=1&meetingDate=113/9/20
+    for an example.
     """
     for tag in tags:
         m = re.search(r"(\d+:\d+-\d+:\d+)", tag)
@@ -1086,7 +1101,8 @@ def get_meetings_at_date(meet_date: str | dt.datetime) -> list[models.Meeting]:
     """Get all meetings at date by using the PPG API.
 
     Args:
-        meet_date (str | dt.datetime): The date of the meeting, in the format of "Y/M/D" or a datetime object.
+        meet_date (str | dt.datetime): The date of the meeting,
+        in the format of "Y/M/D" or a datetime object.
 
     Returns:
         list[models.Meeting]: The list of meetings.

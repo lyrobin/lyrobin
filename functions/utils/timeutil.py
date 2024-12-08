@@ -95,9 +95,9 @@ def format_tw_year_date(date: dt.datetime, fmt: TaiwanDateFormat = "SLASH") -> s
         The formatted date as a string.
     """
     if fmt == "SLASH":
-        return f"{date.year - 1911}/{date.month}/{date.day}"
+        return f"{date.year - 1911}/{date.month:02}/{date.day:02}"
     elif fmt == "CHINESE":
-        return f"{date.year - 1911}年{date.month}月{date.day}日"
+        return f"{date.year - 1911}年{date.month:02}月{date.day:02}日"
     else:
         raise ValueError(f"Invalid TaiwanDateFormat: {fmt}")
 
