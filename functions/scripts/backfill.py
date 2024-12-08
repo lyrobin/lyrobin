@@ -7,15 +7,21 @@ import os
 
 import firebase_admin  # type: ignore
 import inquirer  # type: ignore
+import params
 from ai.batch import audio_transcribe
 from firebase_admin import firestore  # type: ignore
 from google.cloud import firestore as cloud_firestore  # type: ignore
-from legislature import models
+from legislature import legislative_parser as ly_parser
+from legislature import models, readers
 from search import client as search_client
 from utils import firestore as firestore_utils
 
-FIRESTORE_EMULATOR_HOST = "FIRESTORE_EMULATOR_HOST"
-FIREBASE_EMULATOR_HUB = "FIREBASE_EMULATOR_HUB"
+EMULATOR_ENVS = [
+    "FIRESTORE_EMULATOR_HOST",
+    "FIREBASE_EMULATOR_HUB",
+    "FIREBASE_STORAGE_EMULATOR_HOST",
+    "STORAGE_EMULATOR_HOST",
+]
 
 INDEX_TARGETS = {
     search_client.DocType.MEETING: models.MEETING_COLLECT,
@@ -32,22 +38,17 @@ def warn_using_emulator(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if os.environ.get(FIRESTORE_EMULATOR_HOST, None):
+        if any(os.environ.get(env, None) for env in EMULATOR_ENVS):
             print("Warning: Using Firestore emulator.")
-            ok = inquirer.confirm("Do you want to switch to production Firestore?")
+            ok = inquirer.confirm("Do you want to switch to production environment?")
             if ok:
-                os.environ.pop(FIRESTORE_EMULATOR_HOST)
-        if os.environ.get(FIREBASE_EMULATOR_HUB, None):
-            print("Warning: Using Firebase emulator.")
-            ok = inquirer.confirm("Do you want to switch to production Firebase?")
-            if ok:
-                os.environ.pop(FIREBASE_EMULATOR_HUB)
+                for env in EMULATOR_ENVS:
+                    os.environ.pop(env)
         return func(*args, **kwargs)
 
     return wrapper
 
 
-@warn_using_emulator
 def backfill_speeches_segment(args: argparse.Namespace):
     """Backfill the speeches segment."""
     start = dt.datetime.strptime(args.start, "%Y-%m-%d")
@@ -127,13 +128,65 @@ def _get_iterable_query(
             raise ValueError(f"Invalid collection: {collection}")
 
 
+@warn_using_emulator
+def backfill_speeches_video(args: argparse.Namespace):
+    """Backfill the speeches video."""
+    start = dt.datetime.strptime(args.start, "%Y-%m-%d")
+    end = dt.datetime.strptime(args.end, "%Y-%m-%d")
+    print(f"Backfill speeches video. (start: {start}, end: {end})")
+    exported_videos: list[str] = []
+    for delta in range((end - start).days + 1):
+        date = start + dt.timedelta(days=delta)
+        print(f"Backfilling speeches video at {date}")
+        videos = _get_speech_video_at_date(date)
+        print(f"Found {len(videos)} videos.")
+        for video in videos:
+            print(f"Exporting {video.url}: {video.document_id}")
+            try:
+                ly_parser.export_video_to_gcs(video, extract_audio=True)
+            except Exception as e:  # pylint: disable=broad-except
+                print(f"Error: {e}")
+                continue
+            exported_videos.append(video.document_id)
+    if args.export:
+        with open("exported_videos.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(exported_videos))
+
+
+def _get_speech_video_at_date(date: dt.datetime) -> list[models.Video]:
+    meetings = ly_parser.get_meetings_at_date(date)
+    videos: list[readers.VideoEntry] = []
+    for meet in meetings:
+        print(f"Reading meeting: {meet.get_url()}")
+        meet_reader = readers.LegislativeMeetingReader.open(meet.get_url())
+        ivod_readers = [
+            readers.IvodReader.open(entry.url) for entry in meet_reader.get_videos()
+        ]
+        videos.extend(
+            video
+            for ivod_reader in ivod_readers
+            for video in ivod_reader.get_member_speeches()
+        )
+    return [
+        models.Video(
+            url=video.url,
+            hd_url=video.hd_url,
+            member=video.member,
+        )
+        for video in videos
+    ]
+
+
 def main():
     """Main function."""
-    firebase_admin.initialize_app()
+    firebase_admin.initialize_app(
+        options={"storageBucket": params.STORAGE_BUCKET.value}
+    )
 
     parser = argparse.ArgumentParser(description="Backfill data in the database.")
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
+    # Speeches segment
     speeches_segment_parser = subparsers.add_parser(
         "speeches_segment", help="Backfill the speeches segment."
     )
@@ -155,6 +208,7 @@ def main():
     )
     speeches_segment_parser.set_defaults(func=backfill_speeches_segment)
 
+    # Search index
     search_index_parser = subparsers.add_parser(
         "search_index", help="Backfill the search index."
     )
@@ -165,6 +219,33 @@ def main():
         "--api_key", type=str, help="API key of the search engine.", required=True
     )
     search_index_parser.set_defaults(func=backfill_search_index)
+
+    # Speeches video
+    speech_video_parser = subparsers.add_parser(
+        "speeches_video", help="Backfill the speeches video."
+    )
+    speech_video_parser.add_argument(
+        "--start",
+        "-s",
+        type=str,
+        help="Start time to backfill. (Format: YYYY-MM-DD)",
+        default=dt.datetime(2000, 1, 1, tzinfo=models.MODEL_TIMEZONE).strftime(
+            "%Y-%m-%d"
+        ),
+    )
+    speech_video_parser.add_argument(
+        "--end",
+        "-e",
+        type=str,
+        help="End time to backfill. (Format: YYYY-MM-DD)",
+        default=dt.datetime.now(tz=models.MODEL_TIMEZONE).strftime("%Y-%m-%d"),
+    )
+    speech_video_parser.add_argument(
+        "--export",
+        help="Export the list of downloaded videos to a file.",
+        action="store_true",
+    )
+    speech_video_parser.set_defaults(func=backfill_speeches_video)
 
     args = parser.parse_args()
 
