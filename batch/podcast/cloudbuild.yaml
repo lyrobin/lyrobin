@@ -1,0 +1,17 @@
+steps:
+  # Build the container image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/podcast",
+        ".",
+      ]
+  # Push the container image to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${LOCATION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-artifacts/podcast",
+      ]
