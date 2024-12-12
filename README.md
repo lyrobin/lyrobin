@@ -61,7 +61,7 @@ docker-compose up -d
 ## 📣 加入我們
 
 [![X](https://img.shields.io/badge/@lyrobintw-%23000000.svg?style=for-the-badge&logo=X&logoColor=white)](https://x.com/lyrobintw)
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/xRgpmV4z)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/tu8PGtPBgX)
 [![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?style=for-the-badge&logo=YouTube&logoColor=white)](https://www.youtube.com/channel/UC-ZDaiyWzJRLLB0pklIEoOQ)
 [![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:lyrobin@gmail.com)
 
