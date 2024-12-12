@@ -553,6 +553,25 @@ def main():
     background_url = f"gs://{bucket.name}/{background_blob.name}"
     content_url = f"gs://{bucket.name}/{content_blob.name}"
 
+    # Generate news titles and contents
+    titles = generate_news_titles(
+        background_url, content_url, remote_target=f"podcast/{dated_folder}/titles.json"
+    )
+    if not titles:
+        raise RuntimeError("No titles generated.")
+    print("titles: ", titles)
+
+    contents = [
+        generate_news_content(
+            title,
+            background_url,
+            content_url,
+            remote_target=f"podcast/{dated_folder}/{title}.json",
+        )
+        for title in titles
+    ]
+
+    # Generate audio clips
     opening = audio_synthesis(
         OPENING % today.strftime("%Y年%m月%d日"),
         remote_target=f"podcast/{dated_folder}/opening.wav",
@@ -573,21 +592,6 @@ def main():
     )
     closing_waveform = generate_waveform(pathlib.Path(closing))
 
-    titles = generate_news_titles(
-        background_url, content_url, remote_target=f"podcast/{dated_folder}/titles.json"
-    )
-    if not titles:
-        raise RuntimeError("No titles generated.")
-    print("titles: ", titles)
-    contents = [
-        generate_news_content(
-            title,
-            background_url,
-            content_url,
-            remote_target=f"podcast/{dated_folder}/{title}.json",
-        )
-        for title in titles
-    ]
     audios = [
         audio_synthesis(
             content, remote_target=f"podcast/{dated_folder}/content_audio_{i}.wav"
