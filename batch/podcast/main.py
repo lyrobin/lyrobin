@@ -221,6 +221,8 @@ def generate_news_titles(
     content_size = len(
         json.dumps(json.loads(content_blob.download_as_string()), ensure_ascii=False)
     )
+    if content_size < 10000:
+        raise RuntimeError("Content is too short.")
     m = gm.GenerativeModel("gemini-1.5-flash-002")
     response = m.generate_content(
         [
@@ -574,6 +576,8 @@ def main():
     titles = generate_news_titles(
         background_url, content_url, remote_target=f"podcast/{dated_folder}/titles.json"
     )
+    if not titles:
+        raise RuntimeError("No titles generated.")
     print("titles: ", titles)
     contents = [
         generate_news_content(
