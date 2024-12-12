@@ -39,9 +39,10 @@ google-api-python-client==2.131.0
 google-apitools==0.5.31
 google-auth-httplib2==0.2.0
 google-auth==2.29.0
-google-cloud-aiplatform==1.68.0
+google-cloud-aiplatform==1.71.1
 google-cloud-appengine-logging==1.4.3
 google-cloud-audit-log==0.2.5
+google-cloud-batch==0.17.31
 google-cloud-bigquery-storage==2.25.0
 google-cloud-bigquery==3.24.0
 google-cloud-bigtable==2.26.0
@@ -140,6 +141,7 @@ tzdata==2024.1
 tzlocal==5.2
 uritemplate==4.1.1
 urllib3==2.2.1
+vertexai==1.71.1
 watchdog==4.0.1
 webencodings==0.5.1
 Werkzeug==3.0.3

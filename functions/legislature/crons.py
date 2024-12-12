@@ -19,7 +19,7 @@ from firebase_functions.options import MemoryOption, SupportedRegion, Timezone
 from google.cloud.firestore import DocumentSnapshot  # type: ignore
 from google.cloud.firestore import Client, FieldFilter, Increment, Query
 from legislature import models, reports
-from utils import tasks, timeutil
+from utils import tasks, timeutil, cloudbatch
 
 _TZ = Timezone("Asia/Taipei")
 
@@ -779,3 +779,53 @@ def _generate_weekly_report(start: dt.datetime, end: dt.datetime):
             end=end,
         ),
     )
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 5 * * 2-6",
+    timezone=_TZ,
+    region=gemini.GEMINI_REGION,
+    max_instances=2,
+    concurrency=2,
+    memory=MemoryOption.GB_1,
+    timeout_sec=1800,
+    retry_count=2,
+)
+def generate_daily_podcast(_):
+    today = dt.datetime.now(tz=_TZ)
+    start = dt.datetime(
+        today.year, today.month, today.day, 0, 0, tzinfo=_TZ
+    ) - dt.timedelta(days=1)
+    end = dt.datetime(start.year, start.month, start.day, 23, 59, tzinfo=_TZ)
+    logger.debug(f"Generate podcast for {start} - {end}")
+    db = firestore.client()
+    docs = (
+        db.collection_group(models.SPEECH_COLLECT)
+        .where(filter=FieldFilter("start_time", ">=", start))
+        .where(filter=FieldFilter("start_time", "<=", end))
+        .stream()
+    )
+    speeches = [models.SpeechModel(doc.reference) for doc in docs]
+    transcripts = reports.dump_speeches(speeches)
+    bucket = storage.bucket()
+    dated_folder = start.strftime("%Y%m%d")
+    bucket.blob(f"podcast/{dated_folder}/transcripts.txt").upload_from_string(
+        transcripts, content_type="text/plain; charset=utf-8"
+    )
+    buf = io.StringIO()
+    context.attach_legislators_background(
+        buf, [timeutil.get_legislative_yuan_term(start)]
+    )
+    bucket.blob(f"podcast/{dated_folder}/background.txt").upload_from_string(
+        buf.getvalue(), content_type="text/markdown; charset=utf-8"
+    )
+    job = cloudbatch.create_container_job(
+        "asia-east1-docker.pkg.dev/taiwan-legislative-search/cloud-run-artifacts/podcast",
+        job_name="podcast-" + dated_folder + "-" + uuid.uuid4().hex,
+        env_vars={"PODCAST_DATE": start.strftime("%Y-%m-%d")},
+        secret_env_vars={
+            "YATING_API_KEY": "projects/661598081211/secrets/YATING_API_KEY/versions/latest",
+            "YOUTUBE_CREDS": "projects/661598081211/secrets/LYROBIN_YOUTUBE_CRED/versions/latest",
+        },
+    )
+    logger.info(f"Job {job.name} created.")
