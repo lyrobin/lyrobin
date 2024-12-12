@@ -1,2 +1,6 @@
-seewav
-moviepy
+firebase-admin==6.5.0
+google-auth-oauthlib==1.2.1
+moviepy==2.1.1
+requests==2.31.0
+seewav==0.1.0
+vertexai==1.71.1
